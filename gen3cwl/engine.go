@@ -4,19 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 
-	cwl "github.com/otiai10/cwl.go"
+	cwl "github.com/uc-cdis/cwl.go"
 )
 
-// WorkflowRequest ...
-type WorkflowRequest struct {
-	Workflow cwl.Root
-	Inputs   json.RawMessage
-}
-
 // RunWorkflow parses a workflow and inputs and run it
-func RunWorkflow(content WorkflowRequest) error {
-	root := content.Workflow
-	fmt.Print(root.Graphs[0].Class)
+func RunWorkflow(workflow []byte) error {
+	var root cwl.Root
+	err := json.Unmarshal(workflow, &root)
+	if err != nil {
+		return ParseError(err)
+	}
 	workflows := make(map[string]cwl.Root)
 	status := make(map[string]string)
 

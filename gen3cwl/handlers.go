@@ -7,6 +7,12 @@ import (
 	"net/http"
 )
 
+// WorkflowRequest ...
+type WorkflowRequest struct {
+	Workflow json.RawMessage
+	Inputs   json.RawMessage
+}
+
 // HandleRoot registers root endpoint
 func HandleRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Print(r.URL)
@@ -24,7 +30,7 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ParseError(err).Error(), 400)
 		return
 	}
-	err = RunWorkflow(content)
+	err = RunWorkflow(content.Workflow)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
