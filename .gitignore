@@ -12,3 +12,5 @@
 *.out
 tmp/*
 .DS_Store
+.vscode/*
+

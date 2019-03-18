@@ -1,13 +1,13 @@
 language: go
 
- go:
+go:
   - "1.10"
 
- # Restrict to cloning only 1 commit.
+# Restrict to cloning only 1 commit.
 git:
   depth: 1
 
- sudo: false
+sudo: false
 
- script:
+script:
   - go test -v ./...
