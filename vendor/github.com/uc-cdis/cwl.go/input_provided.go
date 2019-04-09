@@ -25,14 +25,14 @@ func (provided Provided) New(id string, i interface{}) *Provided {
 		return nil
 	case int:
 		dest.Int = v
-	case map[interface{}]interface{}: // It's "File" in most cases
+	case map[string]interface{}: // It's "File" in most cases
 		dest.Entry, dest.Error = dest.EntryFromDictionary(v)
 	}
 	return dest
 }
 
 // EntryFromDictionary ...
-func (provided Provided) EntryFromDictionary(dict map[interface{}]interface{}) (*Entry, error) {
+func (provided Provided) EntryFromDictionary(dict map[string]interface{}) (*Entry, error) {
 	if dict == nil {
 		return nil, nil
 	}
