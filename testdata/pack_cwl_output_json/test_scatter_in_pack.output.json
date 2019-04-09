@@ -1,0 +1,6 @@
+[step test_scatter] produced output {
+    "file:///Users/Li/Downloads/genomel_pipelines/support/gen3_test.pack.cwl#main/test_scatter/output": [
+        "205ea6a65050102f7a1cdf8b7b41ac12",
+        "0a6a38cfdc5728451b0f4333117c6342"
+    ]
+}

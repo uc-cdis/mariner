@@ -11,6 +11,7 @@ import (
 type WorkflowRequest struct {
 	Workflow json.RawMessage
 	Inputs   json.RawMessage
+	ID       string
 }
 
 // HandleRoot registers root endpoint
@@ -30,7 +31,8 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ParseError(err).Error(), 400)
 		return
 	}
-	err = RunWorkflow(content.Workflow)
+	engine := K8sEngine{}
+	err = RunWorkflow(content.ID, content.Workflow, content.Inputs, engine)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return

@@ -28,14 +28,17 @@ func main() {
 		if err != nil {
 			return err
 		}
-		if _, err := os.Open(inputsPath); err != nil {
-			return err
-		}
-		workflow, err := ioutil.ReadAll(workflowF)
+		inputsF, err := os.Open(inputsPath)
 		if err != nil {
 			return err
 		}
-		return gen3cwl.RunWorkflow(workflow)
+		workflow, err := ioutil.ReadAll(workflowF)
+		inputs, err := ioutil.ReadAll(inputsF)
+		engine := gen3cwl.K8sEngine{}
+		if err != nil {
+			return err
+		}
+		return gen3cwl.RunWorkflow("testID", workflow, inputs, engine)
 	}
 	err := app.Run(os.Args)
 	if err != nil {

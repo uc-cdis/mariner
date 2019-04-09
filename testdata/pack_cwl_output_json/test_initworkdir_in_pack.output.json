@@ -1,0 +1,24 @@
+[step test_initworkdir] produced output {
+    "file:///Users/Li/Downloads/genomel_pipelines/support/gen3_test.pack.cwl#subworkflow_test.cwl/test_initworkdir/bam_with_index": {
+        "location": "/Users/Li/Downloads/genomel_pipelines/support/NIST7035.1.chrM.bam",
+        "basename": "NIST7035.1.chrM.bam",
+        "nameroot": "NIST7035.1.chrM",
+        "nameext": ".bam",
+        "class": "File",
+        "checksum": "sha1$3dc66dfacf2388a0dda5364baf3d817c71f52563",
+        "size": 1264126,
+        "secondaryFiles": [
+            {
+                "basename": "NIST7035.1.chrM.bam.bai",
+                "location": "file:///private/tmp/docker_tmpkdwf57es/NIST7035.1.chrM.bam.bai",
+                "class": "File",
+                "nameroot": "NIST7035.1.chrM.bam",
+                "nameext": ".bai",
+                "checksum": "sha1$9391e2eb4b0fe69d23c45d2acccb6142adad3a75",
+                "size": 864,
+                "http://commonwl.org/cwltool#generation": 0
+            }
+        ],
+        "http://commonwl.org/cwltool#generation": 0
+    }
+}

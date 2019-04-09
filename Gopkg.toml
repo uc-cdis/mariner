@@ -30,8 +30,8 @@
   version = "1.7.0"
 
 [[constraint]]
-  branch = "master"
   name = "github.com/uc-cdis/cwl.go"
+  revision = "a22eaced532a64479a2f5d380b27e02857a7e5e0"
 
 [prune]
   go-tests = true
