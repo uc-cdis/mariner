@@ -6,17 +6,19 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type FakeEngine struct {
 	TaskSequence []string
+	Commands     map[string][]string
 }
 
+// this is what task.Outputs should look like!
 func (engine *FakeEngine) DispatchTask(jobID string, task *Task) error {
 	// call k8s api to schedule job
-	fmt.Printf("hey fake engine runs %v, %v \n", task.Parameters, task.Root.ID)
+	fmt.Printf("\n---\n---\n")
+	fmt.Printf("Dispatching task: %v\n\n", task.Root.ID)
+	// fmt.Printf("\n--- hey fake engine runs %v, %v ---\n\n", task.Parameters, task.Root.ID)
 	switch task.Root.ID {
 	case "#initdir_test.cwl":
 		err := json.Unmarshal([]byte(`
@@ -54,6 +56,20 @@ func (engine *FakeEngine) DispatchTask(jobID string, task *Task) error {
 		}
 	}
 	engine.TaskSequence = append(engine.TaskSequence, task.Root.ID)
+	// check if task is commandlinetool or expressiontool
+	fmt.Printf("\nClass: %v\n", task.Root.Class)
+	switch class := task.Root.Class; class {
+	case "CommandLineTool":
+		tool := &CommandLineTool{
+			Root:       task.Root,
+			Parameters: task.Parameters,
+		}
+		tool.GenerateCommand()
+		engine.Commands[task.Root.ID] = tool.Command.Args
+	case "ExpressionTool":
+		fmt.Printf("\nThis is an ExpressionTool: %v\n", task.Root.ID)
+		fmt.Printf("\nNeed to handle this expression tool\n")
+	}
 	return nil
 }
 
@@ -63,16 +79,26 @@ func TestWorkflow(t *testing.T) {
 
 	inputsfile, _ := os.Open("../testdata/inputs.json")
 	inputs, _ := ioutil.ReadAll(inputsfile)
-	engine := new(FakeEngine)
+	// engine := new(FakeEngine)
+	engine := new(K8sEngine)
+	engine.Commands = make(map[string][]string)
 	err := RunWorkflow("123", body, inputs, engine)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	fmt.Printf("steps: %v\n", engine.TaskSequence)
-	assert.Equal(
-		t,
-		engine.TaskSequence,
-		[]string{"#initdir_test.cwl", "#expressiontool_test.cwl", "#scatter_test.cwl"},
-		"wrong task sequence",
-	)
+	/*
+		fmt.Printf("\nStep Order: %v\n\n", engine.TaskSequence)
+		fmt.Printf("\nCommands:\n")
+		for id, cmd := range engine.Commands {
+			fmt.Printf("\n%v: %v\n", id, cmd)
+		}
+	*/
+	/*
+		assert.Equal(
+			t,
+			engine.TaskSequence,
+			[]string{"#initdir_test.cwl", "#expressiontool_test.cwl", "#scatter_test.cwl"},
+			"wrong task sequence",
+		)
+	*/
 }
