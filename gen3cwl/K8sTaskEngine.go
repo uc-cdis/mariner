@@ -1,6 +1,7 @@
 package gen3cwl
 
 // TaskEngine defines a engine that runs task
+/*
 type TaskEngine interface {
 	RunCommandlineTool(tool *CommandLineTool) error
 }
@@ -15,3 +16,4 @@ func (K8sTaskEngine) RunCommandlineTool(tool *CommandLineTool) error {
 	tool.GatherOutputs()
 	return nil
 }
+*/

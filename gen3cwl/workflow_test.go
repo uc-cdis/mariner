@@ -60,7 +60,7 @@ func (engine *FakeEngine) DispatchTask(jobID string, task *Task) error {
 	fmt.Printf("\nClass: %v\n", task.Root.Class)
 	switch class := task.Root.Class; class {
 	case "CommandLineTool":
-		tool := &CommandLineTool{
+		tool := &Tool{
 			Root:       task.Root,
 			Parameters: task.Parameters,
 		}

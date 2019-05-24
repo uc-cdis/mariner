@@ -1,7 +1,6 @@
 package gen3cwl
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	cwl "github.com/uc-cdis/cwl.go"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,20 +17,6 @@ import (
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
-
-// Tool defines an interface for workflow tools
-type Tool interface {
-	GenerateCommand() error
-	GatherOutputs() error
-}
-
-// CommandLineTool represents class described as "CommandLineTool".
-type CommandLineTool struct {
-	Outdir     string // Given by context
-	Root       *cwl.Root
-	Parameters cwl.Parameters
-	Command    *exec.Cmd
-}
 
 // utility.. for testing
 func homeDir() string {
@@ -75,7 +59,7 @@ func getJobClient() batchtypev1.JobInterface {
 }
 
 // replace disallowed job name characters
-func (tool *CommandLineTool) makeJobName() string {
+func (tool *Tool) makeJobName() string {
 	taskID := tool.Root.ID
 	jobName := strings.ReplaceAll(taskID, "#", "")
 	jobName = strings.ReplaceAll(jobName, "_", "-")
@@ -95,7 +79,7 @@ func getPropagationMode(val k8sv1.MountPropagationMode) (pval *k8sv1.MountPropag
 // 1. install s3fs (goofys???) TODO // (apt-get update; apt-get install s3fs -y)
 // 2. mount the s3 bucket  TODO
 // 3. assemble command and save as /data/run.sh (done)
-func (tool *CommandLineTool) getSidecarArgs() []string {
+func (tool *Tool) getSidecarArgs() []string {
 	toolCmd := strings.Join(tool.Command.Args, " ")
 	// to run the actual command: remove the second "echo" from the second line
 	// need to add commands here to install goofys and mount the s3 bucket
@@ -112,7 +96,7 @@ func (tool *CommandLineTool) getSidecarArgs() []string {
 }
 
 // wait for sidecar to setup
-// in particular wait until run.sh exists (run.sh is the command for the CommandLineTool)
+// in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
 func getCLToolArgs() []string {
 	args := []string{
@@ -130,7 +114,7 @@ func getCLToolArgs() []string {
 }
 
 // RunK8sJob runs the command line tool in a container as a k8s job with a sidecar container to generate command, install s3fs/goofys and mount bucket
-func (tool *CommandLineTool) RunK8sJob() error {
+func (tool *Tool) RunK8sJob() error {
 	jobName := tool.makeJobName() // slightly modified Root.ID
 	jobsClient := getJobClient()
 
@@ -202,6 +186,7 @@ func (tool *CommandLineTool) RunK8sJob() error {
 	fmt.Println("\tCreating job..")
 	newJob, err := jobsClient.Create(batchJob)
 	if err != nil {
+		fmt.Printf("\tError creating job: %v\n", err)
 		return err
 	}
 	fmt.Println("\tSuccessfully created job.")
@@ -230,21 +215,14 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 }
 
 // GenerateCommand ...
-func (tool *CommandLineTool) GenerateCommand() error {
+func (tool *Tool) GenerateCommand() error {
 
 	// FIXME: this procedure ONLY adjusts to "baseCommand" job
-	fmt.Printf("\n\tEnsuring arguments..")
 	arguments := tool.ensureArguments()
-	// fmt.Print("arguments")
-	// fmt.Print(tool.Parameters)
-	fmt.Printf("\n\tEnsuring inputs..")
 	priors, inputs, err := tool.ensureInputs()
 	if err != nil {
 		return fmt.Errorf("failed to ensure required inputs: %v", err)
 	}
-	// fmt.Print("Inputs")
-	// fmt.Print(inputs)
-	fmt.Printf("\n\tGenerating basic command..")
 	cmd, err := tool.generateBasicCommand(priors, arguments, inputs)
 	tool.Command = cmd
 	fmt.Printf("\n\tCommand: %v %v\n", cmd.Path, cmd.Args)
@@ -255,12 +233,12 @@ func (tool *CommandLineTool) GenerateCommand() error {
 }
 
 // ensureArguments ...
-func (tool *CommandLineTool) ensureArguments() []string {
+func (tool *Tool) ensureArguments() []string {
 	result := []string{}
 	sort.Sort(tool.Root.Arguments)
 	for i, arg := range tool.Root.Arguments {
 		if arg.Binding != nil && arg.Binding.ValueFrom != nil {
-			tool.Root.Arguments[i].Value = tool.AliasFor(arg.Binding.ValueFrom.Key())
+			tool.Root.Arguments[i].Value = tool.AliasFor(arg.Binding.ValueFrom.Key()) // unsure of this AliasFor() bit
 		}
 		result = append(result, tool.Root.Arguments[i].Flatten()...)
 	}
@@ -268,16 +246,16 @@ func (tool *CommandLineTool) ensureArguments() []string {
 }
 
 // ensureInputs ...
-func (tool *CommandLineTool) ensureInputs() (priors []string, result []string, err error) {
+// here is where bindings/inputs get resolved
+func (tool *Tool) ensureInputs() (priors []string, result []string, err error) {
 	sort.Sort(tool.Root.Inputs)
 	for _, in := range tool.Root.Inputs {
-		in, err = tool.ensureInput(in)
-		if err != nil {
-			return priors, result, err
-		}
 		if in.Binding == nil {
 			continue
 		}
+		// in.Flatten() is where the input gets resolved to how it should appear on the commandline
+		// need to check various cases to make sure that this actually handles different kinds of input properly
+		// NOTE: there's an Input.flatten() method as well as an Input.Flatten() method - what gives?
 		if in.Binding.Position < 0 {
 			priors = append(priors, in.Flatten()...)
 		} else {
@@ -287,29 +265,8 @@ func (tool *CommandLineTool) ensureInputs() (priors []string, result []string, e
 	return priors, result, nil
 }
 
-// ensureInput ...
-func (tool *CommandLineTool) ensureInput(input *cwl.Input) (*cwl.Input, error) {
-	if provided, ok := tool.Parameters[input.ID]; ok {
-		input.Provided = cwl.Provided{}.New(input.ID, provided)
-	}
-	if input.Default == nil && input.Binding == nil && input.Provided == nil {
-		return input, fmt.Errorf("input `%s` doesn't have default field but not provided", input.ID)
-	}
-	if key, needed := input.Types[0].NeedRequirement(); needed {
-		for _, req := range tool.Root.Requirements {
-			for _, requiredtype := range req.Types {
-				if requiredtype.Name == key {
-					input.RequiredType = &requiredtype
-					input.Requirements = tool.Root.Requirements
-				}
-			}
-		}
-	}
-	return input, nil
-}
-
-// AliasFor ...
-func (tool *CommandLineTool) AliasFor(key string) string {
+// AliasFor ... ??? - seems incomplete
+func (tool *Tool) AliasFor(key string) string {
 	switch key {
 	case "GenerateCommandtime.cores":
 		return "2"
@@ -318,7 +275,7 @@ func (tool *CommandLineTool) AliasFor(key string) string {
 }
 
 // generateBasicCommand ...
-func (tool *CommandLineTool) generateBasicCommand(priors, arguments, inputs []string) (*exec.Cmd, error) {
+func (tool *Tool) generateBasicCommand(priors, arguments, inputs []string) (*exec.Cmd, error) {
 	if len(tool.Root.BaseCommands) == 0 {
 		return exec.Command("bash", "-c", tool.Root.Arguments[0].Binding.ValueFrom.Key()), nil
 	}
@@ -333,32 +290,13 @@ func (tool *CommandLineTool) generateBasicCommand(priors, arguments, inputs []st
 	return exec.Command(oneline[0], oneline[1:]...), nil
 }
 
-// PrintJSON pretty prints a struct as json
-func PrintJSON(i interface{}) {
-	see, _ := json.MarshalIndent(i, "", "   ")
-	fmt.Println(string(see))
-}
-
-// func ResolveReference()
-
-// ConstructOutputs builds the output parameters after the command has been executed
-func (tool *CommandLineTool) ConstructOutputs() cwl.Parameters {
-	fmt.Println("tool.Root.Outputs:")
-	PrintJSON(tool.Root.Outputs)
-	fmt.Println("tool.Parameters:")
-	PrintJSON(tool.Parameters)
-	fmt.Println("tool.Root:")
-	PrintJSON(tool.Root)
-	return nil
-}
-
 // GatherOutputs gather outputs from the finished task
-func (tool *CommandLineTool) GatherOutputs() error {
+func (tool *Tool) GatherOutputs() error {
 
 	// If "cwl.output.json" exists on executed command directory,
 	// dump the file contents on stdout.
 	// This is described on official document.
-	// See also https://www.commonwl.org/v1.0/CommandLineTool.html#Output_binding
+	// See also https://www.commonwl.org/v1.0/Tool.html#Output_binding
 	whatthefuck := filepath.Join(tool.Command.Dir, "cwl.output.json")
 	if defaultout, err := os.Open(whatthefuck); err == nil {
 		defer defaultout.Close()
@@ -375,7 +313,7 @@ func (tool *CommandLineTool) GatherOutputs() error {
 	}
 
 	// CWL wants to dump metadata of outputs with type="File"
-	// See also https://www.commonwl.org/v1.0/CommandLineTool.html#File
+	// See also https://www.commonwl.org/v1.0/Tool.html#File
 	if err := tool.Root.Outputs.Dump(vm, tool.Command.Dir, tool.Root.Stdout, tool.Root.Stderr, os.Stdout); err != nil {
 		return err
 	}
