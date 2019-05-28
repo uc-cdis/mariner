@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -11,8 +12,9 @@ import (
 // Task defines an instance of workflow/tool
 // a task is a process is a node on the graph is one of [Workflow, CommandLineTool, ExpressionTool, ...]
 type Task struct {
+	// Engine          Engine
+	Engine          *K8sEngine
 	JobID           string
-	Engine          Engine
 	Parameters      cwl.Parameters
 	Root            *cwl.Root
 	Outputs         cwl.Parameters
@@ -49,7 +51,7 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 }
 
 // RunWorkflow parses a workflow and inputs and run it
-func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine Engine) error {
+func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine) error {
 	var root cwl.Root
 	err := json.Unmarshal(workflow, &root)
 	if err != nil {
@@ -272,9 +274,23 @@ func (task *Task) Run() error {
 							break
 						} else {
 							// assign output parameter of dependency step (which has already been executed) to input parameter of this step
+							// HERE need to check engine stack to see if the dependency step has completed
+							// how will this logic work - there's kind of a delay here, waiting for the dependency task to run
+							// maybe a while-loop which loops until depTask has its output populated
+							// but I don't want to block the rest of processing task.Run()
+							// maybe there could be a go routine somewhere in here so non-dependent steps can run without waiting for each other
 							depTask := task.Children[stepID]
 							outputID := depTask.Root.ID + strings.TrimPrefix(source, stepID)
-							subtask.Parameters[subtaskInput] = depTask.Outputs[outputID]
+							inputPresent := false
+							for ; !inputPresent; _, inputPresent = subtask.Parameters[subtaskInput] {
+								fmt.Println("\tWaiting for dependency task to finish running..")
+								if len(depTask.Outputs) > 0 {
+									fmt.Println("\tDependency task complete!")
+									subtask.Parameters[subtaskInput] = depTask.Outputs[outputID]
+									fmt.Println("\tSuccessfully collected output from dependency task.")
+								}
+								time.Sleep(2 * time.Second)
+							}
 						}
 					} else if strings.HasPrefix(source, workflow.ID) {
 						// if the input source to this step is not the outputID of another step
@@ -315,6 +331,7 @@ func (task *Task) Run() error {
 			// get random next step
 			curStepID = task.getStep()
 		}
+		fmt.Println("\t\tMerging outputs for task ", task.Root.ID)
 		task.mergeChildOutputs() // for workflows only - merge outputs from all steps of this workflow to output for this workflow
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine

@@ -82,6 +82,8 @@ func TestWorkflow(t *testing.T) {
 	// engine := new(FakeEngine)
 	engine := new(K8sEngine)
 	engine.Commands = make(map[string][]string)
+	engine.FinishedProcs = make(map[string]*Process)
+	engine.UnfinishedProcs = make(map[string]*Process)
 	err := RunWorkflow("123", body, inputs, engine)
 	if err != nil {
 		t.Error(err.Error())

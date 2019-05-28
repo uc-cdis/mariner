@@ -1,7 +1,7 @@
 package gen3cwl
 
 import (
-	"flag"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -17,6 +17,12 @@ import (
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+type JobInfo struct {
+	UID    string `json:"uid"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
 
 // utility.. for testing
 func homeDir() string {
@@ -37,16 +43,21 @@ func getJobClient() batchtypev1.JobInterface {
 	*/
 
 	/////////// begin section for getting out-of-cluster config for testing locally ////////////
-	var kubeconfig *string
-	if home := homeDir(); home != "" {
-		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-	} else {
-		kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-	}
-	flag.Parse()
+	/*
+		var kubeconfig *string
+		fmt.Printf("number of flags defined: %v", flag.NFlag())
+		if flag.NFlag() == 0 {
+			if home := homeDir(); home != "" {
+				kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+			} else {
+				kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+			}
+			flag.Parse()
+		}
+	*/
 
 	// use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags("", "/Users/mattgarvin/.kube/config") // for testing locally...
 	if err != nil {
 		panic(err.Error())
 	}
@@ -113,14 +124,10 @@ func getCLToolArgs() []string {
 	return args
 }
 
-// RunK8sJob runs the command line tool in a container as a k8s job with a sidecar container to generate command, install s3fs/goofys and mount bucket
-func (tool *Tool) RunK8sJob() error {
-	jobName := tool.makeJobName() // slightly modified Root.ID
-	jobsClient := getJobClient()
-
-	fmt.Println("\tCreating k8s job spec..")
-	// Simple, minimal config
-	batchJob := &batchv1.Job{
+func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
+	jobName := proc.Tool.makeJobName() // slightly modified Root.ID
+	proc.JobName = jobName
+	batchJob = &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
 			APIVersion: "v1",
@@ -165,7 +172,7 @@ func (tool *Tool) RunK8sJob() error {
 							Command: []string{
 								"/bin/bash",
 							},
-							Args:            tool.getSidecarArgs(),
+							Args:            proc.Tool.getSidecarArgs(),
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
 							SecurityContext: &k8sv1.SecurityContext{
 								Privileged: getBoolPointer(true),
@@ -183,7 +190,17 @@ func (tool *Tool) RunK8sJob() error {
 			},
 		},
 	}
-	fmt.Println("\tCreating job..")
+	return batchJob, nil
+}
+
+// RunK8sJob runs the CommandLineTool in a container as a k8s job with a sidecar container to write command to run.sh, install s3fs/goofys and mount bucket
+func (engine K8sEngine) RunK8sJob(proc *Process) error {
+	fmt.Println("\tCreating k8s job spec..")
+	batchJob, nil := createJobSpec(proc)
+
+	jobsClient := getJobClient() // does this need to happen for each job? or just once, so every job uses the same jobsClient?
+
+	fmt.Println("\tRunning k8s job..")
 	newJob, err := jobsClient.Create(batchJob)
 	if err != nil {
 		fmt.Printf("\tError creating job: %v\n", err)
@@ -192,8 +209,70 @@ func (tool *Tool) RunK8sJob() error {
 	fmt.Println("\tSuccessfully created job.")
 	fmt.Printf("\tNew job name: %v\n", newJob.Name)
 	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
-	fmt.Printf("\tNew job status: %v\n", jobStatusToString(&newJob.Status))
+	proc.JobID = string(newJob.GetUID())
+	proc.JobName = newJob.Name
+	// fmt.Printf("\tNew job status: %v\n", jobStatusToString(&newJob.Status))
 	return nil
+}
+
+func getJobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error) {
+	jobs, err := jc.List(metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, job := range jobs.Items {
+		if jobid == string(job.GetUID()) {
+			return &job, nil
+		}
+	}
+	return nil, fmt.Errorf("job with jobid %s not found", jobid)
+}
+
+// ListenForDone listens to k8s until the job status is "Completed"
+// when complete, calls a function to collect output and update engine's proc stacks
+func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
+	fmt.Println("\tListening for job to finish..")
+	status := ""
+	for status != "Completed" {
+		jobInfo, err := getJobStatusByID(proc.JobID)
+		if err != nil {
+			return err
+		}
+		status = jobInfo.Status
+	}
+	fmt.Println("\tK8s job complete. Collecting output..")
+	// temporarily hardcoding output here for testing
+	err = json.Unmarshal([]byte(`
+		{"#initdir_test.cwl/bam_with_index": {
+			"class": "File",
+			"location": "NIST7035.1.chrM.bam",
+			"secondaryFiles": [
+				{
+					"basename": "NIST7035.1.chrM.bam.bai",
+					"location": "initdir_test.cwl/NIST7035.1.chrM.bam.bai",
+					"class": "File"
+				}
+			]
+		}}`), &proc.Task.Outputs)
+	if err != nil {
+		fmt.Printf("fail to unmarshal this thing\n")
+	}
+	fmt.Println("\tUpdating engine process stack..")
+	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
+	engine.FinishedProcs[proc.Tool.Root.ID] = proc
+	return nil
+}
+
+func getJobStatusByID(jobid string) (*JobInfo, error) {
+	job, err := getJobByID(getJobClient(), jobid)
+	if err != nil {
+		return nil, err
+	}
+	ji := JobInfo{}
+	ji.Name = job.Name
+	ji.UID = string(job.GetUID())
+	ji.Status = jobStatusToString(&job.Status)
+	return &ji, nil
 }
 
 func jobStatusToString(status *batchv1.JobStatus) string {

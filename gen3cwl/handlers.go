@@ -31,7 +31,7 @@ func HandleRoot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ParseError(err).Error(), 400)
 		return
 	}
-	engine := K8sEngine{}
+	engine := new(K8sEngine)
 	err = RunWorkflow(content.ID, content.Workflow, content.Inputs, engine)
 	if err != nil {
 		http.Error(w, err.Error(), 400)

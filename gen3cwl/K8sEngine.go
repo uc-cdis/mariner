@@ -16,9 +16,29 @@ type Engine interface {
 }
 
 // K8sEngine uses k8s Job API to run workflows
+// currently handles all *Tools - including expression tools - should these functionalities be decoupled?
 type K8sEngine struct {
-	TaskSequence []string
-	Commands     map[string][]string // for testing purposes
+	TaskSequence    []string            // for testing purposes
+	Commands        map[string][]string // also for testing purposes
+	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running (task.Root.ID, Process) pairs
+	FinishedProcs   map[string]*Process // engine's stack of completed processes (task.Root.ID, Process) pairs
+	// JobsClient      JobInterface
+}
+
+// Process represents a leaf in the graph of a workflow
+// i.e., a Process is either a CommandLineTool or an ExpressionTool
+// If Process is a CommandLineTool, then it gets run as a k8s job in its own container
+// When a k8s job gets created, a Process struct gets pushed onto the k8s engine's stack of UnfinishedProcs
+// the k8s engine continously iterates through the stack of running procs, retrieving job status from k8s api
+// as soon as a job is complete, the Process struct gets popped from the stack
+// and a function is called to collect the output from that completed process
+//
+// presently ExpressionTools run in a js vm "in the workflow engine", so they don't get dispatched as k8s jobs
+type Process struct {
+	JobName string // if a k8s job (i.e., if a CommandLineTool)
+	JobID   string // if a k8s job (i.e., if a CommandLineTool)
+	Tool    *Tool
+	Task    *Task
 }
 
 // Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
@@ -38,8 +58,8 @@ func PrintJSON(i interface{}) {
 
 // GetTool returns a Tool interface
 // The Tool represents a workflow *Tool and so is either a CommandLineTool or an ExpressionTool
-func (task *Task) getTool() Tool {
-	tool := Tool{
+func (task *Task) getTool() *Tool {
+	tool := &Tool{
 		Root:       task.Root,
 		Parameters: task.Parameters,
 	}
@@ -94,30 +114,59 @@ func (tool *Tool) inputsToVM() (err error) {
 // RunTool runs the tool
 // If ExpressionTool, passes to appropriate handler to eval the expression
 // If CommandLineTool, passes to appropriate handler to create k8s job
-func (tool *Tool) runTool() (err error) {
+func (engine *K8sEngine) runTool(proc *Process) (err error) {
 	fmt.Println("\tRunning tool..")
-	if tool.Root.Expression != "" {
-		err = tool.RunExpressionTool()
+	switch class := proc.Tool.Root.Class; class {
+	case "ExpressionTool":
+		err = engine.RunExpressionTool(proc)
 		if err != nil {
 			return err
 		}
-	} else {
-		err = tool.RunCommandLineTool()
+		// JS gets evaluated in-line, so the process is complete when the engine method RunExpressionTool() returns
+		// NEED to collect output somewhere 'round here
+		// temporarily hardcoding output here for testing
+		err := json.Unmarshal([]byte(`
+						{"#expressiontool_test.cwl/output": [
+							{"bam_with_index": {
+								"class": "File",
+								"location": "NIST7035.1.chrM.bam",
+								"secondaryFiles": [
+									{
+										"basename": "NIST7035.1.chrM.bam.bai",
+										"location": "initdir_test.cwl/NIST7035.1.chrM.bam.bai",
+										"class": "File"
+									}
+								]
+							}}
+						]}`), &proc.Task.Outputs)
+		if err != nil {
+			fmt.Printf("fail to unmarshal this thing\n")
+		}
+		delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
+		engine.FinishedProcs[proc.Tool.Root.ID] = proc
+	case "CommandLineTool":
+		err = engine.RunCommandLineTool(proc)
 		if err != nil {
 			return err
 		}
+		err = engine.ListenForDone(proc) // tells engine to listen to k8s to check for this process to finish running
+		if err != nil {
+			return fmt.Errorf("error listening for done: %v", err)
+		}
+	default:
+		return fmt.Errorf("unexpected class: %v", class)
 	}
 	return nil
 }
 
-// RunCommandLineTool runs a commandline tool
-func (tool *Tool) RunCommandLineTool() (err error) {
+// RunCommandLineTool runs a CommandLineTool
+func (engine K8sEngine) RunCommandLineTool(proc *Process) (err error) {
 	fmt.Println("\tRunning CommandLineTool")
-	err = tool.GenerateCommand()
+	err = proc.Tool.GenerateCommand() // this should happen in the task engine - how exactly does that happen?
 	if err != nil {
 		return err
 	}
-	err = tool.RunK8sJob()
+	err = engine.RunK8sJob(proc) // push Process struct onto engine.UnfinishedProcs
 	if err != nil {
 		return err
 	}
@@ -125,9 +174,9 @@ func (tool *Tool) RunCommandLineTool() (err error) {
 }
 
 // RunExpressionTool runs an ExpressionTool
-func (tool *Tool) RunExpressionTool() (err error) {
+func (engine *K8sEngine) RunExpressionTool(proc *Process) (err error) {
 	fmt.Println("\tRunning ExpressionTool..")
-	err = tool.EvalExpression()
+	err = proc.Tool.EvalExpression()
 	if err != nil {
 		fmt.Printf("\tError during expression eval: %v\n", err)
 		return err
@@ -153,7 +202,7 @@ func GetJS(s string) (js string, fn bool, err error) {
 // what should I do with the resulting value? - right now storing in tool.ExpressionResult
 // this should be cleaned up
 func (tool *Tool) EvalExpression() (err error) {
-	js, fn, _ := GetJS(tool.Root.Expression) // strip the $() or ${}, which appears in the cwl as a wrapper for js expressions
+	js, fn, _ := GetJS(tool.Root.Expression) // strip the $() (or if ${} just trim leading $), which appears in the cwl as a wrapper for js expressions
 	if js == "" {
 		return fmt.Errorf("\tmissing expression")
 	}
@@ -174,7 +223,7 @@ func (tool *Tool) EvalExpression() (err error) {
 
 		// call this function in the vm
 		if tool.ExpressionResult, err = tool.Root.InputsVM.Run("f()"); err != nil {
-			fmt.Printf("\tError running js function: %v\n", err)
+			fmt.Printf("\terror running js function: %v\n", err)
 			return err
 		}
 	} else {
@@ -189,50 +238,8 @@ func (tool *Tool) EvalExpression() (err error) {
 	return nil
 }
 
-// DispatchTask does some setup for and dispatches workflow *Tools - i.e., CommandLineTools and ExpressionTools
-func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
-
-	////////////////////// temporarily loading output here for testing //////////////////
-	switch task.Root.ID {
-	case "#initdir_test.cwl":
-		err := json.Unmarshal([]byte(`
-			{"#initdir_test.cwl/bam_with_index": {
-				"class": "File",
-				"location": "NIST7035.1.chrM.bam",
-				"secondaryFiles": [
-					{
-						"basename": "NIST7035.1.chrM.bam.bai",
-						"location": "initdir_test.cwl/NIST7035.1.chrM.bam.bai",
-						"class": "File"
-					}
-				]
-			}}`), &task.Outputs)
-		if err != nil {
-			fmt.Printf("fail to unmarshal this thing\n")
-		}
-	case "#expressiontool_test.cwl":
-		err := json.Unmarshal([]byte(`
-			{"#expressiontool_test.cwl/output": [
-				{"bam_with_index": {
-					"class": "File",
-					"location": "NIST7035.1.chrM.bam",
-					"secondaryFiles": [
-						{
-							"basename": "NIST7035.1.chrM.bam.bai",
-							"location": "initdir_test.cwl/NIST7035.1.chrM.bam.bai",
-							"class": "File"
-						}
-					]
-				}}
-			]}`), &task.Outputs)
-		if err != nil {
-			fmt.Printf("fail to unmarshal this thing\n")
-		}
-	}
-	/////////////////////////////// temporarily loading output here for testing ///////////////
-
-	tool := task.getTool()
-	err = tool.loadInputs() // pass parameter values to input.Provided for each input (DONE)
+func (tool *Tool) setupTool() (err error) {
+	err = tool.loadInputs() // pass parameter values to input.Provided for each input
 	if err != nil {
 		fmt.Printf("\tError loading inputs: %v\n", err)
 		return err
@@ -242,7 +249,21 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 		fmt.Printf("\tError loading inputs to js VM: %v\n", err)
 		return err
 	}
-	err = tool.runTool() // runs the tool either as a CommandLineTool or ExpressionTool (DONE)
+	return nil
+}
+
+// DispatchTask does some setup for and dispatches workflow *Tools - i.e., CommandLineTools and ExpressionTools
+func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
+	tool := task.getTool()
+	err = tool.setupTool()
+	//  when should the process get pushed onto the stack?
+	proc := &Process{
+		Tool: tool,
+		Task: task,
+	}
+	engine.UnfinishedProcs[tool.Root.ID] = proc // push newly started process onto the engine's stack of running processes
+	err = engine.runTool(proc)                  // engine runs the tool either as a CommandLineTool or ExpressionTool
+
 	if err != nil {
 		fmt.Printf("\tError running tool: %v\n", err)
 		return err
