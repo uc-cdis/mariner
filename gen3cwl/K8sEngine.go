@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/robertkrimen/otto"
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -47,6 +48,7 @@ type Tool struct {
 	Root             *cwl.Root
 	Parameters       cwl.Parameters
 	Command          *exec.Cmd
+	OriginalStep     cwl.Step
 	ExpressionResult interface{} // storing the result of an expression tool here for now - maybe there's a better way to do this
 }
 
@@ -58,15 +60,24 @@ func PrintJSON(i interface{}) {
 
 // GetTool returns a Tool interface
 // The Tool represents a workflow *Tool and so is either a CommandLineTool or an ExpressionTool
+// tool looks like mostly a subset of task..
+// code needs to be polished/organized/refactored once the engine is actually running properly
 func (task *Task) getTool() *Tool {
 	tool := &Tool{
-		Root:       task.Root,
-		Parameters: task.Parameters,
+		Root:         task.Root,
+		Parameters:   task.Parameters,
+		OriginalStep: task.originalStep,
 	}
 	return tool
 }
 
 // LoadInputs passes parameter value to input.Provided for each input
+// TODO: Handle the "ValueFrom" case
+// see: https://www.commonwl.org/user_guide/13-expressions/index.html
+// in this setting, "ValueFrom" may appear either in:
+//  - tool.Root.Inputs[i].inputBinding.ValueFrom, OR
+//  - tool.OriginalStep.In[i].ValueFrom
+// need to handle BOTH cases - first eval at the workflowStepInput level, then eval at the tool input level
 func (tool *Tool) loadInputs() (err error) {
 	sort.Sort(tool.Root.Inputs)
 	for _, in := range tool.Root.Inputs {
@@ -74,7 +85,13 @@ func (tool *Tool) loadInputs() (err error) {
 		if err != nil {
 			return err
 		}
+		fmt.Println("Input:")
+		PrintJSON(in)
+		fmt.Println("Input.Provided:")
+		PrintJSON(in.Provided)
 	}
+	fmt.Println("OriginalStep:")
+	PrintJSON(tool.OriginalStep)
 	return nil
 }
 
@@ -211,6 +228,7 @@ func (tool *Tool) EvalExpression() (err error) {
 		fmt.Printf("\tHere's inputs.file_array: %v\n", fa)
 		fmt.Printf("\tHere's the js:\n%v\n", js)
 	*/
+	var result otto.Value
 	if fn {
 		// if expression wrapped like ${...}, need to run as a zero arg js function
 
@@ -222,21 +240,37 @@ func (tool *Tool) EvalExpression() (err error) {
 		tool.Root.InputsVM.Run(fnDef)
 
 		// call this function in the vm
-		if tool.ExpressionResult, err = tool.Root.InputsVM.Run("f()"); err != nil {
+		result, err = tool.Root.InputsVM.Run("f()")
+		if err != nil {
 			fmt.Printf("\terror running js function: %v\n", err)
 			return err
 		}
 	} else {
-		if tool.ExpressionResult, err = tool.Root.InputsVM.Run(js); err != nil {
+		result, err = tool.Root.InputsVM.Run(js)
+		if err != nil {
 			return fmt.Errorf("\tfailed to evaluate js expression: %v", err)
 		}
 	}
 	// HERE TODO
 	// need to convert otto output value to a particular type
 	// see output cwl def to determine what type to convert output to
-	fmt.Printf("\tExpressionTool result: %T\n", tool.ExpressionResult)
+	export, _ := result.Export()
+	fmt.Printf("\nExpression result: %T", export)
+	PrintJSON(export)
+	/*
+		fmt.Println("Root.Outputs:")
+		PrintJSON(tool.Root.Outputs)
+	*/
 	return nil
 }
+
+/*
+func (tool *Tool) ConvertJSResult(jsResult otto.Value) (val interface{}, valType string) {
+	// valType = tool.Root.Outputs[0].Types[0].Type // only handles case where there is a single type given as output
+	val, _ = jsResult.Export()
+	jsResult.Class()
+}
+*/
 
 func (tool *Tool) setupTool() (err error) {
 	err = tool.loadInputs() // pass parameter values to input.Provided for each input
@@ -257,6 +291,8 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	tool := task.getTool()
 	err = tool.setupTool()
 	//  when should the process get pushed onto the stack?
+	// also, there's a lot of duplicated information here, because Tool is almost a subset of Task
+	// this will be handled when code is refactored/polished/cleaned up
 	proc := &Process{
 		Tool: tool,
 		Task: task,
