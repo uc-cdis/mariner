@@ -14,7 +14,7 @@ type Task struct {
 	Engine          Engine
 	Parameters      cwl.Parameters
 	Root            *cwl.Root
-	Outputs         cwl.Parameters
+	Outputs         chan TaskResult
 	Scatter         []string
 	ScatterMethod   string
 	ScatterTasks    map[int]*Task
@@ -22,6 +22,12 @@ type Task struct {
 	unFinishedSteps map[string]struct{}
 	outputIDMap     map[string]string
 	originalStep    cwl.Step
+}
+
+// TaskResult captures result from a task
+type TaskResult struct {
+	Error   error
+	Outputs cwl.Parameters
 }
 
 func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
@@ -104,29 +110,46 @@ func step2taskID(step *cwl.Step, stepVarID string) string {
 
 // megeChildOutputs maps outputs from children tasks to this task
 func (task *Task) mergeChildOutputs() error {
-	task.Outputs = make(cwl.Parameters)
-	if task.Children == nil {
-		panic(fmt.Sprintf("Can't call merge child outputs without childs %v \n", task.Root.ID))
-	}
-	for _, output := range task.Root.Outputs {
-		if len(output.Source) == 1 {
-			source := output.Source[0]
-			stepID, ok := task.outputIDMap[source]
-			if !ok {
-				panic(fmt.Sprintf("Can't find output source %v", source))
-			}
-			subtaskOutputID := step2taskID(&task.Children[stepID].originalStep, source)
-			outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]
-			if !ok {
-				fmt.Printf("Fail to get output from child step %v, %v", source, stepID)
-
-			}
-			task.Outputs[output.ID] = outputVal
-		} else {
-			panic(fmt.Sprintf("NOT SUPPORTED: don't know how to handle empty or array outputsource"))
+	task.Outputs = make(chan TaskResult)
+	go func() {
+		result := TaskResult{}
+		if task.Children == nil {
+			result.Error = fmt.Errorf("can't call merge child outputs without childs %v", task.Root.ID)
+			task.Outputs <- result
+			return
 		}
+		for _, output := range task.Root.Outputs {
+			if len(output.Source) == 1 {
+				source := output.Source[0]
+				stepID, ok := task.outputIDMap[source]
+				if !ok {
+					result.Error = fmt.Errorf("Can't find output source %v", source)
+					task.Outputs <- result
+					return
+				}
+				subtaskOutputID := step2taskID(&task.Children[stepID].originalStep, source)
+				outputs := <-task.Children[stepID].Outputs
+				if outputs.Error != nil {
+					result.Error = fmt.Errorf("previous step %v failed", stepID)
+					task.Outputs <- result
+					return
+				}
+				outputVal, ok := outputs.Outputs[subtaskOutputID]
+				if !ok {
+					result.Error = fmt.Errorf("fail to get output from child step %v, %v", source, stepID)
+					task.Outputs <- result
+					return
 
-	}
+				}
+				result.Outputs[output.ID] = outputVal
+			} else {
+				panic(fmt.Sprintf("NOT SUPPORTED: don't know how to handle empty or array outputsource"))
+			}
+
+		}
+		task.Outputs <- result
+	}()
+
 	return nil
 }
 func (task *Task) setupOutputMap() error {
@@ -226,9 +249,16 @@ func (task *Task) Run() error {
 						} else {
 							depTask := task.Children[stepID]
 							outputID := depTask.Root.ID + strings.TrimPrefix(source, stepID)
+							depTaskResult := <-depTask.Outputs
+
 							fmt.Printf("\nsource  %v \n", outputID)
-							fmt.Printf("Previous task output %v \n", depTask.Outputs)
-							subtask.Parameters[subtaskInput] = depTask.Outputs[outputID]
+							fmt.Printf("Previous task output %v \n", depTaskResult.Outputs)
+							if depTaskResult.Error != nil {
+								return fmt.Errorf(
+									"failed to run task %v: %v",
+									depTask.Root.ID, depTaskResult.Error.Error())
+							}
+							subtask.Parameters[subtaskInput] = depTaskResult.Outputs[outputID]
 							fmt.Printf("inputID %v \n", subtaskInput)
 							fmt.Printf("params %v \n", subtask.Parameters[subtaskInput])
 						}
@@ -274,6 +304,7 @@ func (task *Task) Run() error {
 		}
 		fmt.Printf("submit single job to k8s %v: %v \n", workflow.Class, workflow.ID)
 		task.Engine.DispatchTask(task.JobID, task)
+		task.Outputs = task.Engine.ListenOutputs(task.JobID, task)
 		fmt.Print("\n")
 	}
 	// fmt.Print(workflow.Steps[0].ID)
