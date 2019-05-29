@@ -49,7 +49,8 @@ type Tool struct {
 	Parameters       cwl.Parameters
 	Command          *exec.Cmd
 	OriginalStep     cwl.Step
-	ExpressionResult interface{} // storing the result of an expression tool here for now - maybe there's a better way to do this
+	StepInputMap     map[string]*cwl.StepInput // see: transformInput()
+	ExpressionResult interface{}               // storing the result of an expression tool here for now - maybe there's a better way to do this
 }
 
 // PrintJSON pretty prints a struct as json
@@ -80,6 +81,7 @@ func (task *Task) getTool() *Tool {
 // need to handle BOTH cases - first eval at the workflowStepInput level, then eval at the tool input level
 func (tool *Tool) loadInputs() (err error) {
 	sort.Sort(tool.Root.Inputs)
+	tool.buildStepInputMap()
 	for _, in := range tool.Root.Inputs {
 		err = tool.loadInput(in)
 		if err != nil {
@@ -95,11 +97,81 @@ func (tool *Tool) loadInputs() (err error) {
 	return nil
 }
 
+// used in loadInput() to handle case of workflow step input valueFrom case
+func (tool *Tool) buildStepInputMap() {
+	tool.StepInputMap = make(map[string]*cwl.StepInput)
+	for _, in := range tool.OriginalStep.In {
+		localID := GetLocalID(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
+		tool.StepInputMap[localID] = &in
+	}
+}
+
+// GetLocalID is a utility function. Example i/o:
+// in: "#subworkflow_test.cwl/test_expr/file_array"
+// out: "file_array"
+func GetLocalID(s string) (localID string) {
+	tmp := strings.Split(s, "/")
+	return tmp[len(tmp)-1]
+}
+
+func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
+	/*
+		1. handle ValueFrom case at stepInput level (DONE - only context loaded is 'self')
+		2. handle ValueFrom case at toolInput level (TODO)
+		return resulting val
+	*/
+	localID := GetLocalID(input.ID)
+	// stepInput ValueFrom case
+
+	if tool.StepInputMap[localID].ValueFrom == "" {
+		// no processing needs to happen if the valueFrom field is empty
+		var ok bool
+		if out, ok = tool.Parameters[input.ID]; !ok {
+			return nil, fmt.Errorf("input not found in tool's parameters")
+		}
+	} else {
+		// here the valueFrom field is not empty, so we need to eval valueFrom
+		valueFrom := tool.StepInputMap[localID].ValueFrom
+		if strings.HasPrefix(valueFrom, "$") {
+			// valueFrom is an expression that needs to be eval'd
+			// this block should be encapsulated into a function
+			// little evals like this need to happen all over the place in the cwl
+			// setting up, running, post-processing tools
+			vm := otto.New()
+			// right now only has "self" context - may need to add more context to handle all cases
+			// definitely, definitely need a generalized method for loading appropriate context at appropriate places
+			// in particular, the `inputs` context is probably going to be needed most commonly
+			// `self` takes on different values in different places, according to cwl docs
+			vm.Set("self", tool.Parameters[input.ID])
+			if out, err = EvalExpression(valueFrom, vm); err != nil {
+				return nil, err
+			}
+		} else {
+			// valueFrom is not an expression - take raw string/val as value
+			out = valueFrom
+		}
+	}
+	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
+	// so `out` will be what we work with in this next block as an initial value
+	// tool inputBinding ValueFrom case
+	if input.Binding != nil && input.Binding.ValueFrom != nil {
+		// TODO
+	}
+	return out, nil
+}
+
 // loadInput passes input parameter value to input.Provided
 func (tool *Tool) loadInput(input *cwl.Input) (err error) {
-	if provided, ok := tool.Parameters[input.ID]; ok {
+	/*
+		if provided, ok := tool.Parameters[input.ID]; ok {
+			input.Provided = cwl.Provided{}.New(input.ID, provided)
+		}
+	*/
+
+	if provided, err := tool.transformInput(input); err != nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	}
+
 	if input.Default == nil && input.Binding == nil && input.Provided == nil {
 		return fmt.Errorf("input `%s` doesn't have default field but not provided", input.ID)
 	}
@@ -116,8 +188,9 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	return nil
 }
 
-// LoadVM loads the js vm  with all the necessary variables
+// LoadVM loads tool.Root.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
+// TODO: pretty sure that not all the potentially necessary context gets loaded, presently
 func (tool *Tool) inputsToVM() (err error) {
 	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
 	tool.Root.InputsVM, err = tool.Root.Inputs.ToJavaScriptVM(prefix)
@@ -193,9 +266,8 @@ func (engine K8sEngine) RunCommandLineTool(proc *Process) (err error) {
 // RunExpressionTool runs an ExpressionTool
 func (engine *K8sEngine) RunExpressionTool(proc *Process) (err error) {
 	fmt.Println("\tRunning ExpressionTool..")
-	err = proc.Tool.EvalExpression()
+	proc.Tool.ExpressionResult, err = EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
 	if err != nil {
-		fmt.Printf("\tError during expression eval: %v\n", err)
 		return err
 	}
 	return nil
@@ -215,20 +287,17 @@ func GetJS(s string) (js string, fn bool, err error) {
 	return s, fn, nil
 }
 
-// EvalExpression evaluates the expression of an ExpressionTool
-// what should I do with the resulting value? - right now storing in tool.ExpressionResult
-// this should be cleaned up
-func (tool *Tool) EvalExpression() (err error) {
-	js, fn, _ := GetJS(tool.Root.Expression) // strip the $() (or if ${} just trim leading $), which appears in the cwl as a wrapper for js expressions
+// EvalExpression is an engine for handling in-line js in cwl
+// the exp is passed before being stripped of any $(...) or ${...} wrapper
+// the vm must be loaded with all necessary context for eval
+// EvalExpression handles parameter references and expressions $(...), as well as functions ${...}
+func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
+	// strip the $() (or if ${} just trim leading $), which appears in the cwl as a wrapper for js expressions
+	var output otto.Value
+	js, fn, _ := GetJS(exp)
 	if js == "" {
-		return fmt.Errorf("\tmissing expression")
+		return nil, fmt.Errorf("empty expression")
 	}
-	/*
-		fa, err := tool.Root.InputsVM.Run("inputs.file_array")
-		fmt.Printf("\tHere's inputs.file_array: %v\n", fa)
-		fmt.Printf("\tHere's the js:\n%v\n", js)
-	*/
-	var result otto.Value
 	if fn {
 		// if expression wrapped like ${...}, need to run as a zero arg js function
 
@@ -237,40 +306,25 @@ func (tool *Tool) EvalExpression() (err error) {
 		// fmt.Printf("Here's the fnDef:\n%v\n", fnDef)
 
 		// run this function definition so the function exists in the vm
-		tool.Root.InputsVM.Run(fnDef)
+		vm.Run(fnDef)
 
 		// call this function in the vm
-		result, err = tool.Root.InputsVM.Run("f()")
+		output, err = vm.Run("f()")
 		if err != nil {
 			fmt.Printf("\terror running js function: %v\n", err)
-			return err
+			return nil, err
 		}
 	} else {
-		result, err = tool.Root.InputsVM.Run(js)
+		output, err = vm.Run(js)
 		if err != nil {
-			return fmt.Errorf("\tfailed to evaluate js expression: %v", err)
+			return nil, fmt.Errorf("failed to evaluate js expression: %v", err)
 		}
 	}
-	// HERE TODO
-	// need to convert otto output value to a particular type
-	// see output cwl def to determine what type to convert output to
-	export, _ := result.Export()
-	fmt.Printf("\nExpression result: %T", export)
-	PrintJSON(export)
-	/*
-		fmt.Println("Root.Outputs:")
-		PrintJSON(tool.Root.Outputs)
-	*/
-	return nil
+	result, _ = output.Export()
+	// fmt.Printf("\nExpression result type: %T", result)
+	// PrintJSON(result)
+	return result, nil
 }
-
-/*
-func (tool *Tool) ConvertJSResult(jsResult otto.Value) (val interface{}, valType string) {
-	// valType = tool.Root.Outputs[0].Types[0].Type // only handles case where there is a single type given as output
-	val, _ = jsResult.Export()
-	jsResult.Class()
-}
-*/
 
 func (tool *Tool) setupTool() (err error) {
 	err = tool.loadInputs() // pass parameter values to input.Provided for each input

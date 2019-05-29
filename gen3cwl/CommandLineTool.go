@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// JobInfo - k8s job information
 type JobInfo struct {
 	UID    string `json:"uid"`
 	Name   string `json:"name"`
