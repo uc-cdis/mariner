@@ -87,13 +87,15 @@ func (tool *Tool) loadInputs() (err error) {
 		if err != nil {
 			return err
 		}
-		fmt.Println("Input:")
-		PrintJSON(in)
-		fmt.Println("Input.Provided:")
-		PrintJSON(in.Provided)
+		/*
+			fmt.Println("Input:")
+			PrintJSON(in)
+			fmt.Println("Input.Provided:")
+			PrintJSON(in.Provided)
+		*/
 	}
-	fmt.Println("OriginalStep:")
-	PrintJSON(tool.OriginalStep)
+	// fmt.Println("OriginalStep:")
+	// PrintJSON(tool.OriginalStep)
 	return nil
 }
 
@@ -116,13 +118,22 @@ func GetLocalID(s string) (localID string) {
 
 func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
 	/*
-		1. handle ValueFrom case at stepInput level (DONE - only context loaded is 'self')
-		2. handle ValueFrom case at toolInput level (TODO)
-		return resulting val
+		NOTE: presently only context loaded into js vm's here is `self`
+		Will certainly need to add more context to handle all cases
+		Definitely, definitely need a generalized method for loading appropriate context at appropriate places
+		In particular, the `inputs` context is probably going to be needed most commonly
+
+		OTHERNOTE: `self` (in js vm) takes on different values in different places, according to cwl docs
+		see: https://www.commonwl.org/v1.0/Workflow.html#Parameter_references
+		---
+		Steps:
+		1. handle ValueFrom case at stepInput level
+		 - if no ValueFrom specified, assign parameter value to `out` to processed in next step
+		2. handle ValueFrom case at toolInput level
+		 - initial value is `out` from step 1)
 	*/
 	localID := GetLocalID(input.ID)
 	// stepInput ValueFrom case
-
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
 		var ok bool
@@ -134,14 +145,9 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		valueFrom := tool.StepInputMap[localID].ValueFrom
 		if strings.HasPrefix(valueFrom, "$") {
 			// valueFrom is an expression that needs to be eval'd
-			// this block should be encapsulated into a function
 			// little evals like this need to happen all over the place in the cwl
-			// setting up, running, post-processing tools
 			vm := otto.New()
-			// right now only has "self" context - may need to add more context to handle all cases
-			// definitely, definitely need a generalized method for loading appropriate context at appropriate places
-			// in particular, the `inputs` context is probably going to be needed most commonly
-			// `self` takes on different values in different places, according to cwl docs
+
 			vm.Set("self", tool.Parameters[input.ID])
 			if out, err = EvalExpression(valueFrom, vm); err != nil {
 				return nil, err
@@ -154,22 +160,41 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
 	// so `out` will be what we work with in this next block as an initial value
 	// tool inputBinding ValueFrom case
-	if input.Binding != nil && input.Binding.ValueFrom != nil {
-		// TODO
-	}
+	/*
+		// Commenting out because the way commands are generated don't handle js expressions  gracefully..
+		// See cwl.go/inputs.go/flatten() and Flatten() - this is used to generate commands for CLT's
+		// hopefully we can still use this - but maybe need to write our own method to generate commands :/
+			if input.Binding != nil && input.Binding.ValueFrom != nil {
+				valueFrom := input.Binding.ValueFrom.Key()
+				if strings.HasPrefix(valueFrom, "$") {
+					vm := otto.New()
+					vm.Set("self", out) // again, will more than likely need additional context here to cover other cases
+					if out, err = EvalExpression(valueFrom, vm); err != nil {
+						return nil, err
+					}
+				} else {
+					// not an expression, so no eval necessary - take raw value
+					out = valueFrom
+				}
+			}
+	*/
+	// fmt.Println("Here's tranformed input:")
+	// PrintJSON(out)
 	return out, nil
 }
 
 // loadInput passes input parameter value to input.Provided
 func (tool *Tool) loadInput(input *cwl.Input) (err error) {
-	/*
-		if provided, ok := tool.Parameters[input.ID]; ok {
-			input.Provided = cwl.Provided{}.New(input.ID, provided)
-		}
-	*/
-
-	if provided, err := tool.transformInput(input); err != nil {
+	// transformInput() handles any valueFrom statements at the workflowStepInput level and the tool input level
+	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
+	// so that would be specified in a cwl workflow file like Workflow.cwl
+	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
+	// so that information would be specified in a cwl  *tool file like CommandLineTool.cwl or ExpressionTool.cwl
+	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
+	} else {
+		fmt.Printf("error transforming input: %v\ninput: %v", err, input.ID)
+		return err
 	}
 
 	if input.Default == nil && input.Binding == nil && input.Provided == nil {
@@ -190,7 +215,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 
 // LoadVM loads tool.Root.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
-// TODO: pretty sure that not all the potentially necessary context gets loaded, presently
+// TODO: this cwl.go ToJavaScriptVM() function is super janky - need a better, more robust method of loading context
 func (tool *Tool) inputsToVM() (err error) {
 	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
 	tool.Root.InputsVM, err = tool.Root.Inputs.ToJavaScriptVM(prefix)
@@ -266,6 +291,7 @@ func (engine K8sEngine) RunCommandLineTool(proc *Process) (err error) {
 // RunExpressionTool runs an ExpressionTool
 func (engine *K8sEngine) RunExpressionTool(proc *Process) (err error) {
 	fmt.Println("\tRunning ExpressionTool..")
+	// note: context has already been loaded
 	proc.Tool.ExpressionResult, err = EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
 	if err != nil {
 		return err
@@ -321,7 +347,8 @@ func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 		}
 	}
 	result, _ = output.Export()
-	// fmt.Printf("\nExpression result type: %T", result)
+	// fmt.Printf("\nExpression result type: %T\n", result)
+	// fmt.Println("Expression result:")
 	// PrintJSON(result)
 	return result, nil
 }
