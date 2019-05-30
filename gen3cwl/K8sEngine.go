@@ -226,6 +226,76 @@ func (tool *Tool) inputsToVM() (err error) {
 	return nil
 }
 
+// CollectOutput collects the output for a tool after the tool has run
+// output parameter values get set, and the outputs parameter object gets stored in proc.Task.Outputs
+// if the outputs of this process are the inputs of another process,
+// then the output parameter object of this process (the Task.Outputs field)
+// gets assigned as the input parameter object of that other process (the Task.Parameters field)
+// ---
+// may be a good idea to make different types for CLT and ExpressionTool
+// and use Tool as an interface, so we wouldn't have to split cases like this
+//  -> could just call one method in one line on a tool interface
+// i.e., CollectOutput() should be a method on type CommandLineTool and on type ExpressionTool
+// would bypass all this case-handling
+// TODO: implement CommandLineTool and ExpressionTool types and their methods, as well as the Tool interface
+// ---
+// NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
+// need to investigate/handle case when there is no outputBinding specified
+// for ExpressionTool with a single output param with no binding,
+// of course the single output value matches the single output parameter
+// but outside of that ideal case -
+// - if a CLT, or if multiple output values or multiple output parameters -
+// how would output get collected? I feel this must be an error in the given cwl if this happens
+func (proc *Process) CollectOutput() (err error) {
+	proc.Task.Outputs = make(map[string]cwl.Parameter)
+	switch class := proc.Tool.Root.Class; class {
+	case "CommandLineTool":
+		if err = proc.HandleCLTOutput(); err != nil {
+			return err
+		}
+	case "ExpressionTool":
+		if err = proc.HandleETOutput(); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unexpected class: %v", class)
+	}
+	return nil
+}
+
+// HandleCLTOutput assigns values to output parameters for this CommandLineTool
+// stores resulting output parameters object in proc.Task.Outputs
+// TODO
+func (proc *Process) HandleCLTOutput() (err error) {
+	for _, out := range proc.Task.Root.Outputs {
+		fmt.Println("Here's an output parameter:")
+		PrintJSON(out)
+	}
+	return nil
+}
+
+// HandleETOutput assigns values to output parameters for this ExpressionTool
+// stores resulting output parameters object in proc.Task.Outputs
+// will an ExpressionTool ever have more than one output parameter?
+// TODO: investigate the case of multiple output parameters
+// - find cwl examples and extend code to handle multiple ExpressionTool outputs (if necessary)
+func (proc *Process) HandleETOutput() (err error) {
+	switch n := len(proc.Task.Root.Outputs); n {
+	case 0:
+		// no outputs to collect
+		return nil
+	case 1:
+		// ExpressionTool's expression result gets assigned to the only specified output parameter
+		// this is the expected case
+		proc.Task.Outputs[proc.Task.Root.Outputs[0].ID] = proc.Tool.ExpressionResult
+		return nil
+	default:
+		// Presently not handling the case where there's more than one output specified for an ExpressionTool
+		// Not sure if this is an expected/common case or not
+		return fmt.Errorf("failed to handle more than one ExpressionTool output")
+	}
+}
+
 // RunTool runs the tool
 // If ExpressionTool, passes to appropriate handler to eval the expression
 // If CommandLineTool, passes to appropriate handler to create k8s job
@@ -237,26 +307,13 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 		if err != nil {
 			return err
 		}
+		// fmt.Println("proc.Tool.Root.Outputs:")
+		// PrintJSON(proc.Tool.Root.Outputs)
+		proc.CollectOutput()
+		// fmt.Println("ET task.Outputs after collecting outputs:")
+		// PrintJSON(proc.Task.Outputs)
+
 		// JS gets evaluated in-line, so the process is complete when the engine method RunExpressionTool() returns
-		// NEED to collect output somewhere 'round here
-		// temporarily hardcoding output here for testing
-		err := json.Unmarshal([]byte(`
-						{"#expressiontool_test.cwl/output": [
-							{"bam_with_index": {
-								"class": "File",
-								"location": "NIST7035.1.chrM.bam",
-								"secondaryFiles": [
-									{
-										"basename": "NIST7035.1.chrM.bam.bai",
-										"location": "initdir_test.cwl/NIST7035.1.chrM.bam.bai",
-										"class": "File"
-									}
-								]
-							}}
-						]}`), &proc.Task.Outputs)
-		if err != nil {
-			fmt.Printf("fail to unmarshal this thing\n")
-		}
 		delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
 		engine.FinishedProcs[proc.Tool.Root.ID] = proc
 	case "CommandLineTool":
