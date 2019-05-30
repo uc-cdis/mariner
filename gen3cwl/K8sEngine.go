@@ -3,7 +3,9 @@ package gen3cwl
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -51,6 +53,30 @@ type Tool struct {
 	OriginalStep     cwl.Step
 	StepInputMap     map[string]*cwl.StepInput // see: transformInput()
 	ExpressionResult interface{}               // storing the result of an expression tool here for now - maybe there's a better way to do this
+}
+
+// File represents a CWL file parameter
+// not handling/including field `path` - using `location` instead
+// pretty sure `path` gets handled in the cwl.go library
+// so that regardless of `path` or `location`
+// the value gets stored in the same place and gets used the same way
+type File struct {
+	Class          string
+	Location       string
+	Basename       string
+	Contents       string
+	SecondaryFiles []File
+}
+
+// instantiates a new file object given a filepath
+// returns pointer to the new File object
+func getFileObj(path string) (fileObj *File) {
+	fileObj = &File{
+		Class:    "File",
+		Location: path,
+		Basename: GetLastInPath(path),
+	}
+	return fileObj
 }
 
 // PrintJSON pretty prints a struct as json
@@ -103,15 +129,15 @@ func (tool *Tool) loadInputs() (err error) {
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
 	for _, in := range tool.OriginalStep.In {
-		localID := GetLocalID(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
+		localID := GetLastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
 	}
 }
 
-// GetLocalID is a utility function. Example i/o:
+// GetLastInPath is a utility function. Example i/o:
 // in: "#subworkflow_test.cwl/test_expr/file_array"
 // out: "file_array"
-func GetLocalID(s string) (localID string) {
+func GetLastInPath(s string) (localID string) {
 	tmp := strings.Split(s, "/")
 	return tmp[len(tmp)-1]
 }
@@ -132,7 +158,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1)
 	*/
-	localID := GetLocalID(input.ID)
+	localID := GetLastInPath(input.ID)
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
@@ -257,6 +283,8 @@ func (proc *Process) CollectOutput() (err error) {
 		if err = proc.HandleETOutput(); err != nil {
 			return err
 		}
+		fmt.Println("Expression's Output:")
+		PrintJSON(proc.Task.Outputs)
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
@@ -266,12 +294,154 @@ func (proc *Process) CollectOutput() (err error) {
 // HandleCLTOutput assigns values to output parameters for this CommandLineTool
 // stores resulting output parameters object in proc.Task.Outputs
 // TODO
+// From my CWL reading.. each output parameter SHOULD have a binding
+// if no binding, not sure what the procedure is
 func (proc *Process) HandleCLTOutput() (err error) {
-	for _, out := range proc.Task.Root.Outputs {
+	for _, output := range proc.Task.Root.Outputs {
 		fmt.Println("Here's an output parameter:")
-		PrintJSON(out)
+		PrintJSON(output)
+		if output.Binding == nil {
+			return fmt.Errorf("output parameter missing binding: %v", output.ID)
+		}
+		/*
+			Here handling standard, expected, outputBinding case.
+			(What about ValueFrom here?) - Pretty sure `glob` and `valueFrom` are mutually exclusive cases here (..?)
+			Handling File Outputs:
+			Steps (in this order):
+			1. Glob everything in the glob list [glob implies File or array of Files output]  (okay - see prefix issue)
+			2. loadContents (okay - see prefix issue)
+			3. outputEval (good)
+			4. secondaryFiles (TODO)
+		*/
+		var results []*File
+		// Glob - okay - need to handle glob pattern prefix issue
+		if len(output.Binding.Glob) > 0 {
+			results, err = proc.Glob(&output)
+			if err != nil {
+				return err
+			}
+		}
+		// Load Contents - okay - need to handle same prefix issue
+		if output.Binding.LoadContents {
+			for _, fileObj := range results {
+				err = fileObj.loadContents()
+				if err != nil {
+					return err
+				}
+			}
+		}
+		// OutputEval - good
+		if output.Binding.Eval != nil {
+			// eval the expression and store result in task.Outputs
+			proc.outputEval(&output, results)
+			// if outputEval, then the resulting value from the expression eval is assigned to the output parameter
+			// hence the function HandleCLTOutput() returns here
+			return nil
+		}
+		// SecondaryFiles - TODO
+
 	}
 	return nil
+}
+
+// see: https://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
+func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err error) {
+	// copy InputsVM to get inputs context
+	vm := proc.Tool.Root.InputsVM.Copy()
+
+	// set `self` in this case
+	// here `self` is the array of files returned by glob (with contents loaded if so specified)
+	vm.Set("self", fileArray)
+
+	// get outputEval expression
+	expression := output.Binding.Eval.Raw
+
+	// eval that thing
+	evalResult, err := EvalExpression(expression, vm)
+	if err != nil {
+		return err
+	}
+
+	// assign expression eval result to output parameter
+	proc.Task.Outputs[output.ID] = evalResult
+	return nil
+}
+
+// loads contents of file into the File.Contents field
+// NOTE: need handle prefix issue
+func (fileObj *File) loadContents() (err error) {
+	// HERE same path prefix issue needs to be handled
+	prefix := ""
+	r, err := os.Open(prefix + fileObj.Location)
+	if err != nil {
+		return err
+	}
+	// read up to 64 KiB from file, as specified in CWL docs
+	// 1 KiB is 1024 bytes -> 64 KiB is 65536 bytes
+	contents := make([]byte, 65536, 65536)
+	_, err = r.Read(contents)
+	if err != nil {
+		return err
+	}
+	// populate File.Contents field with contents
+	fileObj.Contents = string(contents)
+	return nil
+}
+
+// Glob collects output file(s) for a CLT output parameter after that CLT has run
+// returns an array of files
+func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
+	var pattern string
+	for _, glob := range output.Binding.Glob {
+		pattern, err = proc.getPattern(glob)
+		if err != nil {
+			return results, err
+		}
+		/*
+			where exactly should I be globbing?
+			there should be some kind of prefix
+			like "{mount_point}/workflows/{jobID}/{stepID}/" or something
+			prefix depends on:
+			1. fuse mount location
+			2. any intermediate path-walking to get to the `workflows` dir
+			3. the top-level workflow job get its own dir
+			4. each step gets its own dir in the top-level workflow dir
+			5. if there is an InitialWorkDirRequirement (https://www.commonwl.org/v1.0/Workflow.html#InitialWorkDirRequirement)
+		*/
+		prefix := ""
+		paths, err := filepath.Glob(prefix + pattern)
+		if err != nil {
+			return results, err
+		}
+		for _, path := range paths {
+			// presently using field `location` and not `path`
+			// see: https://www.commonwl.org/v1.0/Workflow.html#File
+			fileObj := getFileObj(path)
+			results = append(results, fileObj)
+		}
+	}
+	return results, nil
+}
+
+func (proc *Process) getPattern(glob string) (pattern string, err error) {
+	if strings.HasPrefix(glob, "$") {
+		// expression needs to get eval'd
+		// glob pattern is the resulting string
+		// eval'ing in the InputsVM with no additional context
+		// not sure if additional context will need to be added in other cases
+		expResult, err := EvalExpression(glob, proc.Tool.Root.InputsVM)
+		if err != nil {
+			return "", fmt.Errorf("failed to eval glob expression: %v", glob)
+		}
+		pattern, ok := expResult.(string)
+		if !ok {
+			return "", fmt.Errorf("glob expression doesn't return a string pattern: %v", glob)
+		}
+		return pattern, nil
+	}
+	// not an expression, so no eval necessary
+	// glob pattern is the glob string initially provided
+	return glob, nil
 }
 
 // HandleETOutput assigns values to output parameters for this ExpressionTool

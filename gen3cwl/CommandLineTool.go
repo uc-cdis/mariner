@@ -242,6 +242,7 @@ func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 		status = jobInfo.Status
 	}
 	fmt.Println("\tK8s job complete. Collecting output..")
+	// proc.CollectOutput()
 	// temporarily hardcoding output here for testing
 	err = json.Unmarshal([]byte(`
 		{"#initdir_test.cwl/bam_with_index": {
