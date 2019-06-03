@@ -1,6 +1,7 @@
 package gen3cwl
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -60,23 +61,54 @@ type Tool struct {
 // pretty sure `path` gets handled in the cwl.go library
 // so that regardless of `path` or `location`
 // the value gets stored in the same place and gets used the same way
+//
+// NOTE: the json representation of field names is what gets loaded into js vm
+// ----- see PreProcessContext() and accompanying note of explanation.
+// ----- these json aliases are the fieldnames defined by cwl for cwl File objects
+//
+// see: see: https://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
-	Class          string
-	Location       string
-	Basename       string
-	Contents       string
-	SecondaryFiles []File
+	Class          string  `json:"class"`          // always "File"
+	Location       string  `json:"location"`       // path to file
+	Basename       string  `json:"basename"`       // last element of location path
+	NameRoot       string  `json:"nameroot"`       // basename without file extension
+	NameExt        string  `json:"nameext"`        // file extension of basename
+	Contents       string  `json:"contents"`       // first 64 KiB of file as a string, if loadContents is true
+	SecondaryFiles []*File `json:"secondaryFiles"` // array of secondaryFiles
 }
 
 // instantiates a new file object given a filepath
 // returns pointer to the new File object
 func getFileObj(path string) (fileObj *File) {
+	base, root, ext := getFileFields(path)
 	fileObj = &File{
 		Class:    "File",
 		Location: path,
-		Basename: GetLastInPath(path),
+		Basename: base,
+		NameRoot: root,
+		NameExt:  ext,
 	}
 	return fileObj
+}
+
+// pedantic splitting regarding leading periods in the basename
+// see: https://www.commonwl.org/v1.0/Workflow.html#File
+// the description of nameroot and nameext
+func getFileFields(path string) (base string, root string, ext string) {
+	base = GetLastInPath(path)
+	baseNoLeadingPeriods, nPeriods := trimLeading(base, ".")
+	tmp := strings.Split(baseNoLeadingPeriods, ".")
+	if len(tmp) == 1 {
+		// no file extension
+		root = tmp[0]
+		ext = ""
+	} else {
+		root = strings.Join(tmp[:len(tmp)-1], ".")
+		ext = "." + tmp[len(tmp)-1]
+	}
+	// add back any leading periods that were trimmed from base
+	root = strings.Repeat(".", nPeriods) + root
+	return base, root, ext
 }
 
 // PrintJSON pretty prints a struct as json
@@ -142,6 +174,56 @@ func GetLastInPath(s string) (localID string) {
 	return tmp[len(tmp)-1]
 }
 
+/*
+explanation for PreProcessContext():
+
+	11am
+	seems like directly setting a variable in the vm as a go struct doesn't work
+	need to do some kind of conversion so that js vm properly interprets array or map structure
+
+	suggested solution by otto examples/docs: use otto.ToValue()
+
+	NOTE: otto library does NOT handle case of converting "complex data types" (e.g., structs) to js objects
+	see `func (self *_runtime) toValue(value interface{})` in `runtime.go` in otto library
+	comment from otto developer in the typeSwitch in the *_runtime.toValue() method:
+	"
+	case Object, *Object, _object, *_object:
+		// Nothing happens.
+		// FIXME We should really figure out what can come here.
+		// This catch-all is ugly.
+	"
+
+	wow that's disappointing
+	that means we need to manually convert everything (to a map or array of maps (?))
+	before loading as context into js vm
+
+	1:40pm
+	real solution: marshal any struct into json, and then unmarshal that json into a map[string]interface{}
+	set the variable in the vm to this map
+	this works, and is a simple, elegant solution
+	need to update cwl.go function that loads context to InputsVM
+	way better to do this json marshal/unmarshal than to handle individual cases
+	could suggest this to the otto developer to fix his object handling dilemma
+*/
+
+// PreProcessContext is a utility function to preprocess any struct/array before loading into js vm (see above note)
+// NOTE: using this json marshalling/unmarshalling strategy implies that the struct field names
+// ----- get loaded into the js vm as their json representation.
+// ----- this means we can use the cwl fields as json aliases for any struct type's fields
+// ----- and then using this function to preprocess the struct/array, all the keys/data will get loaded in properly
+// ----- which saves us from having to handle special cases
+func PreProcessContext(in interface{}) (out interface{}, err error) {
+	j, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(j, &out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
 	/*
 		NOTE: presently only context loaded into js vm's here is `self`
@@ -167,14 +249,47 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			return nil, fmt.Errorf("input not found in tool's parameters")
 		}
 	} else {
-		// here the valueFrom field is not empty, so we need to eval valueFrom
+		// here the valueFrom field is not empty, so we need to handle valueFrom
 		valueFrom := tool.StepInputMap[localID].ValueFrom
 		if strings.HasPrefix(valueFrom, "$") {
 			// valueFrom is an expression that needs to be eval'd
-			// little evals like this need to happen all over the place in the cwl
+
+			// get a js vm
 			vm := otto.New()
 
-			vm.Set("self", tool.Parameters[input.ID])
+			// preprocess struct/array so that fields can be accessed in vm
+			// Question: how to handle non-array/struct data types?
+			// --------- no preprocessing should have to happen in this case.
+			self, err := PreProcessContext(tool.Parameters[input.ID])
+			if err != nil {
+				return nil, err
+			}
+
+			// set `self` variable in vm
+			vm.Set("self", self)
+
+			/*
+				// Troubleshooting js
+				// note: when accessing object fields using keys must use otto.Run("obj.key"), NOT otto.Get("obj.key")
+
+				fmt.Println("self in js:")
+				jsSelf, err := vm.Get("self")
+				jsSelfVal, err := jsSelf.Export()
+				PrintJSON(jsSelfVal)
+
+				fmt.Println("Expression:")
+				PrintJSON(valueFrom)
+
+				fmt.Println("Object.keys(self)")
+				keys, err := vm.Run("Object.keys(self)")
+				if err != nil {
+					fmt.Printf("Error evaluating Object.keys(self): %v\n", err)
+				}
+				keysVal, err := keys.Export()
+				PrintJSON(keysVal)
+			*/
+
+			//  eval the expression in the vm, capture result in `out`
 			if out, err = EvalExpression(valueFrom, vm); err != nil {
 				return nil, err
 			}
@@ -187,7 +302,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// so `out` will be what we work with in this next block as an initial value
 	// tool inputBinding ValueFrom case
 	/*
-		// Commenting out because the way commands are generated don't handle js expressions  gracefully..
+		// Commenting out because the way commands are generated doesn't really handle js expressions
 		// See cwl.go/inputs.go/flatten() and Flatten() - this is used to generate commands for CLT's
 		// hopefully we can still use this - but maybe need to write our own method to generate commands :/
 			if input.Binding != nil && input.Binding.ValueFrom != nil {
@@ -204,6 +319,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				}
 			}
 	*/
+
 	// fmt.Println("Here's tranformed input:")
 	// PrintJSON(out)
 	return out, nil
@@ -219,7 +335,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	} else {
-		fmt.Printf("error transforming input: %v\ninput: %v", err, input.ID)
+		fmt.Printf("error transforming input: %v\ninput: %v\n", err, input.ID)
 		return err
 	}
 
@@ -283,8 +399,8 @@ func (proc *Process) CollectOutput() (err error) {
 		if err = proc.HandleETOutput(); err != nil {
 			return err
 		}
-		fmt.Println("Expression's Output:")
-		PrintJSON(proc.Task.Outputs)
+		// fmt.Println("Expression's Output:")
+		// PrintJSON(proc.Task.Outputs)
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
@@ -296,10 +412,12 @@ func (proc *Process) CollectOutput() (err error) {
 // TODO
 // From my CWL reading.. each output parameter SHOULD have a binding
 // if no binding, not sure what the procedure is
+// NEED to test this functionality - create a working directory
+// locally to use as the representation of the mount point of the s3 bucket
 func (proc *Process) HandleCLTOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
-		fmt.Println("Here's an output parameter:")
-		PrintJSON(output)
+		// fmt.Println("Here's an output parameter:")
+		// PrintJSON(output)
 		if output.Binding == nil {
 			return fmt.Errorf("output parameter missing binding: %v", output.ID)
 		}
@@ -308,28 +426,34 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			(What about ValueFrom here?) - Pretty sure `glob` and `valueFrom` are mutually exclusive cases here (..?)
 			Handling File Outputs:
 			Steps (in this order):
-			1. Glob everything in the glob list [glob implies File or array of Files output]  (okay - see prefix issue)
-			2. loadContents (okay - see prefix issue)
-			3. outputEval (good)
-			4. secondaryFiles (TODO)
+			1. Glob everything in the glob list [glob implies File or array of Files output]  (good - see prefix issue)
+			2. loadContents (good - see prefix issue)
+			3. outputEval (good - need to test)
+			4. secondaryFiles (good - need to test)
 		*/
 		var results []*File
-		// Glob - okay - need to handle glob pattern prefix issue
+
+		// Glob - good - need to handle glob pattern prefix issue
 		if len(output.Binding.Glob) > 0 {
 			results, err = proc.Glob(&output)
 			if err != nil {
 				return err
 			}
 		}
-		// Load Contents - okay - need to handle same prefix issue
+
+		// Load Contents - good - may need to handle same prefix issue
+
+		// output.Binding.LoadContents = true // for testing
 		if output.Binding.LoadContents {
 			for _, fileObj := range results {
 				err = fileObj.loadContents()
 				if err != nil {
+					fmt.Printf("error loading contents: %v\n", err)
 					return err
 				}
 			}
 		}
+
 		// OutputEval - good
 		if output.Binding.Eval != nil {
 			// eval the expression and store result in task.Outputs
@@ -338,10 +462,134 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			// hence the function HandleCLTOutput() returns here
 			return nil
 		}
-		// SecondaryFiles - TODO
 
+		// HERE - SecondaryFiles - TODO
+		if len(output.SecondaryFiles) > 0 {
+			for _, entry := range output.SecondaryFiles {
+				// see: // https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
+				val := entry.Entry
+				if strings.HasPrefix(val, "$") {
+					// indicates an expression that must be eval'd
+					// to obtain a string or array of files or directories
+					// to store in the File.SecondaryFiles field
+					// HERE TODO: finish SecondaryFiles expression case here
+
+					// get inputs context
+					// TODO: fix loading of inputs to InputsVM
+					// ----- use PreProcessContext instead of cwl.go's loading method
+					// ----- because cwl.go's method is super janky and not robust at all
+					vm := proc.Tool.Root.InputsVM.Copy()
+
+					// set `self` var in js vm
+					var self interface{}
+					if output.Types[0].Type == "File" {
+						// indicates a single file object to be loaded as context
+						if self, err = PreProcessContext(results[0]); err != nil {
+							return err
+						}
+					} else {
+						// otherwise load array of files
+						if self, err = PreProcessContext(results); err != nil {
+							return err
+						}
+					}
+					vm.Set("self", self)
+					// HERE! - eval this business and take final steps to complete this case
+					//
+				} else {
+					// follow those two steps indicated at the bottom of the secondaryFiles field description
+					suffix, carats := trimLeading(val, "^")
+					if err != nil {
+						return err
+					}
+					for _, fileObj := range results {
+						fileObj.loadSFiles(suffix, carats)
+					}
+				}
+				// fmt.Println(val)
+			}
+		}
+		// I *think* this is where this should go
+		// but still need to handle the ValueFrom case
+		// fmt.Println("Output type:")
+		// PrintJSON(output.Types[0].Type)
+		// NOTE: need to handle `array of files` vs. `file` output
+		if output.Types[0].Type == "File" {
+			// output should be a File object (so that keys are exposed) - not an array
+			if len(results) > 1 {
+				// this should be a warning, not an error
+				// this case needs to be handled
+				fmt.Printf("/tWARNING: Output specified one file, but found %v output files.\n", len(results))
+			}
+			if len(results) == 0 {
+				// this should be an error, not a warning
+				return fmt.Errorf("no output files found")
+			}
+			proc.Task.Outputs[output.ID] = results[0]
+		} else {
+			// output should be an array of File objects
+			proc.Task.Outputs[output.ID] = results
+		}
 	}
 	return nil
+}
+
+// creates File object for secondaryFile and loads into fileObj.SecondaryFiles field
+// unsure of where/what to check here to potentially return an error
+func (fileObj *File) loadSFiles(suffix string, carats int) (err error) {
+	path := fileObj.Location
+	// however many chars there are
+	// trim that number of file extentions from the end of the path
+	for i := 0; i < carats; i++ {
+		tmp := strings.Split(path, ".") // split path at periods
+		tmp = tmp[:len(tmp)-1]          // exclude last file extension
+		path = strings.Join(tmp, ".")   // reconstruct path without last file extension
+	}
+	path = path + suffix // append suffix (which is the original pattern with leading carats trimmed)
+
+	// check whether file exists
+	fileExists, err := exists(path)
+	switch {
+	case fileExists:
+		// the secondaryFile exists
+		fmt.Printf("\tfound secondary file %v\n", path)
+		sFile := getFileObj(path)                                      // construct file object for this secondary file
+		fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFile) // append this secondary file
+	case !fileExists:
+		// the secondaryFile does not exist
+		// if anything, this should be a warning - not an error
+		// presently in this case, the secondaryFile object does NOT get appended to fileObj.SecondaryFiles
+		fmt.Printf("\tWARNING: secondary file %v not found\n", path)
+	}
+	return nil
+}
+
+// exists returns whether the given file or directory exists
+func exists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
+}
+
+// given a string s and a character char
+// count number of leading char's
+// return s trimmed of leading char and count number of char's trimmed
+func trimLeading(s string, char string) (suffix string, count int) {
+	count = 0
+	prevChar := char
+	for i := 0; i < len(s) && prevChar == char; i++ {
+		prevChar = string(s[i])
+		if prevChar == char {
+			count++
+		}
+	}
+	suffix = strings.TrimLeft(s, char)
+	return suffix, count
 }
 
 // see: https://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
@@ -349,9 +597,14 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 	// copy InputsVM to get inputs context
 	vm := proc.Tool.Root.InputsVM.Copy()
 
-	// set `self` in this case
 	// here `self` is the array of files returned by glob (with contents loaded if so specified)
-	vm.Set("self", fileArray)
+	self, err := PreProcessContext(fileArray)
+	if err != nil {
+		return err
+	}
+
+	// set `self` var in the vm
+	vm.Set("self", self)
 
 	// get outputEval expression
 	expression := output.Binding.Eval.Raw
@@ -370,7 +623,8 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 // loads contents of file into the File.Contents field
 // NOTE: need handle prefix issue
 func (fileObj *File) loadContents() (err error) {
-	// HERE same path prefix issue needs to be handled
+	// HERE TODO same path prefix issue as in Glob() needs to be handled
+	// prefix depends bucket mount location in workflow engine container and folder structure of bucket
 	prefix := ""
 	r, err := os.Open(prefix + fileObj.Location)
 	if err != nil {
@@ -381,8 +635,12 @@ func (fileObj *File) loadContents() (err error) {
 	contents := make([]byte, 65536, 65536)
 	_, err = r.Read(contents)
 	if err != nil {
+		fmt.Printf("error reading file contents: %v", err)
 		return err
 	}
+	// trim trailing null bytes if less than 65536 bytes were read
+	contents = bytes.TrimRight(contents, "\u0000")
+
 	// populate File.Contents field with contents
 	fileObj.Contents = string(contents)
 	return nil
@@ -408,7 +666,8 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			4. each step gets its own dir in the top-level workflow dir
 			5. if there is an InitialWorkDirRequirement (https://www.commonwl.org/v1.0/Workflow.html#InitialWorkDirRequirement)
 		*/
-		prefix := ""
+		// currently using this directory to test the workflow output collection/globbing
+		prefix := "/Users/mattgarvin/_fakes3/testWorkflow/initdir_test.cwl/"
 		paths, err := filepath.Glob(prefix + pattern)
 		if err != nil {
 			return results, err
@@ -473,6 +732,8 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 	fmt.Println("\tRunning tool..")
 	switch class := proc.Tool.Root.Class; class {
 	case "ExpressionTool":
+		// fmt.Println("ExpressionTool Parameters:")
+		// PrintJSON(proc.Tool.Parameters)
 		err = engine.RunExpressionTool(proc)
 		if err != nil {
 			return err
@@ -534,7 +795,6 @@ func GetJS(s string) (js string, fn bool, err error) {
 	// see https://www.commonwl.org/v1.0/Workflow.html#Expressions
 	fn = strings.HasPrefix(s, "${")
 	s = strings.TrimLeft(s, "$(\n")
-	// s = regexp.MustCompile("\\)$").ReplaceAllString(s, "")
 	s = strings.TrimRight(s, ")\n")
 	// fmt.Printf("\tHere's the js: %v\n", s)
 	return s, fn, nil

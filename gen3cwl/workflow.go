@@ -267,7 +267,6 @@ func (task *Task) Run() error {
 				idMaps[input.ID] = subtaskInput // step input ID maps to [sub]task input ID
 				for _, source := range input.Source {
 					// P: if source is an ID that points to an output in another step
-
 					if stepID, ok := task.outputIDMap[source]; ok {
 						if _, ok := task.unFinishedSteps[stepID]; ok {
 							prevStepID = stepID
@@ -289,7 +288,7 @@ func (task *Task) Run() error {
 									subtask.Parameters[subtaskInput] = depTask.Outputs[outputID]
 									fmt.Println("\tSuccessfully collected output from dependency task.")
 								}
-								time.Sleep(2 * time.Second)
+								time.Sleep(2 * time.Second) // for testing..
 							}
 						}
 					} else if strings.HasPrefix(source, workflow.ID) {

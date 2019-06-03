@@ -1,7 +1,6 @@
 package gen3cwl
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -242,23 +241,13 @@ func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 		status = jobInfo.Status
 	}
 	fmt.Println("\tK8s job complete. Collecting output..")
-	// proc.CollectOutput()
-	// temporarily hardcoding output here for testing
-	err = json.Unmarshal([]byte(`
-		{"#initdir_test.cwl/bam_with_index": {
-			"class": "File",
-			"location": "NIST7035.1.chrM.bam",
-			"secondaryFiles": [
-				{
-					"basename": "NIST7035.1.chrM.bam.bai",
-					"location": "initdir_test.cwl/NIST7035.1.chrM.bam.bai",
-					"class": "File"
-				}
-			]
-		}}`), &proc.Task.Outputs)
-	if err != nil {
-		fmt.Printf("fail to unmarshal this thing\n")
-	}
+
+	// testing this function now (10:37am)
+	proc.CollectOutput()
+
+	fmt.Println("\tFinished collecting output.")
+	// PrintJSON(proc.Task.Outputs)
+
 	fmt.Println("\tUpdating engine process stack..")
 	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
 	engine.FinishedProcs[proc.Tool.Root.ID] = proc
@@ -306,7 +295,7 @@ func (tool *Tool) GenerateCommand() error {
 	}
 	cmd, err := tool.generateBasicCommand(priors, arguments, inputs)
 	tool.Command = cmd
-	fmt.Printf("\n\tCommand: %v %v\n", cmd.Path, cmd.Args)
+	fmt.Printf("\n\tCommand: %v\n", cmd.Args)
 	if err != nil {
 		return fmt.Errorf("failed to generate command struct: %v", err)
 	}
