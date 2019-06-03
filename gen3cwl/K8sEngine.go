@@ -56,12 +56,7 @@ type Tool struct {
 	ExpressionResult interface{}               // storing the result of an expression tool here for now - maybe there's a better way to do this
 }
 
-// File represents a CWL file parameter
-// not handling/including field `path` - using `location` instead
-// pretty sure `path` gets handled in the cwl.go library
-// so that regardless of `path` or `location`
-// the value gets stored in the same place and gets used the same way
-//
+// File represents a CWL file object
 // NOTE: the json representation of field names is what gets loaded into js vm
 // ----- see PreProcessContext() and accompanying note of explanation.
 // ----- these json aliases are the fieldnames defined by cwl for cwl File objects
@@ -69,7 +64,8 @@ type Tool struct {
 // see: see: https://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
 	Class          string  `json:"class"`          // always "File"
-	Location       string  `json:"location"`       // path to file
+	Location       string  `json:"location"`       // path to file (same as `path`)
+	Path           string  `json:"path"`           // path to file
 	Basename       string  `json:"basename"`       // last element of location path
 	NameRoot       string  `json:"nameroot"`       // basename without file extension
 	NameExt        string  `json:"nameext"`        // file extension of basename
@@ -79,11 +75,14 @@ type File struct {
 
 // instantiates a new file object given a filepath
 // returns pointer to the new File object
+// presently loading both `path` and `location` for sake of loading all potentially needed context to js vm
+// right now they hold the exact same path
 func getFileObj(path string) (fileObj *File) {
 	base, root, ext := getFileFields(path)
 	fileObj = &File{
 		Class:    "File",
 		Location: path,
+		Path:     path,
 		Basename: base,
 		NameRoot: root,
 		NameExt:  ext,
@@ -480,22 +479,42 @@ func (proc *Process) HandleCLTOutput() (err error) {
 					// ----- because cwl.go's method is super janky and not robust at all
 					vm := proc.Tool.Root.InputsVM.Copy()
 
-					// set `self` var in js vm
+					// iterate through output files
 					var self interface{}
-					if output.Types[0].Type == "File" {
-						// indicates a single file object to be loaded as context
-						if self, err = PreProcessContext(results[0]); err != nil {
+					for _, fileObj := range results {
+						/*
+							see the secondaryFiles field description at:
+							https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
+							NOTE: presently only supporting the case of the expression returning a string filepath
+							----- NOT supporting the case in which the expression returns either file object or array of file objects
+							----- why the flip would the CWL spec allow the option of returning either a string or an object
+							----- can extend code here to handle other cases as needed, or when I find an example to work with
+						*/
+
+						// preprocess output file object
+						self, err = PreProcessContext(fileObj)
+
+						// set `self` variable name
+						// assuming it is okay to use one vm for all evaluations and just reset the `self` variable before each eval
+						vm.Set("self", self)
+
+						// eval js
+						jsResult, err := vm.Run(val)
+						if err != nil {
 							return err
 						}
-					} else {
-						// otherwise load array of files
-						if self, err = PreProcessContext(results); err != nil {
+
+						// retrieve secondaryFile's path (type interface{} with underlying type string)
+						sFilePath, err := jsResult.Export()
+						if err != nil {
 							return err
 						}
+
+						// get file object for secondaryFile and append it to the output file's SecondaryFiles field
+						sFileObj := getFileObj(sFilePath.(string))
+						fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
 					}
-					vm.Set("self", self)
-					// HERE! - eval this business and take final steps to complete this case
-					//
+
 				} else {
 					// follow those two steps indicated at the bottom of the secondaryFiles field description
 					suffix, carats := trimLeading(val, "^")
@@ -503,7 +522,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 						return err
 					}
 					for _, fileObj := range results {
-						fileObj.loadSFiles(suffix, carats)
+						fileObj.loadSFilesFromPattern(suffix, carats)
 					}
 				}
 				// fmt.Println(val)
@@ -536,7 +555,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 
 // creates File object for secondaryFile and loads into fileObj.SecondaryFiles field
 // unsure of where/what to check here to potentially return an error
-func (fileObj *File) loadSFiles(suffix string, carats int) (err error) {
+func (fileObj *File) loadSFilesFromPattern(suffix string, carats int) (err error) {
 	path := fileObj.Location
 	// however many chars there are
 	// trim that number of file extentions from the end of the path
