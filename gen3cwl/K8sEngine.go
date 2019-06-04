@@ -53,7 +53,7 @@ type Tool struct {
 	Command          *exec.Cmd
 	OriginalStep     cwl.Step
 	StepInputMap     map[string]*cwl.StepInput // see: transformInput()
-	ExpressionResult interface{}               // storing the result of an expression tool here for now - maybe there's a better way to do this
+	ExpressionResult map[string]interface{}    // storing the result of an expression tool here for now - maybe there's a better way to do this
 }
 
 // File represents a CWL file object
@@ -112,7 +112,12 @@ func getFileFields(path string) (base string, root string, ext string) {
 
 // PrintJSON pretty prints a struct as json
 func PrintJSON(i interface{}) {
-	see, _ := json.MarshalIndent(i, "", "   ")
+	var see []byte
+	var err error
+	see, err = json.MarshalIndent(i, "", "   ")
+	if err != nil {
+		fmt.Printf("error printing JSON: %v", err)
+	}
 	fmt.Println(string(see))
 }
 
@@ -144,15 +149,7 @@ func (tool *Tool) loadInputs() (err error) {
 		if err != nil {
 			return err
 		}
-		/*
-			fmt.Println("Input:")
-			PrintJSON(in)
-			fmt.Println("Input.Provided:")
-			PrintJSON(in.Provided)
-		*/
 	}
-	// fmt.Println("OriginalStep:")
-	// PrintJSON(tool.OriginalStep)
 	return nil
 }
 
@@ -176,9 +173,7 @@ func GetLastInPath(s string) (localID string) {
 /*
 explanation for PreProcessContext():
 
-	11am
-	seems like directly setting a variable in the vm as a go struct doesn't work
-	need to do some kind of conversion so that js vm properly interprets array or map structure
+	problem: setting variable name in a js vm to a golang struct doesn't work
 
 	suggested solution by otto examples/docs: use otto.ToValue()
 
@@ -192,11 +187,8 @@ explanation for PreProcessContext():
 		// This catch-all is ugly.
 	"
 
-	wow that's disappointing
-	that means we need to manually convert everything (to a map or array of maps (?))
-	before loading as context into js vm
+	that means we need to preprocess structs (to a map or array of maps (?)) before loading to vm
 
-	1:40pm
 	real solution: marshal any struct into json, and then unmarshal that json into a map[string]interface{}
 	set the variable in the vm to this map
 	this works, and is a simple, elegant solution
@@ -237,7 +229,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		1. handle ValueFrom case at stepInput level
 		 - if no ValueFrom specified, assign parameter value to `out` to processed in next step
 		2. handle ValueFrom case at toolInput level
-		 - initial value is `out` from step 1)
+		 - initial value is `out` from step 1
 	*/
 	localID := GetLastInPath(input.ID)
 	// stepInput ValueFrom case
@@ -356,7 +348,6 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 
 // LoadVM loads tool.Root.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
-// TODO: this cwl.go ToJavaScriptVM() function is super janky - need a better, more robust method of loading context
 // TODO: fix loading of inputs to InputsVM
 // ----- use PreProcessContext instead of cwl.go's loading method
 // ----- because cwl.go's method is super janky and not robust at all
@@ -364,8 +355,7 @@ func (tool *Tool) inputsToVM() (err error) {
 	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
 	tool.Root.InputsVM, err = tool.Root.Inputs.ToJavaScriptVM(prefix)
 	if err != nil {
-		fmt.Println("ERROR: failed to load js vm.")
-		return err
+		return fmt.Errorf("error loading inputs to js vm: %v", err)
 	}
 	return nil
 }
@@ -385,9 +375,6 @@ func (tool *Tool) inputsToVM() (err error) {
 // ---
 // NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
 // need to investigate/handle case when there is no outputBinding specified
-// for ExpressionTool with a single output param with no binding,
-// of course the single output value matches the single output parameter
-// but outside of that ideal case -
 // - if a CLT, or if multiple output values or multiple output parameters -
 // how would output get collected? I feel this must be an error in the given cwl if this happens
 func (proc *Process) CollectOutput() (err error) {
@@ -401,8 +388,6 @@ func (proc *Process) CollectOutput() (err error) {
 		if err = proc.HandleETOutput(); err != nil {
 			return err
 		}
-		// fmt.Println("Expression's Output:")
-		// PrintJSON(proc.Task.Outputs)
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
@@ -418,8 +403,6 @@ func (proc *Process) CollectOutput() (err error) {
 // using dir "/Users/mattgarvin/_fakes3/testWorkflow/initdir_test.cwl" for testing locally
 func (proc *Process) HandleCLTOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
-		// fmt.Println("Here's an output parameter:")
-		// PrintJSON(output)
 		if output.Binding == nil {
 			return fmt.Errorf("output parameter missing binding: %v", output.ID)
 		}
@@ -445,7 +428,8 @@ func (proc *Process) HandleCLTOutput() (err error) {
 
 		// 2. Load Contents - good - may need to handle same prefix issue
 
-		// output.Binding.LoadContents = true // for testing
+		// uncomment to test LoadContents functionality:
+		// output.Binding.LoadContents = true
 		if output.Binding.LoadContents {
 			for _, fileObj := range results {
 				err = fileObj.loadContents()
@@ -456,7 +440,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			}
 		}
 
-		// 3. OutputEval - good - need to test
+		// 3. OutputEval - good - TODO: test this functionality
 		if output.Binding.Eval != nil {
 			// eval the expression and store result in task.Outputs
 			proc.outputEval(&output, results)
@@ -559,8 +543,13 @@ func (fileObj *File) loadSFilesFromPattern(suffix string, carats int) (err error
 	case fileExists:
 		// the secondaryFile exists
 		fmt.Printf("\tfound secondary file %v\n", path)
-		sFile := getFileObj(path)                                      // construct file object for this secondary file
-		fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFile) // append this secondary file
+
+		// construct file object for this secondary file
+		sFile := getFileObj(path)
+
+		// append this secondary file
+		fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFile)
+
 	case !fileExists:
 		// the secondaryFile does not exist
 		// if anything, this should be a warning - not an error
@@ -673,7 +662,7 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			return results, err
 		}
 		/*
-			where exactly should I be globbing?
+			where exactly should we be globbing?
 			there should be some kind of prefix
 			like "{mount_point}/workflows/{jobID}/{stepID}/" or something
 			prefix depends on:
@@ -690,8 +679,6 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			return results, err
 		}
 		for _, path := range paths {
-			// presently using field `location` and not `path`
-			// see: https://www.commonwl.org/v1.0/Workflow.html#File
 			fileObj := getFileObj(path)
 			results = append(results, fileObj)
 		}
@@ -720,26 +707,26 @@ func (proc *Process) getPattern(glob string) (pattern string, err error) {
 	return glob, nil
 }
 
-// HandleETOutput assigns values to output parameters for this ExpressionTool
-// stores resulting output parameters object in proc.Task.Outputs
-// will an ExpressionTool ever have more than one output parameter?
-// TODO: investigate the case of multiple output parameters
-// - find cwl examples and extend code to handle multiple ExpressionTool outputs (if necessary)
+// HandleETOutput ..
+// ExpressionTool expression returns a JSON object
+// where the keys are the IDs of the expressionTool output params
+// see `expression` field description here:
+// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
 func (proc *Process) HandleETOutput() (err error) {
-	switch n := len(proc.Task.Root.Outputs); n {
-	case 0:
-		// no outputs to collect
-		return nil
-	case 1:
-		// ExpressionTool's expression result gets assigned to the only specified output parameter
-		// this is the expected case
-		proc.Task.Outputs[proc.Task.Root.Outputs[0].ID] = proc.Tool.ExpressionResult
-		return nil
-	default:
-		// Presently not handling the case where there's more than one output specified for an ExpressionTool
-		// Not sure if this is an expected/common case or not
-		return fmt.Errorf("failed to handle more than one ExpressionTool output")
+	for _, output := range proc.Task.Root.Outputs {
+		// get "output" from "#expressiontool_test.cwl/output"
+		localOutputID := GetLastInPath(output.ID)
+
+		// access output param value from expression result
+		val, ok := proc.Tool.ExpressionResult[localOutputID]
+		if !ok {
+			return fmt.Errorf("output parameter %v missing from ExpressionTool %v result", output.ID, proc.Task.Root.ID)
+		}
+
+		// assign retrieved value to output param in Task object
+		proc.Task.Outputs[output.ID] = val
 	}
+	return nil
 }
 
 // RunTool runs the tool
@@ -749,21 +736,17 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 	fmt.Println("\tRunning tool..")
 	switch class := proc.Tool.Root.Class; class {
 	case "ExpressionTool":
-		// fmt.Println("ExpressionTool Parameters:")
-		// PrintJSON(proc.Tool.Parameters)
 		err = engine.RunExpressionTool(proc)
 		if err != nil {
 			return err
 		}
-		// fmt.Println("proc.Tool.Root.Outputs:")
-		// PrintJSON(proc.Tool.Root.Outputs)
+
 		proc.CollectOutput()
-		// fmt.Println("ET task.Outputs after collecting outputs:")
-		// PrintJSON(proc.Task.Outputs)
 
 		// JS gets evaluated in-line, so the process is complete when the engine method RunExpressionTool() returns
 		delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
 		engine.FinishedProcs[proc.Tool.Root.ID] = proc
+
 	case "CommandLineTool":
 		err = engine.RunCommandLineTool(proc)
 		if err != nil {
@@ -782,7 +765,7 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 // RunCommandLineTool runs a CommandLineTool
 func (engine K8sEngine) RunCommandLineTool(proc *Process) (err error) {
 	fmt.Println("\tRunning CommandLineTool")
-	err = proc.Tool.GenerateCommand() // this should happen in the task engine - how exactly does that happen?
+	err = proc.Tool.GenerateCommand() // need to test different cases of generating commands
 	if err != nil {
 		return err
 	}
@@ -797,9 +780,18 @@ func (engine K8sEngine) RunCommandLineTool(proc *Process) (err error) {
 func (engine *K8sEngine) RunExpressionTool(proc *Process) (err error) {
 	fmt.Println("\tRunning ExpressionTool..")
 	// note: context has already been loaded
-	proc.Tool.ExpressionResult, err = EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
+	result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
 	if err != nil {
 		return err
+	}
+
+	// expression must return a JSON object where the keys are the IDs of the ExpressionTool outputs
+	// see description of `expression` field here:
+	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
+	var ok bool
+	proc.Tool.ExpressionResult, ok = result.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("expressionTool expression did not return a JSON object")
 	}
 	return nil
 }
@@ -813,7 +805,6 @@ func GetJS(s string) (js string, fn bool, err error) {
 	fn = strings.HasPrefix(s, "${")
 	s = strings.TrimLeft(s, "$(\n")
 	s = strings.TrimRight(s, ")\n")
-	// fmt.Printf("\tHere's the js: %v\n", s)
 	return s, fn, nil
 }
 
@@ -851,9 +842,6 @@ func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 		}
 	}
 	result, _ = output.Export()
-	// fmt.Printf("\nExpression result type: %T\n", result)
-	// fmt.Println("Expression result:")
-	// PrintJSON(result)
 	return result, nil
 }
 
@@ -875,19 +863,24 @@ func (tool *Tool) setupTool() (err error) {
 func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	tool := task.getTool()
 	err = tool.setupTool()
-	//  when should the process get pushed onto the stack?
-	// also, there's a lot of duplicated information here, because Tool is almost a subset of Task
+
+	// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
 	// this will be handled when code is refactored/polished/cleaned up
 	proc := &Process{
 		Tool: tool,
 		Task: task,
 	}
-	engine.UnfinishedProcs[tool.Root.ID] = proc // push newly started process onto the engine's stack of running processes
-	err = engine.runTool(proc)                  // engine runs the tool either as a CommandLineTool or ExpressionTool
 
+	// (when should the process get pushed onto the stack?)
+	// push newly started process onto the engine's stack of running processes
+	engine.UnfinishedProcs[tool.Root.ID] = proc
+
+	// engine runs the tool either as a CommandLineTool or ExpressionTool
+	err = engine.runTool(proc)
 	if err != nil {
 		fmt.Printf("\tError running tool: %v\n", err)
 		return err
 	}
+
 	return nil
 }

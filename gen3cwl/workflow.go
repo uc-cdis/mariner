@@ -165,6 +165,16 @@ func (task *Task) gatherScatterOutputs() error {
 }
 
 func (task *Task) runScatter() error {
+	fmt.Println("task.Scatter:")
+	PrintJSON(task.Scatter)
+	fmt.Println("task.ScatterTasks:")
+	PrintJSON(task.ScatterTasks)
+	fmt.Println("task.ScatterMethod:")
+	PrintJSON(task.ScatterMethod)
+
+	fmt.Println("task.Parameters:")
+	PrintJSON(task.Parameters)
+
 	if task.ScatterMethod != "" && task.ScatterMethod != "dotproduct" {
 		panic(fmt.Sprintf("NOT SUPPORTED scattermethod %v not supported", task.ScatterMethod))
 	}
@@ -174,6 +184,10 @@ func (task *Task) runScatter() error {
 	firstScatterKey := task.Scatter[0]
 	castedParam := make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
+		fmt.Printf("scatterKey: %v\n", scatterKey)
+		fmt.Println("task.Parameters[scatterKey]:")
+		PrintJSON(task.Parameters[scatterKey])
+
 		paramArray, ok := task.Parameters[scatterKey].([]interface{})
 		if !ok {
 			panic(fmt.Sprintf("Scatter on non-array input %v", scatterKey))
@@ -212,12 +226,8 @@ func (task *Task) Run() error {
 
 	fmt.Printf("\nRunning task: %v\n", workflow.ID)
 	if task.Scatter != nil {
-		/*
-			task.runScatter()
-			task.gatherScatterOutputs()
-		*/
-		fmt.Println("\tScatter not supported.")
-		return nil
+		task.runScatter()
+		task.gatherScatterOutputs()
 	}
 
 	// if this process is a workflow
