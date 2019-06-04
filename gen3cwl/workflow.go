@@ -163,6 +163,7 @@ func (task *Task) setupOutputMap() error {
 func (task *Task) gatherScatterOutputs() error {
 	return nil
 }
+
 func (task *Task) runScatter() error {
 	if task.ScatterMethod != "" && task.ScatterMethod != "dotproduct" {
 		panic(fmt.Sprintf("NOT SUPPORTED scattermethod %v not supported", task.ScatterMethod))

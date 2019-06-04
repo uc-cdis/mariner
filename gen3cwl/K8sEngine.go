@@ -357,6 +357,9 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 // LoadVM loads tool.Root.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
 // TODO: this cwl.go ToJavaScriptVM() function is super janky - need a better, more robust method of loading context
+// TODO: fix loading of inputs to InputsVM
+// ----- use PreProcessContext instead of cwl.go's loading method
+// ----- because cwl.go's method is super janky and not robust at all
 func (tool *Tool) inputsToVM() (err error) {
 	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
 	tool.Root.InputsVM, err = tool.Root.Inputs.ToJavaScriptVM(prefix)
@@ -408,11 +411,11 @@ func (proc *Process) CollectOutput() (err error) {
 
 // HandleCLTOutput assigns values to output parameters for this CommandLineTool
 // stores resulting output parameters object in proc.Task.Outputs
-// TODO
 // From my CWL reading.. each output parameter SHOULD have a binding
 // if no binding, not sure what the procedure is
-// NEED to test this functionality - create a working directory
-// locally to use as the representation of the mount point of the s3 bucket
+// for  now, no binding -> output won't be collected
+//
+// using dir "/Users/mattgarvin/_fakes3/testWorkflow/initdir_test.cwl" for testing locally
 func (proc *Process) HandleCLTOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
 		// fmt.Println("Here's an output parameter:")
@@ -420,19 +423,19 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		if output.Binding == nil {
 			return fmt.Errorf("output parameter missing binding: %v", output.ID)
 		}
+
 		/*
-			Here handling standard, expected, outputBinding case.
-			(What about ValueFrom here?) - Pretty sure `glob` and `valueFrom` are mutually exclusive cases here (..?)
-			Handling File Outputs:
-			Steps (in this order):
+			Steps for handling CommandLineTool output files (in this order):
 			1. Glob everything in the glob list [glob implies File or array of Files output]  (good - see prefix issue)
 			2. loadContents (good - see prefix issue)
 			3. outputEval (good - need to test)
-			4. secondaryFiles (good - need to test)
+			4. secondaryFiles (good - need to test expression case)
 		*/
+
+		//// Begin 4 step pipeline for collecting/handling CommandLineTool output files ////
 		var results []*File
 
-		// Glob - good - need to handle glob pattern prefix issue
+		// 1. Glob - good - need to handle glob pattern prefix issue
 		if len(output.Binding.Glob) > 0 {
 			results, err = proc.Glob(&output)
 			if err != nil {
@@ -440,7 +443,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			}
 		}
 
-		// Load Contents - good - may need to handle same prefix issue
+		// 2. Load Contents - good - may need to handle same prefix issue
 
 		// output.Binding.LoadContents = true // for testing
 		if output.Binding.LoadContents {
@@ -453,7 +456,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			}
 		}
 
-		// OutputEval - good
+		// 3. OutputEval - good - need to test
 		if output.Binding.Eval != nil {
 			// eval the expression and store result in task.Outputs
 			proc.outputEval(&output, results)
@@ -462,32 +465,24 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			return nil
 		}
 
-		// HERE - SecondaryFiles - TODO
+		// 4. SecondaryFiles - okay - currently only supporting simplest case when handling expressions here
 		if len(output.SecondaryFiles) > 0 {
 			for _, entry := range output.SecondaryFiles {
-				// see: // https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
+				// see the secondaryFiles field description at:
+				// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
 				val := entry.Entry
 				if strings.HasPrefix(val, "$") {
-					// indicates an expression that must be eval'd
-					// to obtain a string or array of files or directories
-					// to store in the File.SecondaryFiles field
-					// HERE TODO: finish SecondaryFiles expression case here
 
 					// get inputs context
-					// TODO: fix loading of inputs to InputsVM
-					// ----- use PreProcessContext instead of cwl.go's loading method
-					// ----- because cwl.go's method is super janky and not robust at all
 					vm := proc.Tool.Root.InputsVM.Copy()
 
 					// iterate through output files
 					var self interface{}
 					for _, fileObj := range results {
 						/*
-							see the secondaryFiles field description at:
-							https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
 							NOTE: presently only supporting the case of the expression returning a string filepath
 							----- NOT supporting the case in which the expression returns either file object or array of file objects
-							----- why the flip would the CWL spec allow the option of returning either a string or an object
+							----- why the flip would the CWL spec allow the option of returning either a string or an object or array of either of these
 							----- can extend code here to handle other cases as needed, or when I find an example to work with
 						*/
 
@@ -510,6 +505,8 @@ func (proc *Process) HandleCLTOutput() (err error) {
 							return err
 						}
 
+						// TODO: check if resulting secondaryFile actually exists (should encapsulate this to a function)
+
 						// get file object for secondaryFile and append it to the output file's SecondaryFiles field
 						sFileObj := getFileObj(sFilePath.(string))
 						fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
@@ -525,28 +522,18 @@ func (proc *Process) HandleCLTOutput() (err error) {
 						fileObj.loadSFilesFromPattern(suffix, carats)
 					}
 				}
-				// fmt.Println(val)
 			}
 		}
-		// I *think* this is where this should go
-		// but still need to handle the ValueFrom case
-		// fmt.Println("Output type:")
-		// PrintJSON(output.Types[0].Type)
-		// NOTE: need to handle `array of files` vs. `file` output
+		//// end of 4 step processing pipeline for collecting/handling output files ////
+
+		// at this point we have file results captured in `results`
+		// output should be a "File" or "array of Files"
 		if output.Types[0].Type == "File" {
-			// output should be a File object (so that keys are exposed) - not an array
-			if len(results) > 1 {
-				// this should be a warning, not an error
-				// this case needs to be handled
-				fmt.Printf("/tWARNING: Output specified one file, but found %v output files.\n", len(results))
-			}
-			if len(results) == 0 {
-				// this should be an error, not a warning
-				return fmt.Errorf("no output files found")
-			}
+			// TODO: add error handling for cases len(results) != 1
 			proc.Task.Outputs[output.ID] = results[0]
 		} else {
 			// output should be an array of File objects
+			// also need to add error handling here
 			proc.Task.Outputs[output.ID] = results
 		}
 	}
@@ -616,10 +603,21 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 	// copy InputsVM to get inputs context
 	vm := proc.Tool.Root.InputsVM.Copy()
 
-	// here `self` is the array of files returned by glob (with contents loaded if so specified)
-	self, err := PreProcessContext(fileArray)
-	if err != nil {
-		return err
+	// here `self` is the file or array of files returned by glob (with contents loaded if so specified)
+	var self interface{}
+	if output.Types[0].Type == "File" {
+		// indicates `self` should be a file object with keys exposed
+		// should check length fileArray - room for error here
+		self, err = PreProcessContext(fileArray[0])
+		if err != nil {
+			return err
+		}
+	} else {
+		// Not "File" means "array of Files"
+		self, err = PreProcessContext(fileArray)
+		if err != nil {
+			return err
+		}
 	}
 
 	// set `self` var in the vm
