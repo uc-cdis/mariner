@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -22,6 +23,7 @@ type Task struct {
 	Scatter         []string
 	ScatterMethod   string
 	ScatterTasks    map[int]*Task
+	ScatterIndex    int // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
 	Children        map[string]*Task
 	unFinishedSteps map[string]struct{}
 	outputIDMap     map[string]string
@@ -229,20 +231,55 @@ func (task *Task) getScatterParams() (scatterParams map[string][]interface{}, er
 // populates task.ScatterTasks with the scattered subtasks to be executed
 // the combination of inputs (and therefore the number of scattered subtasks to be run)
 // depends on 1. one vs. more than one scatter param 2. scatterMethod (if more than one scatter param)
+// TODO: handle dotproduct and flat_crossproduct cases
 func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err error) {
-	fmt.Println("scatterParams:")
-	PrintJSON(scatterParams)
 	fmt.Printf("\tBuilding scatter subtasks for %v input(s) with scatterMethod %v\n", len(scatterParams), task.ScatterMethod)
 	task.ScatterTasks = make(map[int]*Task)
 	switch task.ScatterMethod {
 	case "":
 		// scattering 1 input (simplest case)
+		scatteredParam := task.Scatter[0]
+		for i, scatterVal := range scatterParams[scatteredParam] {
+			subtask := &Task{
+				JobID:        task.JobID,
+				Engine:       task.Engine,
+				Root:         task.Root,
+				Parameters:   make(cwl.Parameters),
+				originalStep: task.originalStep,
+				ScatterIndex: i + 1,
+			}
+			subtask.Parameters[scatteredParam] = scatterVal
+			// assign values to all non-scattered parameters
+			for param, val := range task.Parameters {
+				if _, ok := subtask.Parameters[param]; !ok {
+					subtask.Parameters[param] = val
+				}
+			}
+			task.ScatterTasks[i] = subtask
+			fmt.Printf("subtask %v params:\n", i+1)
+			PrintJSON(subtask.Parameters)
+		}
 	case "dotproduct":
 		// scattering >=2 inputs (slightly more complicated, but not complicated)
 		// no need to check input lengths - this already got validated in Task.getScatterParams()
 	case "flat_crossproduct":
 		// scattering >=2 inputs (ever so slightly more complicated than dotproduct)
 	}
+	return nil
+}
+
+// run all scatter tasks concurrently
+func (task *Task) runScatterTasks() (err error) {
+	fmt.Println("running scatter tasks concurrently..")
+	var wg sync.WaitGroup
+	for _, scattertask := range task.ScatterTasks {
+		wg.Add(1)
+		go func(scattertask *Task) {
+			defer wg.Done()
+			scattertask.Run()
+		}(scattertask)
+	}
+	wg.Wait()
 	return nil
 }
 
@@ -255,27 +292,14 @@ func (task *Task) runScatter() (err error) {
 	if err != nil {
 		return err
 	}
-	task.buildScatterTasks(scatterParams)
-	/*
-		for i := range castedParam[firstScatterKey] {
-			subtask := &Task{
-				JobID:      task.JobID,
-				Engine:     task.Engine,
-				Root:       task.Root,
-				Parameters: make(cwl.Parameters),
-			}
-			for _, scatterKey := range task.Scatter {
-				subtask.Parameters[scatterKey] = castedParam[scatterKey][i]
-			}
-			for k, v := range task.Parameters {
-				if subtask.Parameters[k] != nil {
-					subtask.Parameters[k] = v
-				}
-			}
-			task.ScatterTasks[i] = subtask
-			subtask.Run()
-		}
-	*/
+	err = task.buildScatterTasks(scatterParams)
+	if err != nil {
+		return err
+	}
+	err = task.runScatterTasks()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -310,6 +334,7 @@ func (task *Task) Run() error {
 	if task.Scatter != nil {
 		task.runScatter()
 		task.gatherScatterOutputs()
+		return nil // stop processing scatter task
 	}
 
 	// if this process is a workflow
@@ -430,6 +455,7 @@ func (task *Task) Run() error {
 		if task.Scatter != nil {
 			fmt.Printf("\tI am going to scatter this!!\n")
 		}
+		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		task.Engine.DispatchTask(task.JobID, task)
 	}
 	return nil

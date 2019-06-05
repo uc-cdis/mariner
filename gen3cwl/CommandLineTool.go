@@ -70,11 +70,16 @@ func getJobClient() batchtypev1.JobInterface {
 }
 
 // replace disallowed job name characters
-func (tool *Tool) makeJobName() string {
-	taskID := tool.Root.ID
+func (proc *Process) makeJobName() string {
+	taskID := proc.Task.Root.ID
 	jobName := strings.ReplaceAll(taskID, "#", "")
 	jobName = strings.ReplaceAll(jobName, "_", "-")
 	jobName = strings.ToLower(jobName)
+	if proc.Task.ScatterIndex != 0 {
+		// indicates this task is a scattered subtask of a task which was scattered
+		// in order to not dupliate k8s job names - append suffix with ScatterIndex to job name
+		jobName = fmt.Sprintf("%v-scattered-%v", jobName, proc.Task.ScatterIndex)
+	}
 	return jobName
 }
 
@@ -92,13 +97,14 @@ func getPropagationMode(val k8sv1.MountPropagationMode) (pval *k8sv1.MountPropag
 // 3. assemble command and save as /data/run.sh (done)
 func (tool *Tool) getSidecarArgs() []string {
 	toolCmd := strings.Join(tool.Command.Args, " ")
+	fmt.Printf("command: %q", toolCmd)
 	// to run the actual command: remove the second "echo" from the second line
 	// need to add commands here to install goofys and mount the s3 bucket
 	sidecarCmd := fmt.Sprintf(`
 	echo sidecar is running..
 	echo "echo %v" > /data/run.sh
 	echo successfully created /data/run.sh
-	`, toolCmd)
+	`, "run this bash script to execute the commandlinetool")
 	args := []string{
 		"-c",
 		sidecarCmd,
@@ -125,7 +131,7 @@ func getCLToolArgs() []string {
 }
 
 func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
-	jobName := proc.Tool.makeJobName() // slightly modified Root.ID
+	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
 	batchJob = &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
