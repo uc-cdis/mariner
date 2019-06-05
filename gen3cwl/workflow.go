@@ -3,6 +3,7 @@ package gen3cwl
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -164,6 +165,7 @@ func (task *Task) gatherScatterOutputs() error {
 	return nil
 }
 
+// HERE TODO: implement scatter
 func (task *Task) runScatter() error {
 	fmt.Println("task.Scatter:")
 	PrintJSON(task.Scatter)
@@ -172,29 +174,30 @@ func (task *Task) runScatter() error {
 	fmt.Println("task.ScatterMethod:")
 	PrintJSON(task.ScatterMethod)
 
-	fmt.Println("task.Parameters:")
-	PrintJSON(task.Parameters)
+	// fmt.Println("task.Parameters:")
+	// PrintJSON(task.Parameters)
 
 	if task.ScatterMethod != "" && task.ScatterMethod != "dotproduct" {
 		panic(fmt.Sprintf("NOT SUPPORTED scattermethod %v not supported", task.ScatterMethod))
 	}
+
 	task.ScatterTasks = make(map[int]*Task)
 	// {"a": 1, "b": ["a", "b"]}
 	// {"a": 1, "b": "a"}
 	firstScatterKey := task.Scatter[0]
 	castedParam := make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
-		fmt.Printf("scatterKey: %v\n", scatterKey)
-		fmt.Println("task.Parameters[scatterKey]:")
-		PrintJSON(task.Parameters[scatterKey])
-
-		paramArray, ok := task.Parameters[scatterKey].([]interface{})
+		input := task.Parameters[scatterKey]
+		paramArray, ok := buildArray(input)
 		if !ok {
 			panic(fmt.Sprintf("Scatter on non-array input %v", scatterKey))
 		}
+		fmt.Println("\tArray input verified")
 		castedParam[scatterKey] = paramArray
-
 	}
+
+	fmt.Println("Here is castedParam:")
+	PrintJSON(castedParam)
 
 	for i := range castedParam[firstScatterKey] {
 		subtask := &Task{
@@ -215,6 +218,25 @@ func (task *Task) runScatter() error {
 		subtask.Run()
 	}
 	return nil
+}
+
+// for handling any kind of array/slice input to scatter
+// need to convert whatever input we encounter to a generalized array of type []interface{}
+// not sure if there is an easier way to do this
+// ---
+// if i is an array or slice  -> returns arr, true
+// if i is not an array or slice -> return nil, false
+func buildArray(i interface{}) (arr []interface{}, isArr bool) {
+	kind := reflect.TypeOf(i).Kind()
+	if kind != reflect.Array && kind != reflect.Slice {
+		return nil, false
+	}
+	s := reflect.ValueOf(i)            // get underlying array
+	arr = make([]interface{}, s.Len()) // allocate generalized array of same length
+	for n := 0; n < s.Len(); n++ {
+		arr[n] = s.Index(n).Interface() // retrieve each value by index from the input array
+	}
+	return arr, true
 }
 
 // Run a task
