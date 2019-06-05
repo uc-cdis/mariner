@@ -169,6 +169,10 @@ func (task *Task) gatherScatterOutputs() error {
 // if more than one input, must have scatterMethod `dotproduct` or `flat_crossproduct`
 // nested_crossproduct scatterMethod not supported
 func (task *Task) validateScatterMethod() (err error) {
+	if len(task.Scatter) == 0 {
+		// this check *might* be redundant - but just in case, keeping it for now
+		return fmt.Errorf("no inputs to scatter")
+	}
 	if len(task.Scatter) == 1 && task.ScatterMethod != "" {
 		return fmt.Errorf("scatterMethod specified but only one input to scatter")
 	}
@@ -184,9 +188,26 @@ func (task *Task) validateScatterMethod() (err error) {
 	return nil
 }
 
+// returns boolean indicating whether all input params have same length
+func uniformLength(scatterParams map[string][]interface{}) bool {
+	initLen := -1
+	for _, v := range scatterParams {
+		if initLen == -1 {
+			initLen = len(v)
+		}
+		if len(v) != initLen {
+			return false
+		}
+	}
+	return true
+}
+
 // assign input value to each scattered input parameter
 func (task *Task) getScatterParams() (scatterParams map[string][]interface{}, err error) {
 	scatterParams = make(map[string][]interface{})
+	if err != nil {
+		return nil, err
+	}
 	for _, scatterKey := range task.Scatter {
 		input := task.Parameters[scatterKey]
 		paramArray, ok := buildArray(input) // returns object of type []interface{}
@@ -195,7 +216,34 @@ func (task *Task) getScatterParams() (scatterParams map[string][]interface{}, er
 		}
 		scatterParams[scatterKey] = paramArray
 	}
+	if task.ScatterMethod == "dotproduct" {
+		// dotproduct requires that all scattered inputs have same length
+		// uniformLength() returns true if all inputs have same length; false otherwise
+		if ok := uniformLength(scatterParams); !ok {
+			return nil, fmt.Errorf("scatterMethod is dotproduct but not all inputs have same length")
+		}
+	}
 	return scatterParams, nil
+}
+
+// populates task.ScatterTasks with the scattered subtasks to be executed
+// the combination of inputs (and therefore the number of scattered subtasks to be run)
+// depends on 1. one vs. more than one scatter param 2. scatterMethod (if more than one scatter param)
+func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err error) {
+	fmt.Println("scatterParams:")
+	PrintJSON(scatterParams)
+	fmt.Printf("\tBuilding scatter subtasks for %v input(s) with scatterMethod %v\n", len(scatterParams), task.ScatterMethod)
+	task.ScatterTasks = make(map[int]*Task)
+	switch task.ScatterMethod {
+	case "":
+		// scattering 1 input (simplest case)
+	case "dotproduct":
+		// scattering >=2 inputs (slightly more complicated, but not complicated)
+		// no need to check input lengths - this already got validated in Task.getScatterParams()
+	case "flat_crossproduct":
+		// scattering >=2 inputs (ever so slightly more complicated than dotproduct)
+	}
+	return nil
 }
 
 // HERE TODO: implement scatter
@@ -207,12 +255,7 @@ func (task *Task) runScatter() (err error) {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("scatterParams:")
-	PrintJSON(scatterParams)
-
-	task.ScatterTasks = make(map[int]*Task)
-
+	task.buildScatterTasks(scatterParams)
 	/*
 		for i := range castedParam[firstScatterKey] {
 			subtask := &Task{
