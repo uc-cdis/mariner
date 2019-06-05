@@ -165,64 +165,81 @@ func (task *Task) gatherScatterOutputs() error {
 	return nil
 }
 
-// HERE TODO: implement scatter
-func (task *Task) runScatter() error {
-	fmt.Println("task.Scatter:")
-	PrintJSON(task.Scatter)
-	fmt.Println("task.ScatterTasks:")
-	PrintJSON(task.ScatterTasks)
-	fmt.Println("task.ScatterMethod:")
-	PrintJSON(task.ScatterMethod)
-
-	// fmt.Println("task.Parameters:")
-	// PrintJSON(task.Parameters)
-
-	if task.ScatterMethod != "" && task.ScatterMethod != "dotproduct" {
-		panic(fmt.Sprintf("NOT SUPPORTED scattermethod %v not supported", task.ScatterMethod))
+// only one input means no scatterMethod
+// if more than one input, must have scatterMethod `dotproduct` or `flat_crossproduct`
+// nested_crossproduct scatterMethod not supported
+func (task *Task) validateScatterMethod() (err error) {
+	if len(task.Scatter) == 1 && task.ScatterMethod != "" {
+		return fmt.Errorf("scatterMethod specified but only one input to scatter")
 	}
+	if len(task.Scatter) > 1 && task.ScatterMethod == "" {
+		return fmt.Errorf("more than one input to scatter but no scatterMethod specified")
+	}
+	if task.ScatterMethod == "nested_crossproduct" {
+		return fmt.Errorf("scatterMethod \"nested_crossproduct\" not supported")
+	}
+	if len(task.Scatter) > 1 && task.ScatterMethod != "dotproduct" && task.ScatterMethod != "flat_crossproduct" {
+		return fmt.Errorf("invalid scatterMethod: %v", task.ScatterMethod)
+	}
+	return nil
+}
 
-	task.ScatterTasks = make(map[int]*Task)
-	// {"a": 1, "b": ["a", "b"]}
-	// {"a": 1, "b": "a"}
-	firstScatterKey := task.Scatter[0]
-	castedParam := make(map[string][]interface{})
+// assign input value to each scattered input parameter
+func (task *Task) getScatterParams() (scatterParams map[string][]interface{}, err error) {
+	scatterParams = make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
 		input := task.Parameters[scatterKey]
-		paramArray, ok := buildArray(input)
+		paramArray, ok := buildArray(input) // returns object of type []interface{}
 		if !ok {
-			panic(fmt.Sprintf("Scatter on non-array input %v", scatterKey))
+			return nil, fmt.Errorf("scatter on non-array input %v", scatterKey)
 		}
-		fmt.Println("\tArray input verified")
-		castedParam[scatterKey] = paramArray
+		scatterParams[scatterKey] = paramArray
+	}
+	return scatterParams, nil
+}
+
+// HERE TODO: implement scatter
+func (task *Task) runScatter() (err error) {
+	if err = task.validateScatterMethod(); err != nil {
+		return err
+	}
+	scatterParams, err := task.getScatterParams()
+	if err != nil {
+		return err
 	}
 
-	fmt.Println("Here is castedParam:")
-	PrintJSON(castedParam)
+	fmt.Println("scatterParams:")
+	PrintJSON(scatterParams)
 
-	for i := range castedParam[firstScatterKey] {
-		subtask := &Task{
-			JobID:      task.JobID,
-			Engine:     task.Engine,
-			Root:       task.Root,
-			Parameters: make(cwl.Parameters),
-		}
-		for _, scatterKey := range task.Scatter {
-			subtask.Parameters[scatterKey] = castedParam[scatterKey][i]
-		}
-		for k, v := range task.Parameters {
-			if subtask.Parameters[k] != nil {
-				subtask.Parameters[k] = v
+	task.ScatterTasks = make(map[int]*Task)
+
+	/*
+		for i := range castedParam[firstScatterKey] {
+			subtask := &Task{
+				JobID:      task.JobID,
+				Engine:     task.Engine,
+				Root:       task.Root,
+				Parameters: make(cwl.Parameters),
 			}
+			for _, scatterKey := range task.Scatter {
+				subtask.Parameters[scatterKey] = castedParam[scatterKey][i]
+			}
+			for k, v := range task.Parameters {
+				if subtask.Parameters[k] != nil {
+					subtask.Parameters[k] = v
+				}
+			}
+			task.ScatterTasks[i] = subtask
+			subtask.Run()
 		}
-		task.ScatterTasks[i] = subtask
-		subtask.Run()
-	}
+	*/
 	return nil
 }
 
 // for handling any kind of array/slice input to scatter
 // need to convert whatever input we encounter to a generalized array of type []interface{}
 // not sure if there is an easier way to do this
+// see: https://stackoverflow.com/questions/14025833/range-over-interface-which-stores-a-slice
 // ---
 // if i is an array or slice  -> returns arr, true
 // if i is not an array or slice -> return nil, false
