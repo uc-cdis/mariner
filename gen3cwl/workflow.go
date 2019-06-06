@@ -89,6 +89,8 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 	mainTask.Run()
 
 	fmt.Print("\n\nFinished running workflow job.\n")
+	fmt.Println("Here's the output:")
+	PrintJSON(mainTask.Outputs)
 	return nil
 }
 
@@ -163,7 +165,29 @@ func (task *Task) setupOutputMap() error {
 	return nil
 }
 
-func (task *Task) gatherScatterOutputs() error {
+func (task *Task) gatherScatterOutputs() (err error) {
+	fmt.Println("gathering scatter outputs..")
+	task.Outputs = make(cwl.Parameters)
+	totalOutput := make([]cwl.Parameters, len(task.ScatterTasks))
+	var wg sync.WaitGroup
+	for _, scatterTask := range task.ScatterTasks {
+		wg.Add(1)
+		fmt.Printf("running goroutine for %v\n", scatterTask.ScatterIndex)
+		go func(scatterTask *Task, totalOutput []cwl.Parameters) {
+			fmt.Printf("in goroutine %v\n", scatterTask.ScatterIndex)
+			defer wg.Done()
+			fmt.Printf("entering while loop in goroutine %v\n", scatterTask.ScatterIndex)
+			for len(scatterTask.Outputs) == 0 {
+				// wait for scattered task to finish
+				fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
+			}
+			fmt.Printf("exited while loop in routine %v\n", scatterTask.ScatterIndex)
+			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note ScatterIndex begins at 1, not 0
+		}(scatterTask, totalOutput)
+	}
+	wg.Wait()
+	fmt.Println("assigning totalOutput from scattered process")
+	task.Outputs[task.Root.Outputs[0].ID] = totalOutput // not sure what output ID to use here?
 	return nil
 }
 
@@ -262,13 +286,17 @@ func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err
 	case "dotproduct":
 		// scattering >=2 inputs (slightly more complicated, but not complicated)
 		// no need to check input lengths - this already got validated in Task.getScatterParams()
+		// TODO
 	case "flat_crossproduct":
 		// scattering >=2 inputs (ever so slightly more complicated than dotproduct)
+		// TODO
 	}
 	return nil
 }
 
 // run all scatter tasks concurrently
+// maybe can apply this same logic to workflow engine
+// so that all independent steps get run concurrently
 func (task *Task) runScatterTasks() (err error) {
 	fmt.Println("running scatter tasks concurrently..")
 	var wg sync.WaitGroup
@@ -333,6 +361,7 @@ func (task *Task) Run() error {
 	fmt.Printf("\nRunning task: %v\n", workflow.ID)
 	if task.Scatter != nil {
 		task.runScatter()
+		fmt.Println("between running scatter and gathering scatter outputs")
 		task.gatherScatterOutputs()
 		return nil // stop processing scatter task
 	}

@@ -248,11 +248,10 @@ func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 	}
 	fmt.Println("\tK8s job complete. Collecting output..")
 
-	// testing this function now (10:37am)
 	proc.CollectOutput()
 
 	fmt.Println("\tFinished collecting output.")
-	// PrintJSON(proc.Task.Outputs)
+	PrintJSON(proc.Task.Outputs)
 
 	fmt.Println("\tUpdating engine process stack..")
 	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
