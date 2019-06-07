@@ -264,7 +264,7 @@ func (task *Task) fillNonScatteredParams(parentTask *Task) {
 	}
 }
 
-// should work but need to test
+// should work, need to test
 func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error) {
 	// no need to check input lengths - this already got validated in Task.getScatterParams()
 	_, inputLength := uniformLength(scatterParams)
@@ -284,30 +284,67 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 		// assign values to all non-scattered parameters
 		subtask.fillNonScatteredParams(task)
 		task.ScatterTasks[i] = subtask
-		fmt.Println("subtask parameters:")
-		PrintJSON(subtask.Parameters)
 	}
 	return nil
 }
 
+// nextIndex sets ix to the lexicographically next value,
+// such that for each i>0, 0 <= ix[i] < lens(i).
+// used in flatCrossproduct()
+func nextIndex(ix []int, lens func(i int) int) {
+	for j := len(ix) - 1; j >= 0; j-- {
+		ix[j]++
+		if j == 0 || ix[j] < lens(j) {
+			return
+		}
+		ix[j] = 0
+	}
+}
+
+// get cartesian product of input arrays
+// tested algorithm in goplayground: https://play.golang.org/p/jiN5uP08rnm
+// should work, need to test with workflow
 func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err error) {
+	paramIDList := make([]string, 0, len(scatterParams))
+	inputArrays := make([][]interface{}, 0, len(scatterParams))
+	for paramID, inputArray := range scatterParams {
+		paramIDList = append(paramIDList, paramID)
+		inputArrays = append(inputArrays, inputArray)
+	}
+
+	lens := func(i int) int { return len(inputArrays[i]) }
+
+	scatterIndex := 1
+	for ix := make([]int, len(inputArrays)); ix[0] < lens(0); nextIndex(ix, lens) {
+		subtask := &Task{
+			JobID:        task.JobID,
+			Engine:       task.Engine,
+			Root:         task.Root,
+			Parameters:   make(cwl.Parameters),
+			originalStep: task.originalStep,
+			ScatterIndex: scatterIndex, // count starts from 1, not 0, so that we can check if the ScatterIndex is nil (0 if nil)
+		}
+		for j, k := range ix {
+			subtask.Parameters[paramIDList[j]] = inputArrays[j][k]
+		}
+		subtask.fillNonScatteredParams(task)
+		task.ScatterTasks[scatterIndex] = subtask
+		scatterIndex++
+	}
 	return nil
 }
 
-// populates task.ScatterTasks with the scattered subtasks to be executed
-// according to scatterMethod specified
+// populates task.ScatterTasks with scattered subtasks according to scatterMethod
 func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err error) {
 	fmt.Printf("\tBuilding scatter subtasks for %v input(s) with scatterMethod %v\n", len(scatterParams), task.ScatterMethod)
 	task.ScatterTasks = make(map[int]*Task)
 	switch task.ScatterMethod {
-	// simple scattering over one input is a special case of dotproduct
-	case "", "dotproduct":
+	case "", "dotproduct": // simple scattering over one input is a special case of dotproduct
 		err = task.dotproduct(scatterParams)
 		if err != nil {
 			return err
 		}
 	case "flat_crossproduct":
-		// scattering >=2 inputs
 		err = task.flatCrossproduct(scatterParams)
 		if err != nil {
 			return err
@@ -333,7 +370,6 @@ func (task *Task) runScatterTasks() (err error) {
 	return nil
 }
 
-// HERE TODO: implement scatter
 func (task *Task) runScatter() (err error) {
 	if err = task.validateScatterMethod(); err != nil {
 		return err
