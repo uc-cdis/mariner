@@ -215,17 +215,18 @@ func (task *Task) validateScatterMethod() (err error) {
 }
 
 // returns boolean indicating whether all input params have same length
-func uniformLength(scatterParams map[string][]interface{}) bool {
+// and the length if true
+func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length int) {
 	initLen := -1
 	for _, v := range scatterParams {
 		if initLen == -1 {
 			initLen = len(v)
 		}
 		if len(v) != initLen {
-			return false
+			return false, 0
 		}
 	}
-	return true
+	return true, initLen
 }
 
 // assign input value to each scattered input parameter
@@ -245,51 +246,72 @@ func (task *Task) getScatterParams() (scatterParams map[string][]interface{}, er
 	if task.ScatterMethod == "dotproduct" {
 		// dotproduct requires that all scattered inputs have same length
 		// uniformLength() returns true if all inputs have same length; false otherwise
-		if ok := uniformLength(scatterParams); !ok {
+		if ok, _ := uniformLength(scatterParams); !ok {
 			return nil, fmt.Errorf("scatterMethod is dotproduct but not all inputs have same length")
 		}
 	}
 	return scatterParams, nil
 }
 
+// assigns values to all non-scattered parameters
+// the receiver task here is a subtask of a scattered task called `parentTask`
+// see simpleScatter(), dotproduct(), flatCrossproduct()
+func (task *Task) fillNonScatteredParams(parentTask *Task) {
+	for param, val := range parentTask.Parameters {
+		if _, ok := task.Parameters[param]; !ok {
+			task.Parameters[param] = val
+		}
+	}
+}
+
+// should work but need to test
+func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error) {
+	// no need to check input lengths - this already got validated in Task.getScatterParams()
+	_, inputLength := uniformLength(scatterParams)
+	for i := 0; i < inputLength; i++ {
+		subtask := &Task{
+			JobID:        task.JobID,
+			Engine:       task.Engine,
+			Root:         task.Root,
+			Parameters:   make(cwl.Parameters),
+			originalStep: task.originalStep,
+			ScatterIndex: i + 1, // count starts from 1, not 0, so that we can check if the ScatterIndex is nil (0 if nil)
+		}
+		// assign the i'th element of each input array as input to this scatter subtask
+		for param, inputArray := range scatterParams {
+			subtask.Parameters[param] = inputArray[i]
+		}
+		// assign values to all non-scattered parameters
+		subtask.fillNonScatteredParams(task)
+		task.ScatterTasks[i] = subtask
+		fmt.Println("subtask parameters:")
+		PrintJSON(subtask.Parameters)
+	}
+	return nil
+}
+
+func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err error) {
+	return nil
+}
+
 // populates task.ScatterTasks with the scattered subtasks to be executed
-// the combination of inputs (and therefore the number of scattered subtasks to be run)
-// depends on 1. one vs. more than one scatter param 2. scatterMethod (if more than one scatter param)
-// TODO: handle dotproduct and flat_crossproduct cases
+// according to scatterMethod specified
 func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err error) {
 	fmt.Printf("\tBuilding scatter subtasks for %v input(s) with scatterMethod %v\n", len(scatterParams), task.ScatterMethod)
 	task.ScatterTasks = make(map[int]*Task)
 	switch task.ScatterMethod {
-	case "":
-		// scattering 1 input (simplest case)
-		scatteredParam := task.Scatter[0]
-		for i, scatterVal := range scatterParams[scatteredParam] {
-			subtask := &Task{
-				JobID:        task.JobID,
-				Engine:       task.Engine,
-				Root:         task.Root,
-				Parameters:   make(cwl.Parameters),
-				originalStep: task.originalStep,
-				ScatterIndex: i + 1,
-			}
-			subtask.Parameters[scatteredParam] = scatterVal
-			// assign values to all non-scattered parameters
-			for param, val := range task.Parameters {
-				if _, ok := subtask.Parameters[param]; !ok {
-					subtask.Parameters[param] = val
-				}
-			}
-			task.ScatterTasks[i] = subtask
-			fmt.Printf("subtask %v params:\n", i+1)
-			PrintJSON(subtask.Parameters)
+	// simple scattering over one input is a special case of dotproduct
+	case "", "dotproduct":
+		err = task.dotproduct(scatterParams)
+		if err != nil {
+			return err
 		}
-	case "dotproduct":
-		// scattering >=2 inputs (slightly more complicated, but not complicated)
-		// no need to check input lengths - this already got validated in Task.getScatterParams()
-		// TODO
 	case "flat_crossproduct":
-		// scattering >=2 inputs (ever so slightly more complicated than dotproduct)
-		// TODO
+		// scattering >=2 inputs
+		err = task.flatCrossproduct(scatterParams)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
