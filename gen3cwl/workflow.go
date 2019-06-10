@@ -84,12 +84,101 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 	}
 
 	resolveGraph(flatRoots, mainTask)
-	mainTask.Run()
+	// mainTask.Run() // original, non-concurrent processing of workflow steps
+	mainTask.GoRun() // runs workflow steps concurrently
 
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
 	PrintJSON(mainTask.Outputs)
 	return nil
+}
+
+/*
+concurrency notes:
+1. Each step needs to wait until its input params are all populated before .Run()
+2. mergeChildOutputs() needs to wait until the outputs are actually there to collect them - wait until the steps have finished running
+*/
+
+// GoRun for Concurrent Processing of workflow Steps
+func (task *Task) GoRun() error {
+	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
+	if task.Scatter != nil {
+		task.runScatter()
+		task.gatherScatterOutputs()
+		return nil
+	}
+
+	if task.Root.Class == "Workflow" {
+		// this process is a workflow, i.e., it has steps that must be run
+		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
+		// concurrently run each of the workflow steps
+		task.RunSteps()
+		// merge outputs from all steps of this workflow to output for this workflow
+		task.mergeChildOutputs()
+	} else {
+		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine
+		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
+		task.Engine.DispatchTask(task.JobID, task)
+	}
+	return nil
+}
+
+// for concurrent processing of steps of a workflow
+// key point: the task does not get Run() until its input params are populated - that's how/where the dependencies get handled
+func (task *Task) runStep(curStepID string, parentTask *Task) {
+	fmt.Printf("\tProcessing Step: %v\n", curStepID)
+	curStep := task.originalStep
+	idMaps := make(map[string]string)
+	for _, input := range curStep.In {
+		taskInput := step2taskID(&curStep, input.ID)
+		idMaps[input.ID] = taskInput // step input ID maps to [sub]task input ID
+
+		// presently not handling the case of multiple sources for a given input parameter
+		// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
+		// the section on "Merging", with the "MultipleInputFeatureRequirement" and "linkMerge" fields specifying either "merge_nested" or "merge_flattened"
+		source := input.Source[0]
+
+		// P: if source is an ID that points to an output in another step
+		if depStepID, ok := parentTask.outputIDMap[source]; ok {
+			// wait until dependency step output is there
+			// and then assign output parameter of dependency step (which has just finished running) to input parameter of this step
+			depTask := parentTask.Children[depStepID]
+			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
+			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
+				fmt.Println("\tWaiting for dependency task to finish running..")
+				if len(depTask.Outputs) > 0 {
+					fmt.Println("\tDependency task complete!")
+					task.Parameters[taskInput] = depTask.Outputs[outputID]
+					fmt.Println("\tSuccessfully collected output from dependency task.")
+				}
+				time.Sleep(2 * time.Second) // for testing..
+			}
+		} else if strings.HasPrefix(source, parentTask.Root.ID) {
+			// if the input source to this step is not the outputID of another step
+			// but is an input of the parent workflow (e.g. "#subworkflow_test.cwl/input_bam" in gen3_test.pack.cwl)
+			// assign input parameter of parent workflow ot input parameter of this step
+			task.Parameters[taskInput] = parentTask.Parameters[source]
+		}
+	}
+
+	// reaching here implies one of <no step dependency> or <all step dependencies have been resolved/handled/run>
+
+	if len(curStep.Scatter) > 0 {
+		// subtask.Scatter = make([]string, len(curStep.Scatter))
+		for _, i := range curStep.Scatter {
+			task.Scatter = append(task.Scatter, idMaps[i])
+		}
+	}
+	task.GoRun()
+}
+
+func (task *Task) RunSteps() {
+	// store a map of {outputID: stepID} pairs to trace dependency
+	task.setupOutputMap()
+	// not sure if this will require a WaitGroup - seems to work fine without one
+	for curStepID, subtask := range task.Children {
+		go subtask.runStep(curStepID, task)
+	}
 }
 
 func (task *Task) setupStepQueue() error {
@@ -129,11 +218,13 @@ func (task *Task) mergeChildOutputs() error {
 				panic(fmt.Sprintf("Can't find output source %v", source))
 			}
 			subtaskOutputID := step2taskID(&task.Children[stepID].originalStep, source)
-			outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]
-			if !ok {
-				fmt.Printf("\tFail to get output from child step %v, %v\n\n", source, stepID)
+			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
+				fmt.Printf("Waiting to merge child outputs for workflow %v ..\n", task.Root.ID)
+				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {
+					task.Outputs[output.ID] = outputVal
+				}
+				time.Sleep(time.Second * 2)
 			}
-			task.Outputs[output.ID] = outputVal
 		} else {
 			panic(fmt.Sprintf("NOT SUPPORTED: don't know how to handle empty or array outputsource"))
 		}
@@ -151,7 +242,9 @@ func (task *Task) setupOutputMap() error {
 	return nil
 }
 
-// Run a task
+///////////////////// Original Non-Concurrent Task.Run() method, for reference /////////////////////
+
+// Run a task (original, non-concurrent method)
 // a task is a process is a node on the graph
 // a task can represent any of [Workflow, CommandLineTool, ExpressionTool, ...]
 func (task *Task) Run() error {
@@ -161,7 +254,6 @@ func (task *Task) Run() error {
 	fmt.Printf("\nRunning task: %v\n", workflow.ID)
 	if task.Scatter != nil {
 		task.runScatter()
-		fmt.Println("between running scatter and gathering scatter outputs")
 		task.gatherScatterOutputs()
 		return nil // stop processing scatter task
 	}
@@ -185,6 +277,16 @@ func (task *Task) Run() error {
 		//  pick random step
 		curStepID = task.getStep()
 
+		/*
+			Here is where the logic can shift
+			For running steps concurrently
+			Instead of a while loop
+			The engine should just iterate through all the steps
+			And run a goroutine for each step
+			Dependencies will be handled by the logic:
+			if dependent step(s), then wait until the dependent step(s) finish to collect input params
+			only after all input params have been populated -> dispatch task
+		*/
 		// while there are unfinished steps
 		for len(task.unFinishedSteps) > 0 {
 			fmt.Printf("\tProcessing Step: %v\n", curStepID)
@@ -266,6 +368,7 @@ func (task *Task) Run() error {
 			curStepID = task.getStep()
 		}
 		fmt.Println("\t\tMerging outputs for task ", task.Root.ID)
+		// this mergeChildOutputs() function needs to wait until the child steps have finished running BEFORE attempting to merge outputs
 		task.mergeChildOutputs() // for workflows only - merge outputs from all steps of this workflow to output for this workflow
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine

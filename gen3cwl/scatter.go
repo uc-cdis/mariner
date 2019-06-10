@@ -8,17 +8,6 @@ import (
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
-/*
-  "encoding/json"
-	"fmt"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
-
-	cwl "github.com/uc-cdis/cwl.go"
-*/
-
 func (task *Task) runScatter() (err error) {
 	if err = task.validateScatterMethod(); err != nil {
 		return err
