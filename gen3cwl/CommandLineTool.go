@@ -115,24 +115,51 @@ func (tool *Tool) getSidecarArgs() []string {
 // wait for sidecar to setup
 // in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
-func getCLToolArgs() []string {
+func (proc *Process) getCLToolArgs() []string {
 	args := []string{
 		"-c",
-		`
+		fmt.Sprintf(`
     while [[ ! -f /data/run.sh ]]; do
       echo "Waiting for sidecar to finish setting up..";
       sleep 5
     done
 		echo "Sidecar setup complete! Running /data/run.sh now.."
-		/bin/bash /data/run.sh
-		`,
+		%v /data/run.sh
+		`, proc.getCLTBash()),
 	}
 	return args
+}
+
+// handles the DockerRequirement if specified and returns the image to be used for the CommandLineTool
+// if no image specified, returns `ubuntu` as a default image - need to ask/check if there is a better default image to use
+// NOTE: presently only supporting use of the `dockerPull` CWL field
+func (proc *Process) getDockerImage() string {
+	for _, requirement := range proc.Task.Root.Requirements {
+		if requirement.Class == "DockerRequirement" {
+			if requirement.DockerPull != "" {
+				// Shenglai made comment about adding `sha256` tag in order to pull exactly the latest image you want
+				// ask for detail/example and ask others to see if I should implement that
+				return string(requirement.DockerPull)
+			}
+		}
+	}
+	return "ubuntu"
+}
+
+// get path to bash.. it is problematic to have to deal with this
+// only doing this right now temporarily so that test workflow runs
+// here TODO: come up with a better solution for this
+func (proc *Process) getCLTBash() string {
+	if proc.getDockerImage() == "alpine" {
+		return "/bin/sh"
+	}
+	return "/bin/bash"
 }
 
 func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
+	fmt.Printf("Pulling image %v for task %v\n", proc.getDockerImage(), proc.Task.Root.ID)
 	batchJob = &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
@@ -158,11 +185,11 @@ func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 					Containers: []k8sv1.Container{
 						{
 							Name:  "commandlinetool",
-							Image: "ubuntu", // need to handle cwl docker-requirements and pick a good default image
+							Image: proc.getDockerImage(),
 							Command: []string{
-								"/bin/bash",
+								proc.getCLTBash(), // get path to bash for docker image (needs better solution)
 							},
-							Args:            getCLToolArgs(),
+							Args:            proc.getCLToolArgs(), // need function here to identify path to bash based on docker image
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							VolumeMounts: []k8sv1.VolumeMount{
 								{

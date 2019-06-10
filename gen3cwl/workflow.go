@@ -84,6 +84,7 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 	}
 
 	resolveGraph(flatRoots, mainTask)
+
 	// mainTask.Run() // original, non-concurrent processing of workflow steps
 	mainTask.GoRun() // runs workflow steps concurrently
 

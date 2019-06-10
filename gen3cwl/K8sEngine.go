@@ -234,25 +234,18 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1
 	*/
-	fmt.Println("getting local ID..")
 	localID := GetLastInPath(input.ID)
 	// stepInput ValueFrom case
-	fmt.Println("using localID to access value from StepInputMap..")
-	fmt.Println("here is StepInputMap")
-	PrintJSON(tool.StepInputMap)
 	if tool.StepInputMap[localID].ValueFrom == "" {
-		fmt.Println("valueFrom is empty")
 		// no processing needs to happen if the valueFrom field is empty
 		var ok bool
 		if out, ok = tool.Parameters[input.ID]; !ok {
 			return nil, fmt.Errorf("input not found in tool's parameters")
 		}
 	} else {
-		fmt.Println("getting valueFrom..")
 		// here the valueFrom field is not empty, so we need to handle valueFrom
 		valueFrom := tool.StepInputMap[localID].ValueFrom
 		if strings.HasPrefix(valueFrom, "$") {
-			fmt.Println("valueFrom is an expression..")
 			// valueFrom is an expression that needs to be eval'd
 
 			// get a js vm
@@ -261,7 +254,6 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			// preprocess struct/array so that fields can be accessed in vm
 			// Question: how to handle non-array/struct data types?
 			// --------- no preprocessing should have to happen in this case.
-			fmt.Println("preprocessing context..")
 			self, err := PreProcessContext(tool.Parameters[input.ID])
 			if err != nil {
 				return nil, err
@@ -292,12 +284,10 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			*/
 
 			//  eval the expression in the vm, capture result in `out`
-			fmt.Println("evaling expression..")
 			if out, err = EvalExpression(valueFrom, vm); err != nil {
 				return nil, err
 			}
 		} else {
-			fmt.Println("valueFrom is not an expression..")
 			// valueFrom is not an expression - take raw string/val as value
 			out = valueFrom
 		}
@@ -336,7 +326,6 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	// so that would be specified in a cwl workflow file like Workflow.cwl
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
 	// so that information would be specified in a cwl  *tool file like CommandLineTool.cwl or ExpressionTool.cwl
-	fmt.Printf("transforming input %v..\n", input.ID)
 	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	} else {
@@ -347,7 +336,6 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	if input.Default == nil && input.Binding == nil && input.Provided == nil {
 		return fmt.Errorf("input `%s` doesn't have default field but not provided", input.ID)
 	}
-	fmt.Println("handling requirements..")
 	if key, needed := input.Types[0].NeedRequirement(); needed {
 		for _, req := range tool.Root.Requirements {
 			for _, requiredtype := range req.Types {
@@ -399,8 +387,6 @@ func (proc *Process) CollectOutput() (err error) {
 		if err = proc.HandleCLTOutput(); err != nil {
 			return err
 		}
-		fmt.Println("task.Outputs:")
-		PrintJSON(proc.Task.Outputs)
 	case "ExpressionTool":
 		if err = proc.HandleETOutput(); err != nil {
 			return err
@@ -757,7 +743,6 @@ func (proc *Process) HandleETOutput() (err error) {
 // If ExpressionTool, passes to appropriate handler to eval the expression
 // If CommandLineTool, passes to appropriate handler to create k8s job
 func (engine *K8sEngine) runTool(proc *Process) (err error) {
-	fmt.Println("\tRunning tool..")
 	switch class := proc.Tool.Root.Class; class {
 	case "ExpressionTool":
 		err = engine.RunExpressionTool(proc)
@@ -772,10 +757,6 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 		engine.FinishedProcs[proc.Tool.Root.ID] = proc
 
 	case "CommandLineTool":
-		if proc.Task.Root.ID == "#scatter_test.cwl" {
-			fmt.Println("here is a scatter task parameters")
-			PrintJSON(proc.Task.Parameters)
-		}
 		err = engine.RunCommandLineTool(proc)
 		if err != nil {
 			return err
@@ -806,7 +787,6 @@ func (engine K8sEngine) RunCommandLineTool(proc *Process) (err error) {
 
 // RunExpressionTool runs an ExpressionTool
 func (engine *K8sEngine) RunExpressionTool(proc *Process) (err error) {
-	fmt.Println("\tRunning ExpressionTool..")
 	// note: context has already been loaded
 	result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
 	if err != nil {
@@ -874,13 +854,11 @@ func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 }
 
 func (tool *Tool) setupTool() (err error) {
-	fmt.Println("loading inputs..")
 	err = tool.loadInputs() // pass parameter values to input.Provided for each input
 	if err != nil {
 		fmt.Printf("\tError loading inputs: %v\n", err)
 		return err
 	}
-	fmt.Println("putting inputs to vm..")
 	err = tool.inputsToVM() // loads inputs context to js vm tool.Root.InputsVM (Ready to test, but needs to be extended)
 	if err != nil {
 		fmt.Printf("\tError loading inputs to js VM: %v\n", err)
@@ -891,10 +869,10 @@ func (tool *Tool) setupTool() (err error) {
 
 // DispatchTask does some setup for and dispatches workflow *Tools - i.e., CommandLineTools and ExpressionTools
 func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
-	fmt.Println("getting tool..")
 	tool := task.getTool()
-	fmt.Println("setting up tool..")
 	err = tool.setupTool()
+	fmt.Printf("here are the requirements for tool %v\n", task.Root.ID)
+	PrintJSON(tool.Root.Requirements)
 
 	// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
 	// this will be handled when code is refactored/polished/cleaned up
@@ -907,7 +885,6 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	// push newly started process onto the engine's stack of running processes
 	engine.UnfinishedProcs[tool.Root.ID] = proc
 
-	fmt.Println("running tool..")
 	// engine runs the tool either as a CommandLineTool or ExpressionTool
 	err = engine.runTool(proc)
 	if err != nil {

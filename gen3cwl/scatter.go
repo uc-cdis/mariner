@@ -73,21 +73,16 @@ func (task *Task) gatherScatterOutputs() (err error) {
 	var wg sync.WaitGroup
 	for _, scatterTask := range task.ScatterTasks {
 		wg.Add(1)
-		fmt.Printf("running goroutine for %v\n", scatterTask.ScatterIndex)
 		go func(scatterTask *Task, totalOutput []cwl.Parameters) {
-			fmt.Printf("in goroutine %v\n", scatterTask.ScatterIndex)
 			defer wg.Done()
-			fmt.Printf("entering while loop in goroutine %v\n", scatterTask.ScatterIndex)
 			for len(scatterTask.Outputs) == 0 {
 				// wait for scattered task to finish
-				fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
+				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
-			fmt.Printf("exited while loop in routine %v\n", scatterTask.ScatterIndex)
 			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note ScatterIndex begins at 1, not 0
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
-	fmt.Println("assigning totalOutput from scattered process")
 	task.Outputs[task.Root.Outputs[0].ID] = totalOutput // not sure what output ID to use here?
 	return nil
 }
