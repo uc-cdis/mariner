@@ -131,7 +131,7 @@
                 },
                 {
                     "coresMin": 1,
-                    "ramMin": "100",
+                    "ramMin": 100,
                     "class": "ResourceRequirement",
                     "coresMax": 1
                 }
@@ -175,7 +175,7 @@
                 },
                 {
                     "coresMin": 1,
-                    "ramMin": "100",
+                    "ramMin": 100,
                     "class": "ResourceRequirement",
                     "coresMax": 1
                 }
