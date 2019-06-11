@@ -16,7 +16,7 @@ requirements:
   - class: ResourceRequirement
     coresMin: 1
     coresMax: 1
-    ramMin: 100MB
+    ramMin: 100
 
 inputs:
   input_bam:

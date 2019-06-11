@@ -13,6 +13,7 @@ requirements:
 
 inputs:
     input_bam: File
+
 outputs:
     output:
         type: string[]
@@ -24,7 +25,7 @@ steps:
         in:
             input_bam: input_bam
         out: [ output_files ]
-    
+
     test_scatter:
         run: ./tools/scatter_test.cwl
         scatter: file
