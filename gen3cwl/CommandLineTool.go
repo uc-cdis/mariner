@@ -3,6 +3,7 @@ package gen3cwl
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,10 +12,12 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	k8sResource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	"k8s.io/client-go/tools/clientcmd"
+	// k8sResource "k8s.io/apimachinery/pkg/api/resource"
 )
 
 // JobInfo - k8s job information
@@ -156,6 +159,78 @@ func (proc *Process) getCLTBash() string {
 	return "/bin/bash"
 }
 
+// only set limits when they are specified in the CWL
+// the "default" limits are no limits
+func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
+	var cpuReq, cpuLim int64
+	var memReq, memLim int64
+	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
+	for _, requirement := range proc.Task.Root.Requirements {
+		if requirement.Class == "ResourceRequirement" {
+			if requirement.CoresMin > 0 {
+				cpuReq = int64(requirement.CoresMin)
+				requests[k8sv1.ResourceCPU] = *k8sResource.NewQuantity(cpuReq, k8sResource.DecimalSI)
+			}
+
+			if requirement.CoresMax > 0 {
+				cpuLim = int64(requirement.CoresMax)
+				limits[k8sv1.ResourceCPU] = *k8sResource.NewQuantity(cpuLim, k8sResource.DecimalSI)
+			}
+
+			// Memory is provided in mebibytes (1 mebibyte is 2**20 bytes)
+			// here we convert mebibytes to bytes
+			if requirement.RAMMin > 0 {
+				memReq = int64(requirement.RAMMin * int(math.Pow(2, 20)))
+				requests[k8sv1.ResourceMemory] = *k8sResource.NewQuantity(memReq, k8sResource.DecimalSI)
+			}
+
+			if requirement.RAMMax > 0 {
+				memLim = int64(requirement.RAMMax * int(math.Pow(2, 20)))
+				limits[k8sv1.ResourceMemory] = *k8sResource.NewQuantity(memLim, k8sResource.DecimalSI)
+			}
+		}
+	}
+
+	// sanity check for negative requirements
+	reqVals := []int64{cpuReq, cpuLim, memReq, memLim}
+	for _, val := range reqVals {
+		if val < 0 {
+			panic("negative memory or cores requirement specified")
+		}
+	}
+
+	// verify valid bounds if both min and max specified
+	if memLim > 0 && memReq > 0 && memLim < memReq {
+		panic("memory maximum specified less than memory minimum specified")
+	}
+
+	if cpuLim > 0 && cpuReq > 0 && cpuLim < cpuReq {
+		panic("cores maximum specified less than cores minimum specified")
+	}
+
+	resourceReqs := k8sv1.ResourceRequirements{}
+	// only want to populate values if specified in the CWL
+	if len(requests) > 0 {
+		resourceReqs.Requests = requests
+	}
+	if len(limits) > 0 {
+		resourceReqs.Limits = limits
+	}
+	/*
+		resourceReqs := k8sv1.ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    *k8sResource.NewQuantity(cpuReq, k8sResource.DecimalSI),
+				k8sv1.ResourceMemory: *k8sResource.NewQuantity(memReq, k8sResource.DecimalSI),
+			},
+			Limits: k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    *k8sResource.NewQuantity(cpuLim, k8sResource.DecimalSI),
+				k8sv1.ResourceMemory: *k8sResource.NewQuantity(memLim, k8sResource.DecimalSI),
+			},
+		}
+	*/
+	return resourceReqs
+}
+
 func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
@@ -184,13 +259,14 @@ func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 					},
 					Containers: []k8sv1.Container{
 						{
-							Name:  "commandlinetool",
-							Image: proc.getDockerImage(),
+							Name:            "commandlinetool",
+							Image:           proc.getDockerImage(),
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							Command: []string{
 								proc.getCLTBash(), // get path to bash for docker image (needs better solution)
 							},
-							Args:            proc.getCLToolArgs(), // need function here to identify path to bash based on docker image
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
+							Args:      proc.getCLToolArgs(), // need function here to identify path to bash based on docker image
+							Resources: proc.getResourceReqs(),
 							VolumeMounts: []k8sv1.VolumeMount{
 								{
 									Name:             "shared-data",
