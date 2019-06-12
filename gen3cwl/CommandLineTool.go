@@ -161,12 +161,16 @@ func (proc *Process) getCLTBash() string {
 
 // only set limits when they are specified in the CWL
 // the "default" limits are no limits
+// see: https://godoc.org/k8s.io/api/core/v1#Container
+// the `Resources` field
+// for k8s resource info see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 	var cpuReq, cpuLim int64
 	var memReq, memLim int64
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
 	for _, requirement := range proc.Task.Root.Requirements {
 		if requirement.Class == "ResourceRequirement" {
+			// for info on quantities, see: https://godoc.org/k8s.io/apimachinery/pkg/api/resource#Quantity
 			if requirement.CoresMin > 0 {
 				cpuReq = int64(requirement.CoresMin)
 				requests[k8sv1.ResourceCPU] = *k8sResource.NewQuantity(cpuReq, k8sResource.DecimalSI)

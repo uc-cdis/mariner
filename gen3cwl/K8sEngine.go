@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -168,7 +169,6 @@ func (tool *Tool) buildStepInputMap() {
 // in: "#subworkflow_test.cwl/test_expr/file_array"
 // out: "file_array"
 func GetLastInPath(s string) (localID string) {
-	fmt.Printf("string to split: %v\n", s)
 	tmp := strings.Split(s, "/")
 	return tmp[len(tmp)-1]
 }
@@ -542,6 +542,8 @@ func (fileObj *File) loadSFilesFromPattern(suffix string, carats int) (err error
 
 	// check whether file exists
 	fileExists, err := exists(path)
+	// HERE - TODO - decide how to handle case of secondaryFiles that don't exist - warning or error? still append file obj to list or not?
+	// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 	switch {
 	case fileExists:
 		// the secondaryFile exists
@@ -864,6 +866,110 @@ func (tool *Tool) setupTool() (err error) {
 		fmt.Printf("\tError loading inputs to js VM: %v\n", err)
 		return err
 	}
+	err = tool.initWorkDir()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// determines whether i represents a CWL file object
+// see initWorkDir()
+func isFile(i interface{}) bool {
+	iType := reflect.TypeOf(i)
+	iKind := iType.Kind()
+	if iKind == reflect.Map {
+		iMap := reflect.ValueOf(i)
+		for _, key := range iMap.MapKeys() {
+			if key.Type() == reflect.TypeOf("") {
+				if key.String() == "Class" {
+					if iMap.MapIndex(key).String() == "File" {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// initDirReq handles the InitialWorkDirRequirement if specified for this tool
+// TODO: handle prefix issue; support cases where File or dirent is returned from `entry`
+// NOTE: this function really needs to be cleaned up/revised
+func (tool *Tool) initWorkDir() (err error) {
+	var result, resFile interface{}
+	for _, requirement := range tool.Root.Requirements {
+		if requirement.Class == "InitialWorkDirRequirement" {
+			// fmt.Println("found InitialWorkDirRequirement:")
+			// PrintJSON(requirement)
+			for _, listing := range requirement.Listing {
+				// handling the case where `entry` is content (expression or string) to be written to a file
+				// and `entryname` is the name of the file to be created
+				var contents interface{}
+				if strings.HasPrefix(listing.Entry, "$") {
+					// `entry` is an expression which may return a string, File or `dirent`
+					// NOTE: presently NOT supporting the File or dirent case
+					result, err = EvalExpression(listing.Entry, tool.Root.InputsVM)
+					if err != nil {
+						return err
+					}
+					if isFile(result) {
+						resFile = result
+					} else {
+						contents = result
+					}
+				} else {
+					contents = listing.Entry
+				}
+				PrintJSON(contents)
+
+				// `entryName` for sure is a string literal or an expression which evaluates to a string
+				// `entryName` is the name of the file to be created
+				var entryName string
+				if strings.HasPrefix(listing.EntryName, "$") {
+					result, err = EvalExpression(listing.EntryName, tool.Root.InputsVM)
+					if err != nil {
+						return err
+					}
+					var ok bool
+					entryName, ok = result.(string)
+					if !ok {
+						return fmt.Errorf("entryname expression did not return a string")
+					}
+				} else {
+					entryName = listing.EntryName
+				}
+
+				/*
+					Cases:
+					1. `entry` returned a file object - file object stored as an interface{} in `resFile`
+					2. `entry` did not return a file object - then returned value is in `contents` and must be written to a new file with filename stored in `entryName`
+				*/
+
+				// HERE - TODO: handle same prefix issue as for collecting CLT output - see HandleCLTOutput()
+				prefix := "/Users/mattgarvin/_fakes3/testWorkflow/#initdir_test.cwl" // for testing
+				if resFile != nil {
+					// "If the value is an expression that evaluates to a File object,
+					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."
+					// NOTE: the "designated output directory" is just the directory corresponding to the *Tool
+					// not sure what the purpose/meaning/use of this feature is - pretty sure all i/o for *Tools gets handled already
+					// presently not supporting this case - will implement this feature once I find an example to work with
+					panic("feature not supported: entry expression returned a file object")
+				} else {
+					jContents, err := json.Marshal(contents)
+					if err != nil {
+						return err
+					}
+					f, err := os.Create(filepath.Join(prefix, entryName))
+					if err != nil {
+						return err
+					}
+					f.Write(jContents)
+					f.Close()
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -871,8 +977,8 @@ func (tool *Tool) setupTool() (err error) {
 func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	tool := task.getTool()
 	err = tool.setupTool()
-	fmt.Printf("here are the requirements for tool %v\n", task.Root.ID)
-	PrintJSON(tool.Root.Requirements)
+	// fmt.Printf("here are the requirements for tool %v\n", task.Root.ID)
+	// PrintJSON(tool.Root.Requirements)
 
 	// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
 	// this will be handled when code is refactored/polished/cleaned up
