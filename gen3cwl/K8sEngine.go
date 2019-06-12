@@ -292,27 +292,65 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			out = valueFrom
 		}
 	}
+	fmt.Println("Here is what usually we work with:")
+	PrintJSON(out)
+
+	// if file, need to ensure that all file attributes get populated (e.g., basename)
+	if isFile(out) {
+		fmt.Println("is a file object")
+		path, err := getPath(out)
+		if err != nil {
+			return nil, err
+		}
+		out = getFileObj(path.(string))
+	} else {
+		fmt.Println("is not a file object")
+	}
+
+	fmt.Println("after creating file object:")
+	PrintJSON(out)
+
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
 	// so `out` will be what we work with in this next block as an initial value
 	// tool inputBinding ValueFrom case
-	/*
-		// Commenting out because the way commands are generated doesn't really handle js expressions
-		// See cwl.go/inputs.go/flatten() and Flatten() - this is used to generate commands for CLT's
-		// hopefully we can still use this - but maybe need to write our own method to generate commands :/
-			if input.Binding != nil && input.Binding.ValueFrom != nil {
-				valueFrom := input.Binding.ValueFrom.Key()
-				if strings.HasPrefix(valueFrom, "$") {
-					vm := otto.New()
-					vm.Set("self", out) // again, will more than likely need additional context here to cover other cases
-					if out, err = EvalExpression(valueFrom, vm); err != nil {
-						return nil, err
-					}
-				} else {
-					// not an expression, so no eval necessary - take raw value
-					out = valueFrom
+	// Commenting out because the way commands are generated doesn't really handle js expressions
+	// See cwl.go/inputs.go/flatten() and Flatten() - this is used to generate commands for CLT's
+	// hopefully we can still use this - but maybe need to write our own method to generate commands :/
+	if input.Binding != nil && input.Binding.ValueFrom != nil {
+		// NOTE: ValueFrom here should be an expression but already has been stripped of $(...) - come on now
+		valueFrom := input.Binding.ValueFrom.String
+		fmt.Println("here is valueFrom:")
+		fmt.Println(valueFrom)
+		if strings.HasPrefix(valueFrom, "$") {
+			vm := otto.New()
+			var context interface{}
+			if _, f := out.(*File); f {
+				fmt.Println("context is a file")
+				context, err = PreProcessContext(out)
+				if err != nil {
+					return nil, err
 				}
+			} else {
+				fmt.Println("context is not a file")
+				context = out
 			}
-	*/
+			vm.Set("self", context) // again, will more than likely need additional context here to cover other cases
+			if out, err = EvalExpression(valueFrom, vm); err != nil {
+				return nil, err
+			}
+		} else {
+			// not an expression, so no eval necessary - take raw value
+			out = valueFrom
+		}
+	}
+	fmt.Println("here is after that commented out section")
+	PrintJSON(out)
+
+	// note: this initdir_test case sheds light on a problem with how cwl.go's library handles generating commands for CommandLineTools
+	// we may very well may need to write our own set of functions for generating commands
+	// HERE TODO Thursday: investigate implementation details of how commands are generated
+	// --- assess whether we can fix the existing function
+	// --- or if we have to write a new function to properly handle generating commands for a commandlinetool
 
 	// fmt.Println("Here's tranformed input:")
 	// PrintJSON(out)
@@ -874,23 +912,50 @@ func (tool *Tool) setupTool() (err error) {
 }
 
 // determines whether i represents a CWL file object
+// if file, then returns path, true
+// ow returns "", false
 // see initWorkDir()
-func isFile(i interface{}) bool {
+// TODO - have this function return path - see getPath()
+func isFile(i interface{}) (f bool) {
+	fmt.Println("checking if file..")
 	iType := reflect.TypeOf(i)
+	fmt.Println("type:")
+	PrintJSON(iType)
 	iKind := iType.Kind()
+	fmt.Println("kind:")
+	PrintJSON(iKind)
 	if iKind == reflect.Map {
+		fmt.Println("this is a map")
 		iMap := reflect.ValueOf(i)
 		for _, key := range iMap.MapKeys() {
 			if key.Type() == reflect.TypeOf("") {
-				if key.String() == "Class" {
-					if iMap.MapIndex(key).String() == "File" {
-						return true
+				fmt.Println("found a string")
+				if key.String() == "class" {
+					fmt.Println("found class")
+					PrintJSON(iMap.MapIndex(key).Interface())
+					if iMap.MapIndex(key).Interface() == "File" {
+						f = true
 					}
 				}
 			}
 		}
+	} else {
+		fmt.Println("this is not a map")
 	}
-	return false
+	return f
+}
+
+// get path from a file object which is not of type File
+// NOTE: maybe shouldn't be an error, if the contents field is populated
+func getPath(i interface{}) (path interface{}, err error) {
+	iter := reflect.ValueOf(i).MapRange()
+	for iter.Next() {
+		key, val := iter.Key().String(), iter.Value()
+		if key == "location" || key == "path" {
+			return val.Interface(), nil
+		}
+	}
+	return "", fmt.Errorf("no location or path specified")
 }
 
 // initDirReq handles the InitialWorkDirRequirement if specified for this tool
@@ -909,6 +974,7 @@ func (tool *Tool) initWorkDir() (err error) {
 				if strings.HasPrefix(listing.Entry, "$") {
 					// `entry` is an expression which may return a string, File or `dirent`
 					// NOTE: presently NOT supporting the File or dirent case
+					// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
 					result, err = EvalExpression(listing.Entry, tool.Root.InputsVM)
 					if err != nil {
 						return err
