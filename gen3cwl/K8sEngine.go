@@ -351,6 +351,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// HERE TODO Thursday: investigate implementation details of how commands are generated
 	// --- assess whether we can fix the existing function
 	// --- or if we have to write a new function to properly handle generating commands for a commandlinetool
+	// also note changes made to cwl.go library - push these changes
 
 	// fmt.Println("Here's tranformed input:")
 	// PrintJSON(out)
@@ -392,12 +393,51 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 // TODO: fix loading of inputs to InputsVM
 // ----- use PreProcessContext instead of cwl.go's loading method
 // ----- because cwl.go's method is super janky and not robust at all
+// NOTE: tool.Root.Inputs.ToJavaScriptVM() doesn't work for general usage
+// ----- so this function properly loads the inputs context
 func (tool *Tool) inputsToVM() (err error) {
 	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
-	tool.Root.InputsVM, err = tool.Root.Inputs.ToJavaScriptVM(prefix)
-	if err != nil {
-		return fmt.Errorf("error loading inputs to js vm: %v", err)
+	fmt.Println("loading inputs to vm..")
+	tool.Root.InputsVM = otto.New()
+	context := make(map[string]interface{})
+	var fileObj *File
+	for _, input := range tool.Root.Inputs {
+		/*
+			fmt.Println("input:")
+			PrintJSON(input)
+			fmt.Println("input provided:")
+			PrintJSON(input.Provided)
+		*/
+		inputID := strings.TrimPrefix(input.ID, prefix)
+		if input.Types[0].Type == "File" {
+			if input.Provided.Entry != nil {
+				// no valueFrom specified in inputBinding
+				if input.Provided.Entry.Location != "" {
+					fileObj = getFileObj(input.Provided.Entry.Location)
+				}
+			} else {
+				// valueFrom specified in inputBinding - resulting value stored in input.Provided.Raw
+				switch input.Provided.Raw.(type) {
+				case string:
+					fileObj = getFileObj(input.Provided.Raw.(string))
+				case *File:
+					fileObj = input.Provided.Raw.(*File)
+				default:
+					panic("unexpected datatype representing file object in input.Provided.Raw")
+				}
+			}
+			fileContext, err := PreProcessContext(fileObj)
+			if err != nil {
+				return err
+			}
+			context[inputID] = fileContext
+		} else {
+			context[inputID] = input.Provided.Raw // not sure if this will work in general - so far, so good though - need to test further
+		}
 	}
+	fmt.Println("Here's the context")
+	PrintJSON(context)
+	tool.Root.InputsVM.Set("inputs", context)
 	return nil
 }
 
@@ -420,18 +460,24 @@ func (tool *Tool) inputsToVM() (err error) {
 // how would output get collected? I feel this must be an error in the given cwl if this happens
 func (proc *Process) CollectOutput() (err error) {
 	proc.Task.Outputs = make(map[string]cwl.Parameter)
+	fmt.Println("collecting output..")
 	switch class := proc.Tool.Root.Class; class {
 	case "CommandLineTool":
+		fmt.Println("Handling CLT output..")
 		if err = proc.HandleCLTOutput(); err != nil {
+			fmt.Printf("Error handling CLT output: %v\n", err)
 			return err
 		}
+		fmt.Println("CLT outputs:")
 	case "ExpressionTool":
 		if err = proc.HandleETOutput(); err != nil {
 			return err
 		}
+		fmt.Println("ExpressionTool outputs:")
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
+	PrintJSON(proc.Task.Outputs)
 	return nil
 }
 
@@ -742,6 +788,14 @@ func (proc *Process) getPattern(glob string) (pattern string, err error) {
 		// glob pattern is the resulting string
 		// eval'ing in the InputsVM with no additional context
 		// not sure if additional context will need to be added in other cases
+
+		// HERE - $(inputs.input_bam.basename) fails to eval in VM
+		// what's the deal
+		inputs, _ := proc.Tool.Root.InputsVM.Run("inputs")
+		seeInputs, _ := inputs.Export()
+		fmt.Println("here is inputs in the vm:")
+		PrintJSON(seeInputs)
+
 		expResult, err := EvalExpression(glob, proc.Tool.Root.InputsVM)
 		if err != nil {
 			return "", fmt.Errorf("failed to eval glob expression: %v", glob)
@@ -963,10 +1017,11 @@ func getPath(i interface{}) (path interface{}, err error) {
 // NOTE: this function really needs to be cleaned up/revised
 func (tool *Tool) initWorkDir() (err error) {
 	var result, resFile interface{}
+
 	for _, requirement := range tool.Root.Requirements {
 		if requirement.Class == "InitialWorkDirRequirement" {
-			// fmt.Println("found InitialWorkDirRequirement:")
-			// PrintJSON(requirement)
+			fmt.Println("found InitialWorkDirRequirement:")
+			PrintJSON(requirement)
 			for _, listing := range requirement.Listing {
 				// handling the case where `entry` is content (expression or string) to be written to a file
 				// and `entryname` is the name of the file to be created
@@ -979,11 +1034,19 @@ func (tool *Tool) initWorkDir() (err error) {
 					if err != nil {
 						return err
 					}
-					if isFile(result) {
-						resFile = result
-					} else {
-						contents = result
-					}
+					fmt.Printf("entry expression: %v\n", listing.Entry)
+					fmt.Println("result of entry expression:")
+					PrintJSON(result)
+					/*
+						// to handle case where result is a file object
+						// presently writing whatever the expression returns to the newly created file
+						if isFile(result) {
+							resFile = result
+						} else {
+							contents = result
+						}
+					*/
+					contents = result
 				} else {
 					contents = listing.Entry
 				}
@@ -1008,8 +1071,8 @@ func (tool *Tool) initWorkDir() (err error) {
 
 				/*
 					Cases:
-					1. `entry` returned a file object - file object stored as an interface{} in `resFile`
-					2. `entry` did not return a file object - then returned value is in `contents` and must be written to a new file with filename stored in `entryName`
+					1. `entry` returned a file object - file object stored as an interface{} in `resFile` (NOT SUPPORTED)
+					2. `entry` did not return a file object - then returned value is in `contents` and must be written to a new file with filename stored in `entryName` (supported)
 				*/
 
 				// HERE - TODO: handle same prefix issue as for collecting CLT output - see HandleCLTOutput()

@@ -397,14 +397,24 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 }
 
 // GenerateCommand ...
+// this will need to be fixed - cwl.go library takes shortcuts to generate commands - won't handle general usage
+// need to write our own function to generate commands properly to support any use-case
+// HERE TODO - first priority now
 func (tool *Tool) GenerateCommand() error {
 
 	// FIXME: this procedure ONLY adjusts to "baseCommand" job
+	// handles arguments
+	fmt.Println("ensuring arguments..")
 	arguments := tool.ensureArguments()
+
+	// handles inputs
+	fmt.Println("ensuring inputs..")
 	priors, inputs, err := tool.ensureInputs()
 	if err != nil {
 		return fmt.Errorf("failed to ensure required inputs: %v", err)
 	}
+
+	fmt.Println("generating basic command..")
 	cmd, err := tool.generateBasicCommand(priors, arguments, inputs)
 	tool.Command = cmd
 	fmt.Printf("\n\tCommand: %v\n", cmd.Args)
@@ -415,6 +425,7 @@ func (tool *Tool) GenerateCommand() error {
 }
 
 // ensureArguments ...
+// NOTE: gut this
 func (tool *Tool) ensureArguments() []string {
 	result := []string{}
 	sort.Sort(tool.Root.Arguments)
@@ -428,7 +439,8 @@ func (tool *Tool) ensureArguments() []string {
 }
 
 // ensureInputs ...
-// here is where bindings/inputs get resolved
+// here is where bindings/inputs get "resolved" by cwl.go library
+// NOTE: this is probably going to need to be totally overhauled
 func (tool *Tool) ensureInputs() (priors []string, result []string, err error) {
 	sort.Sort(tool.Root.Inputs)
 	for _, in := range tool.Root.Inputs {
@@ -438,6 +450,10 @@ func (tool *Tool) ensureInputs() (priors []string, result []string, err error) {
 		// in.Flatten() is where the input gets resolved to how it should appear on the commandline
 		// need to check various cases to make sure that this actually handles different kinds of input properly
 		// NOTE: there's an Input.flatten() method as well as an Input.Flatten() method - what gives?
+		fmt.Printf("flattening input %v ..\n", in.ID)
+		PrintJSON(in)
+		fmt.Println("provided:")
+		PrintJSON(in.Provided)
 		if in.Binding.Position < 0 {
 			priors = append(priors, in.Flatten()...)
 		} else {
@@ -448,6 +464,7 @@ func (tool *Tool) ensureInputs() (priors []string, result []string, err error) {
 }
 
 // AliasFor ... ??? - seems incomplete
+// this looks like a bad idea
 func (tool *Tool) AliasFor(key string) string {
 	switch key {
 	case "GenerateCommandtime.cores":
@@ -457,6 +474,7 @@ func (tool *Tool) AliasFor(key string) string {
 }
 
 // generateBasicCommand ...
+// this needs to be examined as well
 func (tool *Tool) generateBasicCommand(priors, arguments, inputs []string) (*exec.Cmd, error) {
 	if len(tool.Root.BaseCommands) == 0 {
 		return exec.Command("bash", "-c", tool.Root.Arguments[0].Binding.ValueFrom.Key()), nil
@@ -473,6 +491,7 @@ func (tool *Tool) generateBasicCommand(priors, arguments, inputs []string) (*exe
 }
 
 // GatherOutputs gather outputs from the finished task
+// NOTE: currently not being used
 func (tool *Tool) GatherOutputs() error {
 
 	// If "cwl.output.json" exists on executed command directory,
