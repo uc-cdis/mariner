@@ -1,6 +1,7 @@
 package gen3cwl
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"math"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	cwl "github.com/uc-cdis/cwl.go"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
@@ -396,11 +398,9 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 	return "Unknown"
 }
 
-// GenerateCommand ...
-// this will need to be fixed - cwl.go library takes shortcuts to generate commands - won't handle general usage
-// need to write our own function to generate commands properly to support any use-case
-// HERE TODO - first priority now
-func (tool *Tool) GenerateCommand() error {
+// NotGenerateCommand is the original function written to generate commands for CLT's
+// it is basically busted so am writing a new function to generate commands correctly in *all* cases
+func (tool *Tool) NotGenerateCommand() error {
 
 	// FIXME: this procedure ONLY adjusts to "baseCommand" job
 	// handles arguments
@@ -421,6 +421,205 @@ func (tool *Tool) GenerateCommand() error {
 	if err != nil {
 		return fmt.Errorf("failed to generate command struct: %v", err)
 	}
+	return nil
+}
+
+/*
+Notes on generating commands for CLTs
+- baseCommand contains leading arguments
+- inputs and arguments mix together and are ordered via position specified in each binding
+- the rules for sorting when no position is specified are truly ambiguous, so
+---- presently only supporting sorting inputs/arguments via position and no other key
+---- later can implement sorting based on additional keys, but not in first iteration here
+
+Sketch of Steps:
+0. cmdElts := make([]CommandElement, 0)
+1. Per argument, construct CommandElement -> cmdElts = append(cmdElts, cmdElt)
+2. Per input, construct CommandElement -> cmdElts = append(cmdElts, cmdElt)
+3. Sort(cmdElts) -> using Position field values (or whatever sorting key we want to use later on)
+4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Args...)
+5. cmd = append(baseCmd, cmd...)
+6. return cmd
+*/
+
+// CommandElement represents an input/argument on the commandline for commandlinetools
+type CommandElement struct {
+	Position    int      // position from binding
+	ArgPosition int      // index from arguments list, if argument
+	Value       []string // representation of this input/arg on the commandline (after any/all valueFrom, eval, prefix, separators, shellQuote, etc. has been resolved)
+}
+
+func (tool *Tool) getCmdElts() (cmdElts []*CommandElement, err error) {
+	// 0
+	cmdElts = make([]*CommandElement, 0)
+
+	// 1. handle arguments
+	argElts, err := tool.getArgElts() // good - need to test
+	if err != nil {
+		return nil, err
+	}
+	cmdElts = append(cmdElts, argElts...)
+
+	// 2. handle inputs
+	inputElts, err := tool.getInputElts() // TODO -
+	if err != nil {
+		return nil, err
+	}
+	cmdElts = append(cmdElts, inputElts...)
+
+	return cmdElts, nil
+}
+
+// TODO - construct, collect, return CommandElement per input
+func (tool *Tool) getInputElts() (cmdElts []*CommandElement, err error) {
+
+	return cmdElts, nil
+}
+
+// collect CommandElement objects from arguments
+func (tool *Tool) getArgElts() (cmdElts []*CommandElement, err error) {
+	cmdElts = make([]*CommandElement, 0) // this might be redundant - basic q: do I need to instantiate this array if it's a named output?
+	for i, arg := range tool.Root.Arguments {
+		pos := 0 // if no position specified the default is zero, as per CWL spec
+		if arg.Binding != nil {
+			pos = arg.Binding.Position
+		}
+		val, err := tool.getArgValue(arg) // okay
+		if err != nil {
+			return nil, err
+		}
+		cmdElt := &CommandElement{
+			Position:    pos,
+			ArgPosition: i,
+			Value:       val,
+		}
+		cmdElts = append(cmdElts, cmdElt)
+	}
+	return cmdElts, nil
+}
+
+// gets value from an argument - i.e., returns []string containing strings which will be put on the commandline to represent this argument
+func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
+	// cases:
+	// either a string literal or an expression (okay)
+	// OR a binding with valueFrom field specified (okay)
+	val = make([]string, 0)
+	if arg.Value != "" {
+		// implies string literal or expression to eval - okay - see NOTE at typeSwitch
+
+		// NOTE: *might* need to check "$(" or "${" instead of just "$"
+		if strings.HasPrefix(arg.Value, "$") {
+			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
+			result, err := EvalExpression(arg.Value, tool.Root.InputsVM)
+			if err != nil {
+				return nil, err
+			}
+			// NOTE: what type can I expect the result to be here? - hopefully string or []string - need to test and find additional examples to work with
+			switch result.(type) {
+			case string:
+				val = append(val, result.(string))
+			case []string:
+				val = append(val, result.([]string)...)
+			default:
+				return nil, fmt.Errorf("unexpected type returned by argument expression: %v; %v; %T", arg.Value, result, result)
+			}
+		} else {
+			// string literal - no processing to be done
+			val = append(val, arg.Value)
+		}
+	} else {
+		// get value from `valueFrom` field which may itself be a string literal, an expression, or a string which contains one or more expressions
+		resolvedText, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
+		if err != nil {
+			return nil, err
+		}
+
+		// handle shellQuote - default value is true
+		if arg.Binding.ShellQuote {
+			resolvedText = "\"" + resolvedText + "\""
+		}
+
+		// capture result
+		val = append(val, resolvedText)
+	}
+	return val, nil
+}
+
+// resolveExpressions processes a text field which may or may not be
+// - one expression
+// - a string literal
+// - a string which contains one or more separate JS expressions, each wrapped like $(...)
+// presently writing simple case to return a string only for use in the argument valueFrom case
+// can easily extend in the future to be used for any field, to return any kind of value
+// NOTE: should work - needs to be tested more
+// algorithm works in goplayground: https://play.golang.org/p/YOv-K-qdL18
+func (tool *Tool) resolveExpressions(inText string) (outText string, err error) {
+	r := bufio.NewReader(strings.NewReader(inText))
+	var c0, c1, c2 string
+	var done bool
+	image := make([]string, 0)
+	for !done {
+		nextRune, _, err := r.ReadRune()
+		if err != nil {
+			if err == io.EOF {
+				done = true
+			} else {
+				return "", err
+			}
+		}
+		c0, c1, c2 = c1, c2, string(nextRune)
+		if c1 == "$" && c2 == "(" && c0 != "\\" {
+			// indicates beginning of expression block
+
+			// read through to the end of this expression block
+			expression, err := r.ReadString(')')
+			if err != nil {
+				return "", err
+			}
+
+			// get full $(...) expression
+			expression = c1 + c2 + expression
+
+			// eval that thing
+			result, err := EvalExpression(expression, tool.Root.InputsVM)
+			if err != nil {
+				return "", err
+			}
+
+			// result ought to be a string
+			val, ok := result.(string)
+			if !ok {
+				return "", fmt.Errorf("js embedded in string did not return a string")
+			}
+
+			// cut off trailing "$" that had already been collected
+			image = image[:len(image)-1]
+
+			// collect resulting string
+			image = append(image, val)
+		} else {
+			if !done {
+				// checking done so as to not collect null value
+				image = append(image, string(c2))
+			}
+		}
+	}
+	// get resolved string value
+	outText = strings.Join(image, "")
+	return outText, nil
+}
+
+// GenerateCommand ..
+func (tool *Tool) GenerateCommand() (err error) {
+	cmdElts, err := tool.getCmdElts() // 1 and 2 - TODO
+	if err != nil {
+		return err
+	}
+	fmt.Println("here are cmdElts:")
+	PrintJSON(cmdElts)
+	// 3. Sort(cmdElts)
+	// 4, 5, 6
+
 	return nil
 }
 
