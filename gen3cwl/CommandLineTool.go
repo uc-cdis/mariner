@@ -437,7 +437,7 @@ Sketch of Steps:
 1. Per argument, construct CommandElement -> cmdElts = append(cmdElts, cmdElt)
 2. Per input, construct CommandElement -> cmdElts = append(cmdElts, cmdElt)
 3. Sort(cmdElts) -> using Position field values (or whatever sorting key we want to use later on)
-4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Args...)
+4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Value...)
 5. cmd = append(baseCmd, cmd...)
 6. return cmd
 */
@@ -449,7 +449,7 @@ type CommandElement struct {
 	Value       []string // representation of this input/arg on the commandline (after any/all valueFrom, eval, prefix, separators, shellQuote, etc. has been resolved)
 }
 
-func (tool *Tool) getCmdElts() (cmdElts []*CommandElement, err error) {
+func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
 	// 0
 	cmdElts = make([]*CommandElement, 0)
 
@@ -471,13 +471,56 @@ func (tool *Tool) getCmdElts() (cmdElts []*CommandElement, err error) {
 }
 
 // TODO - construct, collect, return CommandElement per input
-func (tool *Tool) getInputElts() (cmdElts []*CommandElement, err error) {
-
+// NOTE: how to handle optional inputs?
+func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
+	cmdElts = make([]*CommandElement, 0)
+	for _, input := range tool.Root.Inputs {
+		// no binding -> input doesn't get processed for representation on the commandline (though this input may be referenced by an argument)
+		if input.Binding != nil {
+			pos := input.Binding.Position         // default position is 0, as per CWL spec
+			val, err := tool.getInputValue(input) // TODO - return []string which is the resolved binding (representation on commandline) for this input
+			if err != nil {
+				return nil, err
+			}
+			cmdElt := &CommandElement{
+				Position: pos,
+				Value:    val,
+			}
+			cmdElts = append(cmdElts, cmdElt)
+		}
+	}
 	return cmdElts, nil
 }
 
+// HERE TODO - main priority - Friday 3:11pm
+func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
+	// binding is non-nil
+	// value either comes from valueFrom or input object
+	// either way, value *should* be stored in input.Provided
+	fmt.Println("here is an input:")
+	PrintJSON(input)
+	fmt.Println("here is input.Provided:")
+	PrintJSON(input.Provided)
+	var raw interface{}
+	// initial guess to begin logic gate..
+	if input.Types[0].Type == "File" && input.Binding.ValueFrom == nil {
+		fmt.Println("file and no valueFrom")
+		raw = input.Provided.Entry.Location
+	} else {
+		fmt.Println("everything else")
+		raw = input.Provided.Raw
+	}
+	s, ok := raw.(string)
+	if !ok {
+		fmt.Printf("raw ain't a string: %v", raw)
+		return nil, fmt.Errorf("raw ain't a string: %v", raw)
+	}
+	val = append(val, s)
+	return val, nil
+}
+
 // collect CommandElement objects from arguments
-func (tool *Tool) getArgElts() (cmdElts []*CommandElement, err error) {
+func (tool *Tool) getArgElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0) // this might be redundant - basic q: do I need to instantiate this array if it's a named output?
 	for i, arg := range tool.Root.Arguments {
 		pos := 0 // if no position specified the default is zero, as per CWL spec
@@ -490,7 +533,7 @@ func (tool *Tool) getArgElts() (cmdElts []*CommandElement, err error) {
 		}
 		cmdElt := &CommandElement{
 			Position:    pos,
-			ArgPosition: i,
+			ArgPosition: i + 1, // beginning at 1 so that can detect nil/zero value of 0
 			Value:       val,
 		}
 		cmdElts = append(cmdElts, cmdElt)
@@ -611,17 +654,35 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 
 // GenerateCommand ..
 func (tool *Tool) GenerateCommand() (err error) {
-	cmdElts, err := tool.getCmdElts() // 1 and 2 - TODO
+	cmdElts, err := tool.getCmdElts() // 1. get arguments (okay) 2. get inputs from bindings - TODO
 	if err != nil {
 		return err
 	}
 	fmt.Println("here are cmdElts:")
 	PrintJSON(cmdElts)
-	// 3. Sort(cmdElts)
-	// 4, 5, 6
 
+	// 3. Sort the command elements by position (okay)
+	sort.Sort(cmdElts)
+
+	/*
+		4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Args...)
+		5. cmd = append(baseCmd, cmd...)
+		6. return cmd
+	*/
+	cmd := tool.Root.BaseCommands // BaseCommands is []string - zero length if no BaseCommand specified
+	for _, cmdElt := range cmdElts {
+		cmd = append(cmd, cmdElt.Value...)
+	}
+	tool.Command = exec.Command(cmd[0], cmd[1:]...)
 	return nil
 }
+
+// define this type and methods for sort.Interface so these CommandElements can be sorted by position
+type CommandElements []*CommandElement
+
+func (cmdElts CommandElements) Len() int           { return len(cmdElts) }
+func (cmdElts CommandElements) Swap(i, j int)      { cmdElts[i], cmdElts[j] = cmdElts[j], cmdElts[i] }
+func (cmdElts CommandElements) Less(i, j int) bool { return cmdElts[i].Position < cmdElts[j].Position }
 
 // ensureArguments ...
 // NOTE: gut this
