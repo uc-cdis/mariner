@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -518,30 +519,42 @@ func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
 		5. handle shellQuote -> not handling in first iteration
 	*/
 
+	/*
+		Array base case: separator specified
+		Next case: separator not specified
+	*/
+
 	var s string
-	rawInput := input.Provided.Raw
 	switch input.Types[0].Type {
-	case "array": // TODO - Presently bindings on array inputs not supported
-		/*
-			if input.Types[0].Binding != nil {
-				// apply binding to each element of the array individually
-				binding := input.Types[0].Binding
-			} else {
-				// apply binding to array as a whole - prefix, separate or not, separator
-				// need to extract elements from list and convert to string
-				if input.Binding.Separator != "NOT SPECIFIED" {
-
-				}
-				if input.Binding.Prefix != "" {
-
-				}
+	case "array": // TODO
+		if input.Binding.Separator != "NOT SPECIFIED" {
+			// add prefix if specified
+			if input.Binding.Prefix != "" {
+				val = append(val, input.Binding.Prefix)
 			}
-		*/
-		return nil, fmt.Errorf("bindings for array inputs presently not supported")
+
+			// get string repr of array with specified separator
+			s, err = joinArray(input) // [a, b, c] & sep=="," -> "a,b,c"
+			if err != nil {
+				return nil, err
+			}
+
+			// add the string repr of the array
+			val = append(val, s)
+
+			// join with no space if separate==false
+			if !input.Binding.Separate {
+				val = []string{strings.Join(val, "")}
+			}
+
+			return val, nil
+		}
+
+		return nil, fmt.Errorf("bindings for array inputs with no separator specified presently not supported")
 	case "object": // TODO - presently bindings on object inputs not supported
 		// "Add prefix only, and recursively add object fields for which inputBinding is specified."
 		// presently not supported
-		return nil, fmt.Errorf("inputs of type 'object' not supported. input: %v", rawInput)
+		return nil, fmt.Errorf("inputs of type 'object' not supported. input: %v", input.Provided.Raw)
 	case "null": // okay
 		// "Add nothing."
 		return val, nil
@@ -549,7 +562,7 @@ func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
 		if input.Binding.Prefix == "" {
 			return nil, fmt.Errorf("boolean input provided but no prefix provided")
 		}
-		boolVal, err := getBoolFromRaw(rawInput)
+		boolVal, err := getBoolFromRaw(input.Provided.Raw)
 		if err != nil {
 			return nil, err
 		}
@@ -559,9 +572,9 @@ func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
 		}
 		return val, nil
 	case "string", "number": // okay
-		s, err = getValFromRaw(rawInput)
+		s, err = getValFromRaw(input.Provided.Raw)
 	case "File", "Directory": // okay
-		s, err = getPathFromRaw(rawInput)
+		s, err = getPathFromRaw(input.Provided.Raw)
 	}
 	// string/number and file/directory share the same processing here
 	// other cases end with return statements
@@ -576,6 +589,49 @@ func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
 		val = []string{strings.Join(val, "")}
 	}
 	return val, nil
+}
+
+// handles case where 'separator' field is specified
+// returns string which is joined input array with the given separator
+func joinArray(input *cwl.Input) (arr string, err error) {
+	var itemType, sItem string
+	for _, item := range input.Types {
+		if item.Type != "null" {
+			// retrieve first non-null type listed
+			// not immediately sure how to handle multiple different datatypes in a single array
+			// can address this issue later
+			itemType = item.Type
+			break
+		}
+	}
+	itemToString, err := getItemHandler(itemType)
+	if err != nil {
+		return "", err
+	}
+	resArray := []string{}
+	inputArray := reflect.ValueOf(input.Provided.Raw)
+	for i := 0; i < inputArray.Len(); i++ {
+		// get string form of item
+		sItem, err = itemToString(inputArray.Index(i).Interface())
+		if err != nil {
+			return "", err
+		}
+		resArray = append(resArray, sItem)
+	}
+	arr = strings.Join(resArray, input.Binding.Separator)
+	return arr, nil
+}
+
+// called in joinArray() to get appropriate function to convert the array element to a string
+func getItemHandler(itemType string) (handler func(interface{}) (string, error), err error) {
+	switch itemType {
+	case "string", "number":
+		return getValFromRaw, nil
+	case "File", "Directory":
+		return getPathFromRaw, nil
+	default:
+		return nil, fmt.Errorf("binding on input array with items of type %T not supported", itemType)
+	}
 }
 
 // called in getInputValue()
