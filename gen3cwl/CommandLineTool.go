@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -470,7 +471,7 @@ func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
 	return cmdElts, nil
 }
 
-// TODO - construct, collect, return CommandElement per input
+// HERE TODO - Monday - construct, collect, return CommandElement per input
 // NOTE: how to handle optional inputs?
 func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0)
@@ -492,30 +493,129 @@ func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 	return cmdElts, nil
 }
 
-// HERE TODO - main priority - Friday 3:11pm
+// TODO - incomplete - see array and object cases
 func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
 	// binding is non-nil
-	// value either comes from valueFrom or input object
-	// either way, value *should* be stored in input.Provided
+	// input sources:
+	// 1. if valueFrom specified in binding, then input value taken from there
+	// 2. else input value taken from input object
+	// regardless of input source, the input value to work with for the binding is stored in input.Provided.Raw
+	// need a type switch to cover all the possible cases
+	// recall a few different binding rules apply for different input types
+	// see: https://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineBinding
+
 	fmt.Println("here is an input:")
 	PrintJSON(input)
 	fmt.Println("here is input.Provided:")
 	PrintJSON(input.Provided)
-	var raw interface{}
-	// initial guess to begin logic gate..
-	if input.Types[0].Type == "File" && input.Binding.ValueFrom == nil {
-		fmt.Println("file and no valueFrom")
-		raw = input.Provided.Entry.Location
-	} else {
-		fmt.Println("everything else")
-		raw = input.Provided.Raw
+
+	/*
+		Steps:
+		1. identify type
+		2. retrieve value based on type -> convert to string based on type -> collect in val
+		3. if prefix specified -> handle prefix based on type (also handle `separate` if specified) -> collect in val
+		4. if array and separator specified - handle separator -> collect in val
+		5. handle shellQuote -> not handling in first iteration
+	*/
+
+	var s string
+	rawInput := input.Provided.Raw
+	switch input.Types[0].Type {
+	case "array": // TODO - Presently bindings on array inputs not supported
+		/*
+			if input.Types[0].Binding != nil {
+				// apply binding to each element of the array individually
+				binding := input.Types[0].Binding
+			} else {
+				// apply binding to array as a whole - prefix, separate or not, separator
+				// need to extract elements from list and convert to string
+				if input.Binding.Separator != "NOT SPECIFIED" {
+
+				}
+				if input.Binding.Prefix != "" {
+
+				}
+			}
+		*/
+		return nil, fmt.Errorf("bindings for array inputs presently not supported")
+	case "object": // TODO - presently bindings on object inputs not supported
+		// "Add prefix only, and recursively add object fields for which inputBinding is specified."
+		// presently not supported
+		return nil, fmt.Errorf("inputs of type 'object' not supported. input: %v", rawInput)
+	case "null": // okay
+		// "Add nothing."
+		return val, nil
+	case "boolean": // okay
+		if input.Binding.Prefix == "" {
+			return nil, fmt.Errorf("boolean input provided but no prefix provided")
+		}
+		boolVal, err := getBoolFromRaw(rawInput)
+		if err != nil {
+			return nil, err
+		}
+		// "if true, add 'prefix' to the commandline. If false, add nothing."
+		if boolVal {
+			val = append(val, input.Binding.Prefix)
+		}
+		return val, nil
+	case "string", "number": // okay
+		s, err = getValFromRaw(rawInput)
+	case "File", "Directory": // okay
+		s, err = getPathFromRaw(rawInput)
 	}
-	s, ok := raw.(string)
-	if !ok {
-		fmt.Printf("raw ain't a string: %v", raw)
-		return nil, fmt.Errorf("raw ain't a string: %v", raw)
+	// string/number and file/directory share the same processing here
+	// other cases end with return statements
+	if err != nil {
+		return nil, err
+	}
+	if input.Binding.Prefix != "" {
+		val = append(val, input.Binding.Prefix)
 	}
 	val = append(val, s)
+	if !input.Binding.Separate {
+		val = []string{strings.Join(val, "")}
+	}
+	return val, nil
+}
+
+// called in getInputValue()
+func getBoolFromRaw(rawInput interface{}) (boolVal bool, err error) {
+	boolVal, ok := rawInput.(bool)
+	if !ok {
+		return false, fmt.Errorf("unexpected data type for input specified as bool: %v; %T", rawInput, rawInput)
+	}
+	return boolVal, nil
+}
+
+// called in getInputValue()
+func getPathFromRaw(rawInput interface{}) (path string, err error) {
+	switch rawInput.(type) {
+	case string:
+		path = rawInput.(string)
+	case *File:
+		fileObj := rawInput.(*File)
+		path = fileObj.Path
+	default:
+		path, err = GetPath(rawInput)
+		if err != nil {
+			return "", fmt.Errorf("failed to retrieve file or directory path from object of type %T with value %v", rawInput, rawInput)
+		}
+	}
+	return path, nil
+}
+
+// called in getInputValue()
+func getValFromRaw(rawInput interface{}) (val string, err error) {
+	switch rawInput.(type) {
+	case string:
+		val = rawInput.(string)
+	case int:
+		val = strconv.Itoa(rawInput.(int))
+	case float64:
+		val = strconv.FormatFloat(rawInput.(float64), 'f', -1, 64)
+	default:
+		return "", fmt.Errorf("unexpected data type for input specified as number or string: %v; %T", rawInput, rawInput)
+	}
 	return val, nil
 }
 
@@ -665,9 +765,9 @@ func (tool *Tool) GenerateCommand() (err error) {
 	sort.Sort(cmdElts)
 
 	/*
-		4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Args...)
-		5. cmd = append(baseCmd, cmd...)
-		6. return cmd
+		4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Args...) (okay)
+		5. cmd = append(baseCmd, cmd...) (okay)
+		6. return cmd (okay)
 	*/
 	cmd := tool.Root.BaseCommands // BaseCommands is []string - zero length if no BaseCommand specified
 	for _, cmdElt := range cmdElts {
@@ -680,6 +780,7 @@ func (tool *Tool) GenerateCommand() (err error) {
 // define this type and methods for sort.Interface so these CommandElements can be sorted by position
 type CommandElements []*CommandElement
 
+// from first example at: https://golang.org/pkg/sort/
 func (cmdElts CommandElements) Len() int           { return len(cmdElts) }
 func (cmdElts CommandElements) Swap(i, j int)      { cmdElts[i], cmdElts[j] = cmdElts[j], cmdElts[i] }
 func (cmdElts CommandElements) Less(i, j int) bool { return cmdElts[i].Position < cmdElts[j].Position }

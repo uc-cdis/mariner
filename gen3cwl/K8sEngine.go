@@ -234,6 +234,8 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1
 	*/
+	fmt.Println("here is a full input object:")
+	PrintJSON(input)
 	localID := GetLastInPath(input.ID)
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID].ValueFrom == "" {
@@ -298,11 +300,11 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	if isFile(out) {
 		fmt.Println("is a file object")
-		path, err := getPath(out)
+		path, err := GetPath(out)
 		if err != nil {
 			return nil, err
 		}
-		out = getFileObj(path.(string))
+		out = getFileObj(path)
 	} else {
 		fmt.Println("is not a file object")
 	}
@@ -969,7 +971,7 @@ func (tool *Tool) setupTool() (err error) {
 // if file, then returns path, true
 // ow returns "", false
 // see initWorkDir()
-// TODO - have this function return path - see getPath()
+// TODO - have this function return path - see GetPath()
 func isFile(i interface{}) (f bool) {
 	fmt.Println("checking if file..")
 	iType := reflect.TypeOf(i)
@@ -1001,12 +1003,12 @@ func isFile(i interface{}) (f bool) {
 
 // get path from a file object which is not of type File
 // NOTE: maybe shouldn't be an error, if the contents field is populated
-func getPath(i interface{}) (path interface{}, err error) {
+func GetPath(i interface{}) (path string, err error) {
 	iter := reflect.ValueOf(i).MapRange()
 	for iter.Next() {
 		key, val := iter.Key().String(), iter.Value()
 		if key == "location" || key == "path" {
-			return val.Interface(), nil
+			return val.Interface().(string), nil
 		}
 	}
 	return "", fmt.Errorf("no location or path specified")
