@@ -973,30 +973,19 @@ func (tool *Tool) setupTool() (err error) {
 // see initWorkDir()
 // TODO - have this function return path - see GetPath()
 func isFile(i interface{}) (f bool) {
-	fmt.Println("checking if file..")
 	iType := reflect.TypeOf(i)
-	fmt.Println("type:")
-	PrintJSON(iType)
 	iKind := iType.Kind()
-	fmt.Println("kind:")
-	PrintJSON(iKind)
 	if iKind == reflect.Map {
-		fmt.Println("this is a map")
 		iMap := reflect.ValueOf(i)
 		for _, key := range iMap.MapKeys() {
 			if key.Type() == reflect.TypeOf("") {
-				fmt.Println("found a string")
 				if key.String() == "class" {
-					fmt.Println("found class")
-					PrintJSON(iMap.MapIndex(key).Interface())
 					if iMap.MapIndex(key).Interface() == "File" {
 						f = true
 					}
 				}
 			}
 		}
-	} else {
-		fmt.Println("this is not a map")
 	}
 	return f
 }

@@ -476,11 +476,19 @@ func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
 // NOTE: how to handle optional inputs?
 func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0)
+	var inputType string
 	for _, input := range tool.Root.Inputs {
 		// no binding -> input doesn't get processed for representation on the commandline (though this input may be referenced by an argument)
 		if input.Binding != nil {
-			pos := input.Binding.Position         // default position is 0, as per CWL spec
-			val, err := tool.getInputValue(input) // TODO - return []string which is the resolved binding (representation on commandline) for this input
+			pos := input.Binding.Position // default position is 0, as per CWL spec
+			// get non-null input type - should encapsulate this to a function
+			for _, _type := range input.Types {
+				if _type.Type != "null" {
+					inputType = _type.Type
+					break
+				}
+			}
+			val, err := getInputValue(input, input.Provided.Raw, inputType, input.Binding) // TODO - return []string which is the resolved binding (representation on commandline) for this input
 			if err != nil {
 				return nil, err
 			}
@@ -494,8 +502,8 @@ func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 	return cmdElts, nil
 }
 
-// TODO - incomplete - see array and object cases
-func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
+// okay - inputs of type 'object' presently not supported
+func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, binding *cwl.Binding) (val []string, err error) {
 	// binding is non-nil
 	// input sources:
 	// 1. if valueFrom specified in binding, then input value taken from there
@@ -505,34 +513,28 @@ func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
 	// recall a few different binding rules apply for different input types
 	// see: https://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineBinding
 
-	fmt.Println("here is an input:")
-	PrintJSON(input)
-	fmt.Println("here is input.Provided:")
-	PrintJSON(input.Provided)
-
 	/*
 		Steps:
 		1. identify type
 		2. retrieve value based on type -> convert to string based on type -> collect in val
 		3. if prefix specified -> handle prefix based on type (also handle `separate` if specified) -> collect in val
 		4. if array and separator specified - handle separator -> collect in val
-		5. handle shellQuote -> not handling in first iteration
-	*/
 
-	/*
-		Array base case: separator specified
-		Next case: separator not specified
+		5. handle shellQuote -> not handling in first iteration - TODO
 	*/
 
 	var s string
-	switch input.Types[0].Type {
-	case "array": // TODO
-		if input.Binding.Separator != "NOT SPECIFIED" {
-			// add prefix if specified
-			if input.Binding.Prefix != "" {
-				val = append(val, input.Binding.Prefix)
-			}
+	switch inputType {
+	case "object": // TODO - presently bindings on object-type inputs not supported
+		// "Add prefix only, and recursively add object fields for which inputBinding is specified."
+		return nil, fmt.Errorf("inputs of type 'object' not supported. input: %v", rawInput)
 
+	case "array": // okay
+		// add prefix if specified
+		if binding.Prefix != "" {
+			val = append(val, binding.Prefix)
+		}
+		if binding.Separator != "NOT SPECIFIED" {
 			// get string repr of array with specified separator
 			s, err = joinArray(input) // [a, b, c] & sep=="," -> "a,b,c"
 			if err != nil {
@@ -543,49 +545,81 @@ func (tool *Tool) getInputValue(input *cwl.Input) (val []string, err error) {
 			val = append(val, s)
 
 			// join with no space if separate==false
-			if !input.Binding.Separate {
+			if !binding.Separate {
 				val = []string{strings.Join(val, "")}
 			}
 
 			return val, nil
 		}
+		///// no itemSeparator case: handle/process elements of the array individually --> /////
+		var itemType string
+		// retrieve first non-null item type - presently not supporting multiple different types in one input array
+		for _, item := range input.Types[0].Items {
+			if item.Type != "null" {
+				itemType = item.Type
+				break
+			}
+		}
+		itemToString, err := getItemHandler(itemType)
+		if err != nil {
+			return nil, err
+		}
+		inputArray := reflect.ValueOf(input.Provided.Raw)
+		for i := 0; i < inputArray.Len(); i++ {
+			if input.Types[0].Items[0].Binding != nil {
+				// need to handle this case of binding specified to be applied to each element individually
+				itemVal, err := getInputValue(nil, inputArray.Index(i).Interface(), itemType, input.Types[0].Items[0].Binding)
+				if err != nil {
+					return nil, err
+				}
+				val = append(val, itemVal...)
+			} else {
+				sItem, err := itemToString(inputArray.Index(i).Interface())
+				if err != nil {
+					return nil, err
+				}
+				val = append(val, sItem)
 
-		return nil, fmt.Errorf("bindings for array inputs with no separator specified presently not supported")
-	case "object": // TODO - presently bindings on object inputs not supported
-		// "Add prefix only, and recursively add object fields for which inputBinding is specified."
-		// presently not supported
-		return nil, fmt.Errorf("inputs of type 'object' not supported. input: %v", input.Provided.Raw)
+				if i == 0 && !binding.Separate {
+					// if 'separate' specified as false -> join prefix and first element
+					val = []string{strings.Join(val, "")}
+				}
+			}
+		}
+		return val, nil
+		////// <-- end array no itemSeparator case //////
+
 	case "null": // okay
 		// "Add nothing."
 		return val, nil
 	case "boolean": // okay
-		if input.Binding.Prefix == "" {
+		if binding.Prefix == "" {
 			return nil, fmt.Errorf("boolean input provided but no prefix provided")
 		}
-		boolVal, err := getBoolFromRaw(input.Provided.Raw)
+		boolVal, err := getBoolFromRaw(rawInput)
 		if err != nil {
 			return nil, err
 		}
 		// "if true, add 'prefix' to the commandline. If false, add nothing."
 		if boolVal {
-			val = append(val, input.Binding.Prefix)
+			val = append(val, binding.Prefix)
 		}
 		return val, nil
 	case "string", "number": // okay
-		s, err = getValFromRaw(input.Provided.Raw)
+		s, err = getValFromRaw(rawInput)
 	case "File", "Directory": // okay
-		s, err = getPathFromRaw(input.Provided.Raw)
+		s, err = getPathFromRaw(rawInput)
 	}
 	// string/number and file/directory share the same processing here
 	// other cases end with return statements
 	if err != nil {
 		return nil, err
 	}
-	if input.Binding.Prefix != "" {
-		val = append(val, input.Binding.Prefix)
+	if binding.Prefix != "" {
+		val = append(val, binding.Prefix)
 	}
 	val = append(val, s)
-	if !input.Binding.Separate {
+	if !binding.Separate {
 		val = []string{strings.Join(val, "")}
 	}
 	return val, nil
