@@ -1,9 +1,7 @@
 package gen3cwl
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os/exec"
 	"reflect"
 	"sort"
@@ -12,6 +10,8 @@ import (
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
+
+// this file contains code for generating commands for CommandLineTools
 
 /*
 Notes on generating commands for CLTs
@@ -73,7 +73,7 @@ func (tool *Tool) GenerateCommand() (err error) {
 }
 
 func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
-	// 0
+	// 0.
 	cmdElts = make([]*CommandElement, 0)
 
 	// 1. handle arguments
@@ -406,68 +406,4 @@ func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
 		val = append(val, resolvedText)
 	}
 	return val, nil
-}
-
-// resolveExpressions processes a text field which may or may not be
-// - one expression
-// - a string literal
-// - a string which contains one or more separate JS expressions, each wrapped like $(...)
-// presently writing simple case to return a string only for use in the argument valueFrom case
-// can easily extend in the future to be used for any field, to return any kind of value
-// NOTE: should work - needs to be tested more
-// algorithm works in goplayground: https://play.golang.org/p/YOv-K-qdL18
-func (tool *Tool) resolveExpressions(inText string) (outText string, err error) {
-	r := bufio.NewReader(strings.NewReader(inText))
-	var c0, c1, c2 string
-	var done bool
-	image := make([]string, 0)
-	for !done {
-		nextRune, _, err := r.ReadRune()
-		if err != nil {
-			if err == io.EOF {
-				done = true
-			} else {
-				return "", err
-			}
-		}
-		c0, c1, c2 = c1, c2, string(nextRune)
-		if c1 == "$" && c2 == "(" && c0 != "\\" {
-			// indicates beginning of expression block
-
-			// read through to the end of this expression block
-			expression, err := r.ReadString(')')
-			if err != nil {
-				return "", err
-			}
-
-			// get full $(...) expression
-			expression = c1 + c2 + expression
-
-			// eval that thing
-			result, err := EvalExpression(expression, tool.Root.InputsVM)
-			if err != nil {
-				return "", err
-			}
-
-			// result ought to be a string
-			val, ok := result.(string)
-			if !ok {
-				return "", fmt.Errorf("js embedded in string did not return a string")
-			}
-
-			// cut off trailing "$" that had already been collected
-			image = image[:len(image)-1]
-
-			// collect resulting string
-			image = append(image, val)
-		} else {
-			if !done {
-				// checking done so as to not collect null value
-				image = append(image, string(c2))
-			}
-		}
-	}
-	// get resolved string value
-	outText = strings.Join(image, "")
-	return outText, nil
 }

@@ -8,6 +8,9 @@ import (
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
+// this file contains code for processing scattered workflow steps
+// NOTE: scattered subtasks get run concurrently -> see runScatterTasks()
+
 func (task *Task) runScatter() (err error) {
 	if err = task.validateScatterMethod(); err != nil {
 		return err
@@ -111,8 +114,6 @@ func (task *Task) validateScatterMethod() (err error) {
 }
 
 // run all scatter tasks concurrently
-// maybe can apply this same logic to workflow engine
-// so that all independent steps get run concurrently
 func (task *Task) runScatterTasks() (err error) {
 	fmt.Println("running scatter tasks concurrently..")
 	var wg sync.WaitGroup

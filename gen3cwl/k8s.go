@@ -2,10 +2,8 @@ package gen3cwl
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"os"
-	"path/filepath"
 	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -17,6 +15,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+// this file contains code for interacting with k8s cluster via k8s api
+// e.g., get cluster config, handle runtime requirements, create job spec, execute job, get job info/status
+
 // JobInfo - k8s job information
 type JobInfo struct {
 	UID    string `json:"uid"`
@@ -24,12 +25,26 @@ type JobInfo struct {
 	Status string `json:"status"`
 }
 
-// utility.. for testing
-func homeDir() string {
-	if h := os.Getenv("HOME"); h != "" {
-		return h
+// RunK8sJob runs the CommandLineTool in a container as a k8s job with a sidecar container to write command to run.sh, install s3fs/goofys and mount bucket
+func (engine K8sEngine) RunK8sJob(proc *Process) error {
+	fmt.Println("\tCreating k8s job spec..")
+	batchJob, nil := createJobSpec(proc)
+
+	jobsClient := getJobClient() // does this need to happen for each job? or just once, so every job uses the same jobsClient?
+
+	fmt.Println("\tRunning k8s job..")
+	newJob, err := jobsClient.Create(batchJob)
+	if err != nil {
+		fmt.Printf("\tError creating job: %v\n", err)
+		return err
 	}
-	return os.Getenv("USERPROFILE") // windows
+	fmt.Println("\tSuccessfully created job.")
+	fmt.Printf("\tNew job name: %v\n", newJob.Name)
+	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
+	proc.JobID = string(newJob.GetUID())
+	proc.JobName = newJob.Name
+	// fmt.Printf("\tNew job status: %v\n", jobStatusToString(&newJob.Status))
+	return nil
 }
 
 func getJobClient() batchtypev1.JobInterface {
@@ -69,28 +84,6 @@ func getJobClient() batchtypev1.JobInterface {
 	return jobsClient
 }
 
-// replace disallowed job name characters
-func (proc *Process) makeJobName() string {
-	taskID := proc.Task.Root.ID
-	jobName := strings.ReplaceAll(taskID, "#", "")
-	jobName = strings.ReplaceAll(jobName, "_", "-")
-	jobName = strings.ToLower(jobName)
-	if proc.Task.ScatterIndex != 0 {
-		// indicates this task is a scattered subtask of a task which was scattered
-		// in order to not dupliate k8s job names - append suffix with ScatterIndex to job name
-		jobName = fmt.Sprintf("%v-scattered-%v", jobName, proc.Task.ScatterIndex)
-	}
-	return jobName
-}
-
-func getBoolPointer(val bool) (pval *bool) {
-	return &val
-}
-
-func getPropagationMode(val k8sv1.MountPropagationMode) (pval *k8sv1.MountPropagationMode) {
-	return &val
-}
-
 // the sidecar needs to
 // 1. install s3fs (goofys???) TODO // (apt-get update; apt-get install s3fs -y)
 // 2. mount the s3 bucket  TODO
@@ -128,6 +121,107 @@ func (proc *Process) getCLToolArgs() []string {
 		`, proc.getCLTBash()),
 	}
 	return args
+}
+
+func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
+	jobName := proc.makeJobName() // slightly modified Root.ID
+	proc.JobName = jobName
+	fmt.Printf("Pulling image %v for task %v\n", proc.getDockerImage(), proc.Task.Root.ID)
+	batchJob = &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   jobName,
+			Labels: make(map[string]string), // to be populated - labels for job object
+		},
+		Spec: batchv1.JobSpec{
+			Template: k8sv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   jobName,
+					Labels: make(map[string]string), // to be populated - labels for pod object
+				},
+				Spec: k8sv1.PodSpec{
+					RestartPolicy: k8sv1.RestartPolicyNever,
+					Volumes: []k8sv1.Volume{
+						{
+							Name: "shared-data", // implicitly set to be an emptyDir
+						},
+					},
+					Containers: []k8sv1.Container{
+						{
+							Name:            "commandlinetool",
+							Image:           proc.getDockerImage(),
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
+							Command: []string{
+								proc.getCLTBash(), // get path to bash for docker image (needs better solution)
+							},
+							Args:      proc.getCLToolArgs(), // need function here to identify path to bash based on docker image
+							Resources: proc.getResourceReqs(),
+							VolumeMounts: []k8sv1.VolumeMount{
+								{
+									Name:             "shared-data",
+									MountPath:        "/data",
+									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
+								},
+							},
+						},
+						{
+							Name:  "sidecar",
+							Image: "ubuntu",
+							Command: []string{
+								"/bin/bash",
+							},
+							Args:            proc.Tool.getSidecarArgs(),
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
+							SecurityContext: &k8sv1.SecurityContext{
+								Privileged: getBoolPointer(true),
+							},
+							VolumeMounts: []k8sv1.VolumeMount{
+								{
+									Name:             "shared-data",
+									MountPath:        "/data",
+									MountPropagation: getPropagationMode(k8sv1.MountPropagationBidirectional),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return batchJob, nil
+}
+
+// utility.. for testing
+func homeDir() string {
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	return os.Getenv("USERPROFILE") // windows
+}
+
+// replace disallowed job name characters
+func (proc *Process) makeJobName() string {
+	taskID := proc.Task.Root.ID
+	jobName := strings.ReplaceAll(taskID, "#", "")
+	jobName = strings.ReplaceAll(jobName, "_", "-")
+	jobName = strings.ToLower(jobName)
+	if proc.Task.ScatterIndex != 0 {
+		// indicates this task is a scattered subtask of a task which was scattered
+		// in order to not dupliate k8s job names - append suffix with ScatterIndex to job name
+		jobName = fmt.Sprintf("%v-scattered-%v", jobName, proc.Task.ScatterIndex)
+	}
+	return jobName
+}
+
+func getBoolPointer(val bool) (pval *bool) {
+	return &val
+}
+
+func getPropagationMode(val k8sv1.MountPropagationMode) (pval *k8sv1.MountPropagationMode) {
+	return &val
 }
 
 // handles the DockerRequirement if specified and returns the image to be used for the CommandLineTool
@@ -222,99 +316,6 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 	return resourceReqs
 }
 
-func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
-	jobName := proc.makeJobName() // slightly modified Root.ID
-	proc.JobName = jobName
-	fmt.Printf("Pulling image %v for task %v\n", proc.getDockerImage(), proc.Task.Root.ID)
-	batchJob = &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Job",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
-			Labels: make(map[string]string), // to be populated - labels for job object
-		},
-		Spec: batchv1.JobSpec{
-			Template: k8sv1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   jobName,
-					Labels: make(map[string]string), // to be populated - labels for pod object
-				},
-				Spec: k8sv1.PodSpec{
-					RestartPolicy: k8sv1.RestartPolicyNever,
-					Volumes: []k8sv1.Volume{
-						{
-							Name: "shared-data", // implicitly set to be an emptyDir
-						},
-					},
-					Containers: []k8sv1.Container{
-						{
-							Name:            "commandlinetool",
-							Image:           proc.getDockerImage(),
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
-							Command: []string{
-								proc.getCLTBash(), // get path to bash for docker image (needs better solution)
-							},
-							Args:      proc.getCLToolArgs(), // need function here to identify path to bash based on docker image
-							Resources: proc.getResourceReqs(),
-							VolumeMounts: []k8sv1.VolumeMount{
-								{
-									Name:             "shared-data",
-									MountPath:        "/data",
-									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
-								},
-							},
-						},
-						{
-							Name:  "sidecar",
-							Image: "ubuntu",
-							Command: []string{
-								"/bin/bash",
-							},
-							Args:            proc.Tool.getSidecarArgs(),
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
-							SecurityContext: &k8sv1.SecurityContext{
-								Privileged: getBoolPointer(true),
-							},
-							VolumeMounts: []k8sv1.VolumeMount{
-								{
-									Name:             "shared-data",
-									MountPath:        "/data",
-									MountPropagation: getPropagationMode(k8sv1.MountPropagationBidirectional),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	return batchJob, nil
-}
-
-// RunK8sJob runs the CommandLineTool in a container as a k8s job with a sidecar container to write command to run.sh, install s3fs/goofys and mount bucket
-func (engine K8sEngine) RunK8sJob(proc *Process) error {
-	fmt.Println("\tCreating k8s job spec..")
-	batchJob, nil := createJobSpec(proc)
-
-	jobsClient := getJobClient() // does this need to happen for each job? or just once, so every job uses the same jobsClient?
-
-	fmt.Println("\tRunning k8s job..")
-	newJob, err := jobsClient.Create(batchJob)
-	if err != nil {
-		fmt.Printf("\tError creating job: %v\n", err)
-		return err
-	}
-	fmt.Println("\tSuccessfully created job.")
-	fmt.Printf("\tNew job name: %v\n", newJob.Name)
-	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
-	proc.JobID = string(newJob.GetUID())
-	proc.JobName = newJob.Name
-	// fmt.Printf("\tNew job status: %v\n", jobStatusToString(&newJob.Status))
-	return nil
-}
-
 func getJobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error) {
 	jobs, err := jc.List(metav1.ListOptions{})
 	if err != nil {
@@ -328,32 +329,7 @@ func getJobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error)
 	return nil, fmt.Errorf("job with jobid %s not found", jobid)
 }
 
-// ListenForDone listens to k8s until the job status is "Completed"
-// when complete, calls a function to collect output and update engine's proc stacks
-func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
-	fmt.Println("\tListening for job to finish..")
-	status := ""
-	for status != "Completed" {
-		jobInfo, err := getJobStatusByID(proc.JobID)
-		if err != nil {
-			return err
-		}
-		status = jobInfo.Status
-	}
-	fmt.Println("\tK8s job complete. Collecting output..")
-
-	proc.CollectOutput()
-
-	fmt.Println("\tFinished collecting output.")
-	PrintJSON(proc.Task.Outputs)
-
-	fmt.Println("\tUpdating engine process stack..")
-	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
-	engine.FinishedProcs[proc.Tool.Root.ID] = proc
-	return nil
-}
-
-func getJobStatusByID(jobid string) (*JobInfo, error) {
+func GetJobStatusByID(jobid string) (*JobInfo, error) {
 	job, err := getJobByID(getJobClient(), jobid)
 	if err != nil {
 		return nil, err
@@ -381,36 +357,4 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 		return "Running"
 	}
 	return "Unknown"
-}
-
-// GatherOutputs gather outputs from the finished task
-// NOTE: currently not being used
-func (tool *Tool) GatherOutputs() error {
-
-	// If "cwl.output.json" exists on executed command directory,
-	// dump the file contents on stdout.
-	// This is described on official document.
-	// See also https://www.commonwl.org/v1.0/Tool.html#Output_binding
-	whatthefuck := filepath.Join(tool.Command.Dir, "cwl.output.json")
-	if defaultout, err := os.Open(whatthefuck); err == nil {
-		defer defaultout.Close()
-		if _, err := io.Copy(os.Stdout, defaultout); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	// Load Contents as JavaScript RunTime if needed.
-	vm, err := tool.Root.Outputs.LoadContents(tool.Command.Dir)
-	if err != nil {
-		return err
-	}
-
-	// CWL wants to dump metadata of outputs with type="File"
-	// See also https://www.commonwl.org/v1.0/Tool.html#File
-	if err := tool.Root.Outputs.Dump(vm, tool.Command.Dir, tool.Root.Stdout, tool.Root.Stderr, os.Stdout); err != nil {
-		return err
-	}
-
-	return nil
 }
