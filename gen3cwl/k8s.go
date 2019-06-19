@@ -123,6 +123,29 @@ func (proc *Process) getCLToolArgs() []string {
 	return args
 }
 
+// handle EnvVarRequirement if specified - need to test
+func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
+	for _, requirement := range proc.Tool.Root.Requirements {
+		if requirement.Class == "EnvVarRequirement" {
+			for _, envDef := range requirement.EnvDef {
+				varValue, err := proc.Tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
+				if err != nil {
+					panic("failed to resolve expressions in envVar def")
+				}
+				envVar := k8sv1.EnvVar{
+					Name:  envDef.Name,
+					Value: varValue,
+				}
+				env = append(env, envVar)
+			}
+		}
+	}
+	return env
+}
+
+// probably should do some more careful error handling with the various get*() functions to populate job spec here
+// those functions should return the value and an error - or maybe panic works just fine
+// something to think about
 func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
@@ -158,6 +181,7 @@ func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 								proc.getCLTBash(), // get path to bash for docker image (needs better solution)
 							},
 							Args:      proc.getCLToolArgs(), // need function here to identify path to bash based on docker image
+							Env:       proc.getEnv(),        // set any environment variables if specified
 							Resources: proc.getResourceReqs(),
 							VolumeMounts: []k8sv1.VolumeMount{
 								{
