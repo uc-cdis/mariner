@@ -125,6 +125,7 @@ func (proc *Process) getCLToolArgs() []string {
 
 // handle EnvVarRequirement if specified - need to test
 func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
+	env = []k8sv1.EnvVar{}
 	for _, requirement := range proc.Tool.Root.Requirements {
 		if requirement.Class == "EnvVarRequirement" {
 			for _, envDef := range requirement.EnvDef {
