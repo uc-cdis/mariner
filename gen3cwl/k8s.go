@@ -90,7 +90,7 @@ func getJobClient() batchtypev1.JobInterface {
 // 3. assemble command and save as /data/run.sh (done)
 func (tool *Tool) getSidecarArgs() []string {
 	toolCmd := strings.Join(tool.Command.Args, " ")
-	fmt.Printf("command: %q", toolCmd)
+	fmt.Printf("command: %q\n", toolCmd)
 	// to run the actual command: remove the second "echo" from the second line
 	// need to add commands here to install goofys and mount the s3 bucket
 	sidecarCmd := fmt.Sprintf(`
@@ -124,6 +124,9 @@ func (proc *Process) getCLToolArgs() []string {
 }
 
 // handle EnvVarRequirement if specified - need to test
+// see: https://godoc.org/k8s.io/api/core/v1#Container
+// and: https://godoc.org/k8s.io/api/core/v1#EnvVar
+// and: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
 func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{}
 	for _, requirement := range proc.Tool.Root.Requirements {

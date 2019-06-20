@@ -53,11 +53,31 @@ func (tool *Tool) GenerateCommand() (err error) {
 		return err
 	}
 
-	fmt.Println("here are cmdElts:")
-	PrintJSON(cmdElts)
-
 	// 3. Sort the command elements by position (okay)
 	sort.Sort(cmdElts)
+
+	// 3.1. capture stdout if specified - tool.Root.Stdout resolves to a file name where stdout will be redirected
+	if tool.Root.Stdout != "" {
+		// append "1> stdout" to end of command
+		stdoutElts, err := tool.getStdElts(1)
+		if err != nil {
+			return err
+		}
+		cmdElts = append(cmdElts, stdoutElts...)
+	}
+
+	// 3.2. capture stderr if specified - tool.Root.Stderr resolves to a file name where stderr will be redirected
+	if tool.Root.Stderr != "" {
+		// append "2> stderr" to end of command
+		stderrElts, err := tool.getStdElts(2)
+		if err != nil {
+			return err
+		}
+		cmdElts = append(cmdElts, stderrElts...)
+	}
+
+	fmt.Println("here are cmdElts:")
+	PrintJSON(cmdElts)
 
 	/*
 		4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Args...) (okay)
@@ -70,6 +90,37 @@ func (tool *Tool) GenerateCommand() (err error) {
 	}
 	tool.Command = exec.Command(cmd[0], cmd[1:]...)
 	return nil
+}
+
+// i==1 --> stdout; i==2 --> stderr
+// TODO - handle prefix issue in order to write file to this step's dir in path/to/mount/workflow/step_dir
+func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
+	cmdElts = make([]*CommandElement, 0)
+	var f string
+	switch i {
+	case 1:
+		f, err = tool.resolveExpressions(tool.Root.Stdout)
+	case 2:
+		f, err = tool.resolveExpressions(tool.Root.Stderr)
+	}
+	if err != nil {
+		return nil, err
+	}
+	// prefix := "path/to/mount_point/workflow/step_dir"
+	prefix := ""
+
+	// 2>> for stderr, 1>> for stdout
+	// NOTE: presently using ">>" (append) and not ">" (write) in case multiple steps/tools redirect stdout/stderr to the same file
+	// ----- need to decide implementation for scattered tasks
+	// ----- if all scattered tasks redirect their output to the same file if a fixed filename specified
+	// ----- or if each scattered subtask will have its own individual dir and stdout/stderr file
+	stream := fmt.Sprintf("%v>>", i)
+
+	cmdElt := &CommandElement{
+		Value: []string{stream, prefix + f},
+	}
+	cmdElts = append(cmdElts, cmdElt)
+	return cmdElts, nil
 }
 
 func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
