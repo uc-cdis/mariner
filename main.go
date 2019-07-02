@@ -3,17 +3,16 @@ package main
 import (
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 
-	"github.com/uc-cdis/gen3cwl/gen3cwl"
+	"github.com/uc-cdis/gen3cwl/mariner"
 
 	"github.com/urfave/cli"
 )
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "gen3cwl"
+	app.Name = "mariner"
 	app.Usage = "Run CWL job"
 	app.Action = func(c *cli.Context) error {
 		workflowPath := c.Args().Get(0)
@@ -34,14 +33,17 @@ func main() {
 		}
 		workflow, err := ioutil.ReadAll(workflowF)
 		inputs, err := ioutil.ReadAll(inputsF)
-		engine := gen3cwl.K8sEngine{}
+		engine := &mariner.K8sEngine{}
 		if err != nil {
 			return err
 		}
-		return gen3cwl.RunWorkflow("testID", workflow, inputs, engine)
+		return mariner.RunWorkflow("testID", workflow, inputs, engine)
 	}
-	err := app.Run(os.Args)
-	if err != nil {
-		log.Fatal(err)
-	}
+	server()
+	/*
+		err := app.Run(os.Args)
+		if err != nil {
+			log.Fatal(err)
+		}
+	*/
 }

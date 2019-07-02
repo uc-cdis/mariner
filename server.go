@@ -6,14 +6,14 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/uc-cdis/gen3cwl/gen3cwl"
+	"github.com/uc-cdis/gen3cwl/mariner"
 )
 
 func makeRouter() *mux.Router {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/", gen3cwl.HandleRoot).Methods("POST")
-	router.HandleFunc("/_status", gen3cwl.HandleHealthcheck).Methods("GET")
+	router.HandleFunc("/", mariner.HandleRoot).Methods("POST")
+	router.HandleFunc("/_status", mariner.HandleHealthcheck).Methods("GET")
 	return router
 }
 

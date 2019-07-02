@@ -1,4 +1,4 @@
-package gen3cwl
+package mariner
 
 import (
 	"fmt"
@@ -48,9 +48,8 @@ func (engine K8sEngine) RunK8sJob(proc *Process) error {
 }
 
 func getJobClient() batchtypev1.JobInterface {
+	// creates the in-cluster config
 	/*
-		/////// Commented out for testing locally (out-of-cluster) ///////
-		// creates the in-cluster config
 		config, err := rest.InClusterConfig()
 		if err != nil {
 			panic(err.Error())
@@ -58,19 +57,6 @@ func getJobClient() batchtypev1.JobInterface {
 	*/
 
 	/////////// begin section for getting out-of-cluster config for testing locally ////////////
-	/*
-		var kubeconfig *string
-		fmt.Printf("number of flags defined: %v", flag.NFlag())
-		if flag.NFlag() == 0 {
-			if home := homeDir(); home != "" {
-				kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
-			} else {
-				kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
-			}
-			flag.Parse()
-		}
-	*/
-
 	// use the current context in kubeconfig
 	config, err := clientcmd.BuildConfigFromFlags("", "/Users/mattgarvin/.kube/config") // for testing locally...
 	if err != nil {

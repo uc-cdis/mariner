@@ -1,4 +1,4 @@
-package gen3cwl
+package mariner
 
 type cwlError struct {
 	err     error
