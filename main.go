@@ -1,49 +1,101 @@
 package main
 
 import (
-	"errors"
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 
-	"github.com/uc-cdis/gen3cwl/mariner"
+	"github.com/uc-cdis/mariner/mariner"
 
 	"github.com/urfave/cli"
 )
 
+/*
+mariner as an executable needs to be able to:
+1. setup the mariner server to listen for API requests
+2. run a workflow
+
+useage:
+ - to setup the mariner server: `mariner listen`
+ - to run a workflow: `mariner run` (runs workflow in /data/request.json, which is s3://workflow-engine-garvin/user/workflow/request.json)
+*/
 func main() {
 	app := cli.NewApp()
 	app.Name = "mariner"
 	app.Usage = "Run CWL job"
 	app.Action = func(c *cli.Context) error {
-		workflowPath := c.Args().Get(0)
-		inputsPath := c.Args().Get(1)
-		if workflowPath == "" {
-			return errors.New("Missing workflow")
+		switch c.Args().Get(0) {
+		case "listen":
+			// mariner running in mariner-server container
+			fmt.Println("setting up mariner-server..")
+			server()
+			return nil
+		case "run":
+			// mariner running in mariner-engine container
+			// `bucket/user/workflow/` has been mounted to `/data`
+			// `/data/request.json` contains the workflow, input, and id
+
+			// NOTE: this section should be encapsulated to a function and maybe put in another file
+			fmt.Println("running mariner-engine..")
+			requestF, err := os.Open("/data/request.json")
+			if err != nil {
+				return err
+			}
+
+			request, err := ioutil.ReadAll(requestF)
+			if err != nil {
+				fmt.Print(err)
+				// insert better error handling here
+			}
+			var wfRequest mariner.WorkflowRequest
+			err = json.Unmarshal(request, &wfRequest)
+			if err != nil {
+				fmt.Printf("fail to parse json %v\n", err)
+			}
+			// encapsulate this engine prep into a function - getEngine() or something like that, engine.Setup(), etc.
+			// put it in mariner/engine.go
+			engine := new(mariner.K8sEngine)
+			engine.Commands = make(map[string][]string)
+			engine.FinishedProcs = make(map[string]*mariner.Process)
+			engine.UnfinishedProcs = make(map[string]*mariner.Process)
+
+			// collect S3 prefix to mount from user bucket
+			engine.S3Prefix = c.Args().Get(1)
+			if engine.S3Prefix == "" {
+				return fmt.Errorf("missing /user/timestamp/ S3 prefix")
+			}
+
+			// load awsusercreds from secret mounted as files in a volume
+			// see volumes in engine job pod spec in k8s.go
+			// see dockerfile for engine sidecar on how to access the secrets as files
+			AWSAccessKeyIDf, err := os.Open("/awsusercreds/awsusercreds.json/id")
+			if err != nil {
+				return err
+			}
+			AWSAccessKeyID, err := ioutil.ReadAll(AWSAccessKeyIDf)
+			if err != nil {
+				return err
+			}
+			engine.AWSAccessKeyID = string(AWSAccessKeyID)
+			AWSSecretAccessKeyf, err := os.Open("/awsusercreds/awsusercreds.json/secret")
+			if err != nil {
+				return err
+			}
+			AWSSecretAccessKey, err := ioutil.ReadAll(AWSSecretAccessKeyf)
+			if err != nil {
+				return err
+			}
+			engine.AWSSecretAccessKey = string(AWSSecretAccessKey)
+
+			// NOTE: the ID is not used in this processing pipeline - could remove that parameter, or keep it in case it may be needed later
+			mariner.RunWorkflow(wfRequest.ID, wfRequest.Workflow, wfRequest.Input, engine)
 		}
-		if inputsPath == "" {
-			return errors.New("Missing Inputs")
-		}
-		workflowF, err := os.Open(workflowPath)
-		if err != nil {
-			return err
-		}
-		inputsF, err := os.Open(inputsPath)
-		if err != nil {
-			return err
-		}
-		workflow, err := ioutil.ReadAll(workflowF)
-		inputs, err := ioutil.ReadAll(inputsF)
-		engine := &mariner.K8sEngine{}
-		if err != nil {
-			return err
-		}
-		return mariner.RunWorkflow("testID", workflow, inputs, engine)
+		return nil
 	}
-	server()
-	/*
-		err := app.Run(os.Args)
-		if err != nil {
-			log.Fatal(err)
-		}
-	*/
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
