@@ -14,6 +14,8 @@ RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.
 RUN unzip awscli-bundle.zip
 RUN ./awscli-bundle/install -b ~/bin/aws
 
+### commented out for testing ###
+
 # configure aws credentials - aws creds are a k8s secret, will be exposed as files in a volume
 # located at `/awsusercreds/awsusercreds.json` -> see mariner-engine k8s job spec
 # see: https://kubernetes.io/docs/concepts/configuration/secret/ "consuming secret values from volumes"
@@ -24,6 +26,5 @@ RUN /root/bin/aws configure set aws_secret_access_key $(cat /awsusercreds/awsuse
 # see the mounted volume/mount point for container in k8s job spec
 RUN mkdir -p /data
 
-# mount bucket:/prefix/
-# NOTE: in mariner-engine job spec, need to load container with these environment variables
-RUN goofys workflow-engine-garvin:/$WORKFLOW_USER_ID/$WORKFLOW_ID/ /data
+# mount bucket:prefix
+RUN goofys workflow-engine-garvin:$S3PREFIX /data
