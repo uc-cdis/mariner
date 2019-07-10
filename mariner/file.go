@@ -31,11 +31,12 @@ type File struct {
 // returns pointer to the new File object
 // presently loading both `path` and `location` for sake of loading all potentially needed context to js vm
 // right now they hold the exact same path
+// prefixissue - don't need to handle here - the 'path' argument is the full path, with working dir and all
 func getFileObj(path string) (fileObj *File) {
 	base, root, ext := getFileFields(path)
 	fileObj = &File{
 		Class:    "File",
-		Location: path,
+		Location: path, // stores the full path
 		Path:     path,
 		Basename: base,
 		NameRoot: root,
@@ -82,8 +83,8 @@ func trimLeading(s string, char string) (suffix string, count int) {
 
 // creates File object for secondaryFile and loads into fileObj.SecondaryFiles field
 // unsure of where/what to check here to potentially return an error
-func (fileObj *File) loadSFilesFromPattern(suffix string, carats int) (err error) {
-	path := fileObj.Location
+func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int) (err error) {
+	path := fileObj.Location // full path -> no need to handle prefix issue here
 	// however many chars there are
 	// trim that number of file extentions from the end of the path
 	for i := 0; i < carats; i++ {
@@ -118,12 +119,8 @@ func (fileObj *File) loadSFilesFromPattern(suffix string, carats int) (err error
 }
 
 // loads contents of file into the File.Contents field
-// NOTE: need handle prefix issue
 func (fileObj *File) loadContents() (err error) {
-	// HERE TODO same path prefix issue as in Glob() needs to be handled
-	// prefix depends bucket mount location in workflow engine container and folder structure of bucket
-	prefix := ""
-	r, err := os.Open(prefix + fileObj.Location)
+	r, err := os.Open(fileObj.Location) // Location field stores full path, no need to handle prefix here
 	if err != nil {
 		return err
 	}

@@ -106,7 +106,8 @@ func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
 	if err != nil {
 		return nil, err
 	}
-	// prefix := "path/to/mount_point/workflow/step_dir"
+
+	// prefix := tool.WorkingDir // commented out for testing // prefixissue
 	prefix := ""
 
 	// 2>> for stderr, 1>> for stdout
@@ -417,13 +418,15 @@ func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
 	// cases:
 	// either a string literal or an expression (okay)
 	// OR a binding with valueFrom field specified (okay)
+	fmt.Println("getting arg value..")
 	val = make([]string, 0)
 	if arg.Value != "" {
 		// implies string literal or expression to eval - okay - see NOTE at typeSwitch
-
+		fmt.Println("string literal or expression to eval..")
 		// NOTE: *might* need to check "$(" or "${" instead of just "$"
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
+			fmt.Println("expression to eval..")
 			result, err := EvalExpression(arg.Value, tool.Root.InputsVM)
 			if err != nil {
 				return nil, err
@@ -442,6 +445,7 @@ func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
 			val = append(val, arg.Value)
 		}
 	} else {
+		fmt.Println("resolving valueFrom..")
 		// get value from `valueFrom` field which may itself be a string literal, an expression, or a string which contains one or more expressions
 		resolvedText, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
 		if err != nil {

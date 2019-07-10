@@ -76,7 +76,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		//// Begin 4 step pipeline for collecting/handling CommandLineTool output files ////
 		var results []*File
 
-		// 1. Glob - good - need to handle glob pattern prefix issue
+		// 1. Glob - good - prefixissue
 		if len(output.Binding.Glob) > 0 {
 			results, err = proc.Glob(&output)
 			if err != nil {
@@ -84,7 +84,9 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			}
 		}
 
-		// 2. Load Contents - good - may need to handle same prefix issue
+		// 2. Load Contents - good
+		// no need to handle prefixes here, since the full paths
+		// are already in the File objects stored in `results`
 
 		// uncomment to test LoadContents functionality:
 		// output.Binding.LoadContents = true
@@ -161,7 +163,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 						return err
 					}
 					for _, fileObj := range results {
-						fileObj.loadSFilesFromPattern(suffix, carats)
+						proc.Tool.loadSFilesFromPattern(fileObj, suffix, carats)
 					}
 				}
 			}
@@ -211,12 +213,13 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		} else {
 			prefix = fmt.Sprintf("/Users/mattgarvin/_fakes3/testWorkflow/%v/", proc.Task.Root.ID)
 		}
+		// paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern) // commented out for testing locally - prefixissue
 		paths, err := filepath.Glob(prefix + pattern)
 		if err != nil {
 			return results, err
 		}
 		for _, path := range paths {
-			fileObj := getFileObj(path)
+			fileObj := getFileObj(path) // these are full paths, no need to add working dir to path
 			results = append(results, fileObj)
 		}
 	}
@@ -314,7 +317,7 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 }
 
 // GatherOutputs gather outputs from the finished task
-// NOTE: currently not being used
+// NOTE: currently not being used - artifact
 func (tool *Tool) GatherOutputs() error {
 
 	// If "cwl.output.json" exists on executed command directory,

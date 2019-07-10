@@ -78,8 +78,8 @@ func (tool *Tool) initWorkDir() (err error) {
 					2. `entry` did not return a file object - then returned value is in `contents` and must be written to a new file with filename stored in `entryName` (supported)
 				*/
 
-				// HERE - TODO: handle same prefix issue as for collecting CLT output - see HandleCLTOutput()
-				prefix := "/Users/mattgarvin/_fakes3/testWorkflow/#initdir_test.cwl" // for testing
+				// prefix := tool.WorkingDir // commented out for testing - prefixissue
+				prefix := "/Users/mattgarvin/_fakes3/testWorkflow/#initdir_test.cwl" // for testing locally
 				if resFile != nil {
 					// "If the value is an expression that evaluates to a File object,
 					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."
@@ -92,7 +92,7 @@ func (tool *Tool) initWorkDir() (err error) {
 					if err != nil {
 						return err
 					}
-					f, err := os.Create(filepath.Join(prefix, entryName))
+					f, err := os.Create(filepath.Join(prefix, entryName)) // prefixissue - prefix should be tool.WorkingDir
 					if err != nil {
 						return err
 					}
@@ -112,10 +112,13 @@ type Engine interface {
 
 // K8sEngine runs all *Tools - including expression tools - should these functionalities be decoupled?
 type K8sEngine struct {
-	TaskSequence    []string            // for testing purposes
-	Commands        map[string][]string // also for testing purposes
-	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running (task.Root.ID, Process) pairs
-	FinishedProcs   map[string]*Process // engine's stack of completed processes (task.Root.ID, Process) pairs
+	TaskSequence       []string            // for testing purposes
+	Commands           map[string][]string // also for testing purposes
+	UnfinishedProcs    map[string]*Process // engine's stack of CLT's that are running (task.Root.ID, Process) pairs
+	FinishedProcs      map[string]*Process // engine's stack of completed processes (task.Root.ID, Process) pairs
+	AWSAccessKeyID     string              // awsusercreds get passed to task job spec sidecar container to mount user bucket
+	AWSSecretAccessKey string
+	S3Prefix           string // the /user/workflow-timestamp/ prefix to pass to task sidecar to mount correct prefix from user bucket -> s3://workflow-engine-garvin/user/wf-timestamp/
 }
 
 // Process represents a leaf in the graph of a workflow
@@ -136,7 +139,8 @@ type Process struct {
 
 // Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
 type Tool struct {
-	Outdir           string // Given by context
+	Outdir           string // Given by context - not sure what this is for
+	WorkingDir       string // e.g., /data/task_id/
 	Root             *cwl.Root
 	Parameters       cwl.Parameters
 	Command          *exec.Cmd
@@ -149,6 +153,9 @@ type Tool struct {
 func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	tool := task.getTool()
 	err = tool.setupTool()
+	if err != nil {
+		return err
+	}
 
 	// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
 	// this will be handled when code is refactored/polished/cleaned up
@@ -156,6 +163,8 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 		Tool: tool,
 		Task: task,
 	}
+	fmt.Println("\n\t\tThis task has been dispatched and should get its own directory!")
+	fmt.Printf("\t\tHere is the task.Root.ID and scatter index: %v : %v\n\n", task.Root.ID, task.ScatterIndex)
 
 	// (when should the process get pushed onto the stack?)
 	// push newly started process onto the engine's stack of running processes
@@ -179,11 +188,45 @@ func (task *Task) getTool() *Tool {
 		Root:         task.Root,
 		Parameters:   task.Parameters,
 		OriginalStep: task.originalStep,
+		WorkingDir:   task.getWorkingDir(),
 	}
 	return tool
 }
 
+// see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
+// "characters to avoid" for keys in s3 buckets
+// probably need to do some more filtering of other potentially problematic characters
+// additionally, should make the mount point a go constant - i.e., const MountPoint = "/data/"
+// could come up with a better/more uniform naming scheme
+func (task *Task) getWorkingDir() string {
+	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
+	dir := fmt.Sprintf("/data/%v", safeID)
+	if task.ScatterIndex > 0 {
+		dir = fmt.Sprintf("%v-scatter-%v", dir, task.ScatterIndex)
+	}
+	dir += "/"
+	return dir
+}
+
+func (tool *Tool) makeWorkingDir() error {
+	fmt.Printf("making working directory %v\n\n", tool.WorkingDir)
+	// Commented out for testing locally - uncomment for testing/running in k8s cluster
+	/*
+		err := os.MkdirAll(tool.WorkingDir, 0777)
+		if err != nil {
+			fmt.Printf("error while making directory: %v\n", err)
+			return err
+		}
+		fmt.Printf("successfully created working directory %v\n\n", tool.WorkingDir)
+	*/
+	return nil
+}
+
 func (tool *Tool) setupTool() (err error) {
+	err = tool.makeWorkingDir()
+	if err != nil {
+		return err
+	}
 	err = tool.loadInputs() // pass parameter values to input.Provided for each input
 	if err != nil {
 		fmt.Printf("\tError loading inputs: %v\n", err)
@@ -275,10 +318,15 @@ func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 // RunExpressionTool runs an ExpressionTool
 func (engine *K8sEngine) runExpressionTool(proc *Process) (err error) {
 	// note: context has already been loaded
-	result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
+	err = os.Chdir(proc.Tool.WorkingDir) // move to this tool's working directory before executing the tool
 	if err != nil {
 		return err
 	}
+	result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM) // execute tool
+	if err != nil {
+		return err
+	}
+	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
 
 	// expression must return a JSON object where the keys are the IDs of the ExpressionTool outputs
 	// see description of `expression` field here:

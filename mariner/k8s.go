@@ -1,10 +1,12 @@
 package mariner
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"strings"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -17,6 +19,7 @@ import (
 
 // this file contains code for interacting with k8s cluster via k8s api
 // e.g., get cluster config, handle runtime requirements, create job spec, execute job, get job info/status
+// NOTE: clean up the code - move all the config/spec-related things into a separate file
 
 // JobInfo - k8s job information
 type JobInfo struct {
@@ -25,12 +28,161 @@ type JobInfo struct {
 	Status string `json:"status"`
 }
 
+// see: https://godoc.org/k8s.io/api/core/v1#Volume
+// https://godoc.org/k8s.io/api/core/v1#VolumeSource
+// https://godoc.org/k8s.io/api/core/v1#SecretVolumeSource
+func getAWSCredsSecret() k8sv1.Volume {
+	vol := k8sv1.Volume{
+		Name: "awsusercreds",
+	}
+	vol.Secret = &k8sv1.SecretVolumeSource{
+		SecretName: "workflow-bot-g3auto", // HERE TODO - don't hardcode this - put this in a congiguration doc - look at how hatchery works
+		Optional:   getBoolPointer(false),
+	}
+	return vol
+}
+
+// probably can come up with a better ID for a workflow, but for now this will work
+// can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
+// so not exactly sure how to label the workflow runs besides a timestamp
+func getS3Prefix(content WorkflowRequest) (prefix string) {
+	now := time.Now()
+	timeStamp := fmt.Sprintf("%v-%v-%v_%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
+	prefix = fmt.Sprintf("/%v/%v/", content.ID, timeStamp)
+	return prefix
+}
+
+func getEngineSidecarArgs(content WorkflowRequest) []string {
+	request, err := json.Marshal(content)
+	if err != nil {
+		panic("failed to marshal request body (workflow content) into json")
+	}
+	sidecarCmd := fmt.Sprintf(`echo "%v" > /data/request.json`, string(request))
+	args := []string{
+		"-c",
+		sidecarCmd,
+	}
+	return args
+}
+
+// analogous to task main container args - maybe restructure code, less redundancy
+// need rename repo so that the executable is `mariner`
+func getEngineArgs(prefix string) []string {
+	args := []string{
+		"-c",
+		fmt.Sprintf(`
+    while [[ ! -f /data/request.json ]]; do
+      echo "Waiting for mariner-engine-sidecar to finish setting up..";
+      sleep 1
+    done
+		echo "Sidecar setup complete! Running mariner-engine now.."
+		/mariner run %v
+		`, prefix),
+	}
+	return args
+}
+
+// DispatchWorkflowJob runs a workflow provided in mariner api request
+// TODO - move details to a config file
+func DispatchWorkflowJob(content WorkflowRequest) error {
+	jobsClient := getJobClient()
+	S3Prefix := getS3Prefix(content) // bc of timestamp -> need to call this exactly once, and then pass that generated prefix to wherever elsewhere needed - ow timestamp changes
+	batchJob := &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test-workflow",         // replace
+			Labels: make(map[string]string), // to be populated - labels for job object
+		},
+		Spec: batchv1.JobSpec{
+			Template: k8sv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "test-workflow",         // replace
+					Labels: make(map[string]string), // to be populated - labels for pod object
+				},
+				Spec: k8sv1.PodSpec{
+					RestartPolicy: k8sv1.RestartPolicyNever,
+					Volumes: []k8sv1.Volume{
+						{
+							Name: "shared-data", // implicitly set to be an emptyDir
+						},
+						getAWSCredsSecret(), // can't construct struct literal due to promoted fields in type definition
+					},
+					Containers: []k8sv1.Container{
+						{
+							Name: "mariner-engine",
+							// Image: INSERT-MARINER-ENGINE-IMAGE-HERE,
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
+							Command: []string{
+								"bin/sh",
+							},
+							Args: getEngineArgs(S3Prefix),
+							// no resources specified here currently - research/find a good value for this - find a good example
+							VolumeMounts: []k8sv1.VolumeMount{
+								{
+									Name:             "shared-data",
+									MountPath:        "/data",
+									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
+								},
+								{
+									Name:      "awsusercreds",
+									MountPath: "/awsusercreds",
+								},
+							},
+						},
+						{
+							Name: "mariner-engine-sidecar",
+							// Image: INSERT-MARINER-ENGINE-SIDECAR-IMAGE-HERE, // replace
+							Command: []string{
+								"/bin/sh",
+							},
+							Args: getEngineSidecarArgs(content), // writes request body to /data/request.json - request body contains ID, workflow and input
+							Env: []k8sv1.EnvVar{
+								{
+									Name:  "S3PREFIX",
+									Value: S3Prefix, // see last line of mariner-engine-sidecar dockerfile -> RUN goofys workflow-engine-garvin:$S3PREFIX /data
+								},
+							},
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
+							SecurityContext: &k8sv1.SecurityContext{
+								Privileged: getBoolPointer(true),
+							},
+							VolumeMounts: []k8sv1.VolumeMount{
+								{
+									Name:             "shared-data",
+									MountPath:        "/data",
+									MountPropagation: getPropagationMode(k8sv1.MountPropagationBidirectional),
+								},
+								{
+									Name:      "awsusercreds",
+									MountPath: "/awsusercreds",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	newJob, err := jobsClient.Create(batchJob)
+	if err != nil {
+		fmt.Printf("\tError creating job: %v\n", err)
+		return err
+	}
+	fmt.Println("\tSuccessfully created job.")
+	fmt.Printf("\tNew job name: %v\n", newJob.Name)
+	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
+	return nil
+}
+
 // RunK8sJob runs the CommandLineTool in a container as a k8s job with a sidecar container to write command to run.sh, install s3fs/goofys and mount bucket
 func (engine K8sEngine) RunK8sJob(proc *Process) error {
 	fmt.Println("\tCreating k8s job spec..")
-	batchJob, nil := createJobSpec(proc)
+	batchJob, nil := engine.createJobSpec(proc)
 
-	jobsClient := getJobClient() // does this need to happen for each job? or just once, so every job uses the same jobsClient?
+	jobsClient := getJobClient()
 
 	fmt.Println("\tRunning k8s job..")
 	newJob, err := jobsClient.Create(batchJob)
@@ -94,6 +246,8 @@ func (tool *Tool) getSidecarArgs() []string {
 // wait for sidecar to setup
 // in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
+// HERE TODO - need to write run.sh to a different location, or its own folder or something -> /data/taskID/run.sh
+// because /data/ is shared root by all tasks
 func (proc *Process) getCLToolArgs() []string {
 	args := []string{
 		"-c",
@@ -136,7 +290,9 @@ func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
 // probably should do some more careful error handling with the various get*() functions to populate job spec here
 // those functions should return the value and an error - or maybe panic works just fine
 // something to think about
-func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
+// l8est NOTE: use a CONFIG file to store all these horrific details, then just cleanly read from config doc to populate job spec
+// see: https://godoc.org/k8s.io/api/core/v1#Container
+func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
 	fmt.Printf("Pulling image %v for task %v\n", proc.getDockerImage(), proc.Task.Root.ID)
@@ -165,12 +321,13 @@ func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 					Containers: []k8sv1.Container{
 						{
 							Name:            "commandlinetool",
+							WorkingDir:      proc.Tool.WorkingDir,
 							Image:           proc.getDockerImage(),
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							Command: []string{
 								proc.getCLTBash(), // get path to bash for docker image (needs better solution)
 							},
-							Args:      proc.getCLToolArgs(), // need function here to identify path to bash based on docker image
+							Args:      proc.getCLToolArgs(), // need function here to identify path to bash based on docker image - not sure how to navigate this
 							Env:       proc.getEnv(),        // set any environment variables if specified
 							Resources: proc.getResourceReqs(),
 							VolumeMounts: []k8sv1.VolumeMount{
@@ -182,15 +339,30 @@ func createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 							},
 						},
 						{
-							Name:  "sidecar",
-							Image: "ubuntu",
+							Name: "sidecar",
+							// Image: INSERT-MARINER-TASK-SIDECAR-IMAGE-HERE,
+							Image: "alpine", // replace
 							Command: []string{
-								"/bin/bash",
+								"/bin/sh",
 							},
 							Args:            proc.Tool.getSidecarArgs(),
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
 							SecurityContext: &k8sv1.SecurityContext{
 								Privileged: getBoolPointer(true),
+							},
+							Env: []k8sv1.EnvVar{
+								{
+									Name:  "AWS_ACCESS_KEY_ID",
+									Value: engine.AWSAccessKeyID,
+								},
+								{
+									Name:  "AWS_SECRET_ACCESS_KEY",
+									Value: engine.AWSSecretAccessKey,
+								},
+								{
+									Name:  "S3PREFIX",
+									Value: engine.S3Prefix, // mounting whole user dir to /data -> not just the dir for the task - not sure what the best approach is here yet
+								},
 							},
 							VolumeMounts: []k8sv1.VolumeMount{
 								{
