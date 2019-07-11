@@ -31,6 +31,7 @@ type JobInfo struct {
 // see: https://godoc.org/k8s.io/api/core/v1#Volume
 // https://godoc.org/k8s.io/api/core/v1#VolumeSource
 // https://godoc.org/k8s.io/api/core/v1#SecretVolumeSource
+// NOT using this anymore - loading aws creds as secret to each sidecar
 func getAWSCredsSecret() k8sv1.Volume {
 	vol := k8sv1.Volume{
 		Name: "awsusercreds",
@@ -66,7 +67,6 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 }
 
 // analogous to task main container args - maybe restructure code, less redundancy
-// need rename repo so that the executable is `mariner`
 func getEngineArgs(prefix string) []string {
 	args := []string{
 		"-c",
@@ -80,6 +80,16 @@ func getEngineArgs(prefix string) []string {
 		`, prefix),
 	}
 	return args
+}
+
+// HERE - TODO - put this in the config
+var awscreds = k8sv1.EnvVarSource{
+	SecretKeyRef: &k8sv1.SecretKeySelector{
+		LocalObjectReference: k8sv1.LocalObjectReference{
+			Name: "workflow-bot-g3auto",
+		},
+		Key: "awsusercreds.json",
+	},
 }
 
 // DispatchWorkflowJob runs a workflow provided in mariner api request
@@ -108,7 +118,6 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 						{
 							Name: "shared-data", // implicitly set to be an emptyDir
 						},
-						getAWSCredsSecret(), // can't construct struct literal due to promoted fields in type definition
 					},
 					Containers: []k8sv1.Container{
 						{
@@ -126,10 +135,6 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 									MountPath:        "/data",
 									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
 								},
-								{
-									Name:      "awsusercreds",
-									MountPath: "/awsusercreds",
-								},
 							},
 						},
 						{
@@ -144,6 +149,10 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 									Name:  "S3PREFIX",
 									Value: S3Prefix, // see last line of mariner-engine-sidecar dockerfile -> RUN goofys workflow-engine-garvin:$S3PREFIX /data
 								},
+								{
+									Name:      "AWSCREDS",
+									ValueFrom: &awscreds,
+								},
 							},
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
 							SecurityContext: &k8sv1.SecurityContext{
@@ -154,10 +163,6 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 									Name:             "shared-data",
 									MountPath:        "/data",
 									MountPropagation: getPropagationMode(k8sv1.MountPropagationBidirectional),
-								},
-								{
-									Name:      "awsusercreds",
-									MountPath: "/awsusercreds",
 								},
 							},
 						},
@@ -246,7 +251,7 @@ func (tool *Tool) getSidecarArgs() []string {
 // wait for sidecar to setup
 // in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
-// HERE TODO - need to write run.sh to a different location, or its own folder or something -> /data/taskID/run.sh
+// HERE TODO - need to write run.sh to a different location, or its own folder or something ->
 // because /data/ is shared root by all tasks
 func (proc *Process) getCLToolArgs() []string {
 	args := []string{
@@ -352,12 +357,8 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 							},
 							Env: []k8sv1.EnvVar{
 								{
-									Name:  "AWS_ACCESS_KEY_ID",
-									Value: engine.AWSAccessKeyID,
-								},
-								{
-									Name:  "AWS_SECRET_ACCESS_KEY",
-									Value: engine.AWSSecretAccessKey,
+									Name:      "AWSCREDS",
+									ValueFrom: &awscreds,
 								},
 								{
 									Name:  "S3PREFIX",

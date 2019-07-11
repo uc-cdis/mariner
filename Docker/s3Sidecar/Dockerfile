@@ -1,6 +1,6 @@
 FROM golang:1.10-alpine as build
 
-RUN apk update && apk add --no-cache git fuse curl python
+RUN apk update && apk add --no-cache git fuse curl python jq
 
 # install goofys
 RUN go get github.com/kahing/goofys
@@ -12,11 +12,9 @@ RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.
 RUN unzip awscli-bundle.zip
 RUN ./awscli-bundle/install -b ~/bin/aws
 
-# configure aws credentials - passed in as envVars 
-# pretty sure with the environment variables set there's no need to `aws configure set` anything
-# see mariner-task-sidecar job spec in mariner/k8s.go
-# RUN /root/bin/aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-# RUN /root/bin/aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+# configure aws credentials - awsusercreds.json passed in as AWSCREDS envVar
+RUN /root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)
+RUN /root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)
 
 # create dir which will be mount point for bucket - pretty sure this will already exist actually
 # see the mounted volume/mount point for container in k8s job spec
