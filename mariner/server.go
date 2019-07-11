@@ -1,4 +1,4 @@
-package main
+package mariner
 
 import (
 	"log"
@@ -6,18 +6,17 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/uc-cdis/mariner/mariner"
 )
 
 func makeRouter() *mux.Router {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/run", mariner.HandleRoot).Methods("POST")
-	router.HandleFunc("/_status", mariner.HandleHealthcheck).Methods("GET")
+	router.HandleFunc("/run", HandleRoot).Methods("POST")
+	router.HandleFunc("/_status", HandleHealthcheck).Methods("GET")
 	return router
 }
 
-func server() {
+func Server() {
 	httpLogger := log.New(os.Stdout, "", log.LstdFlags)
 	httpLogger.Fatal(http.ListenAndServe(":8000", makeRouter()))
 }

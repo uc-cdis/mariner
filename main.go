@@ -30,7 +30,7 @@ func main() {
 		case "listen":
 			// mariner running in mariner-server container
 			fmt.Println("setting up mariner-server..")
-			server()
+			mariner.Server()
 			return nil
 		case "run":
 			// mariner running in mariner-engine container
