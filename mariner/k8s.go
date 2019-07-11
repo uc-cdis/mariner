@@ -121,8 +121,8 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 					},
 					Containers: []k8sv1.Container{
 						{
-							Name: "mariner-engine",
-							// Image: INSERT-MARINER-ENGINE-IMAGE-HERE,
+							Name:            "mariner-engine",
+							Image:           "quay.io/cdis/mariner-engine",
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							Command: []string{
 								"bin/sh",
@@ -138,8 +138,8 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 							},
 						},
 						{
-							Name: "mariner-engine-sidecar",
-							// Image: INSERT-MARINER-ENGINE-SIDECAR-IMAGE-HERE, // replace
+							Name:  "mariner-s3sidecar",
+							Image: "quay.io/cdis/mariner-s3sidecar",
 							Command: []string{
 								"/bin/sh",
 							},
@@ -344,9 +344,8 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 							},
 						},
 						{
-							Name: "sidecar",
-							// Image: INSERT-MARINER-TASK-SIDECAR-IMAGE-HERE,
-							Image: "alpine", // replace
+							Name:  "mariner-s3sidecar",
+							Image: "quay.io/cdis/mariner-s3sidecar", // put in config
 							Command: []string{
 								"/bin/sh",
 							},

@@ -41,7 +41,7 @@ spec:
       automountServiceAccountToken: true
       containers:
       - name: mariner
-        image: alpine # INSERT-MARINER-SERVER-IMAGE-HERE
+        image: "quay.io/cdis/mariner-server"
         livenessProbe:
           httpGet:
             path: /_status
