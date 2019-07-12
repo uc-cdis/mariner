@@ -1,4 +1,4 @@
-FROM golang:1.10-alpine as build
+FROM golang:1.12-alpine as build
 
 RUN apk update && apk add --no-cache git fuse curl python jq
 
