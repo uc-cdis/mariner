@@ -53,6 +53,7 @@ func getS3Prefix(content WorkflowRequest) (prefix string) {
 	return prefix
 }
 
+// HERE - TODO - put this in a config doc, or a bash script or something - don't hardcode it here
 func getEngineSidecarArgs(content WorkflowRequest) []string {
 	request, err := json.Marshal(content)
 	if err != nil {
@@ -61,6 +62,9 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 	sidecarCmd := fmt.Sprintf(`echo "%v" > /data/request.json`, string(request))
 	args := []string{
 		"-c",
+		"/root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)",
+		"/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)",
+		"goofys workflow-engine-garvin:$S3PREFIX /data",
 		sidecarCmd,
 	}
 	return args
@@ -227,10 +231,8 @@ func getJobClient() batchtypev1.JobInterface {
 	return jobsClient
 }
 
-// the sidecar needs to
-// 1. install s3fs (goofys???) TODO // (apt-get update; apt-get install s3fs -y)
-// 2. mount the s3 bucket  TODO
-// 3. assemble command and save as /data/run.sh (done)
+// almost identical to engine sidecar args - just writing a different file
+// HERE TODO - write the actual command, not the "run this ..." test message
 func (tool *Tool) getSidecarArgs() []string {
 	toolCmd := strings.Join(tool.Command.Args, " ")
 	fmt.Printf("command: %q\n", toolCmd)
@@ -238,9 +240,12 @@ func (tool *Tool) getSidecarArgs() []string {
 	// need to add commands here to install goofys and mount the s3 bucket
 	sidecarCmd := fmt.Sprintf(`
 	echo sidecar is running..
-	echo "echo %v" > /data/run.sh
-	echo successfully created /data/run.sh
-	`, "run this bash script to execute the commandlinetool")
+	/root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)
+	/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)
+	goofys workflow-engine-garvin:$S3PREFIX /data
+	echo "echo %v" > %vrun.sh
+	echo successfully created %vrun.sh
+	`, "run this bash script to execute the commandlinetool", tool.WorkingDir, tool.WorkingDir)
 	args := []string{
 		"-c",
 		sidecarCmd,
@@ -251,19 +256,18 @@ func (tool *Tool) getSidecarArgs() []string {
 // wait for sidecar to setup
 // in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
-// HERE TODO - need to write run.sh to a different location, or its own folder or something ->
-// because /data/ is shared root by all tasks
+// need to test that we write/read run.sh to/from tool's working dir correctly
 func (proc *Process) getCLToolArgs() []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
-    while [[ ! -f /data/run.sh ]]; do
+    while [[ ! -f %vrun.sh ]]; do
       echo "Waiting for sidecar to finish setting up..";
       sleep 5
     done
-		echo "Sidecar setup complete! Running /data/run.sh now.."
-		%v /data/run.sh
-		`, proc.getCLTBash()),
+		echo "Sidecar setup complete! Running command script now.."
+		%v %vrun.sh
+		`, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir),
 	}
 	return args
 }
