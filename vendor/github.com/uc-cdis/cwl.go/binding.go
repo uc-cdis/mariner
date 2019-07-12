@@ -23,6 +23,9 @@ type Binding struct {
 // New constructs new "Binding".
 func (binding Binding) New(i interface{}) *Binding {
 	dest := new(Binding)
+	dest.ShellQuote = true           // default value according to CWL spec
+	dest.Separator = "NOT SPECIFIED" // assigning this default value so "" is not the empty value
+	dest.Separate = true             // default value according to CWL spec
 	switch x := i.(type) {
 	case map[string]interface{}:
 		for key, v := range x {

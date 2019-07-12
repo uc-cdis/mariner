@@ -1,5 +1,7 @@
 package cwl
 
+import "fmt"
+
 // Requirement represent an element of "requirements".
 type Requirement struct {
 	Class string
@@ -15,6 +17,8 @@ type Requirement struct {
 }
 
 // New constructs "Requirement" struct from interface.
+// TODO: add in handles to pull all information from CWL and store in fields
+// for ResourceRequirement but also for other requirements which are not fully handled
 func (_ Requirement) New(i interface{}) Requirement {
 	dest := Requirement{}
 	switch x := i.(type) {
@@ -23,6 +27,17 @@ func (_ Requirement) New(i interface{}) Requirement {
 			switch key {
 			case "class":
 				dest.Class = v.(string)
+			case "coresMin":
+				fmt.Println(v)
+				dest.CoresMin = int(v.(float64))
+			case "coresMax":
+				fmt.Println(v)
+				dest.CoresMax = int(v.(float64))
+			case "ramMin":
+				fmt.Println(v)
+				dest.RAMMin = int(v.(float64))
+			case "ramMax":
+				dest.RAMMax = int(v.(float64))
 			case "dockerPull":
 				dest.DockerPull = v.(string)
 			case "dockerOutputDirectory":
@@ -157,4 +172,7 @@ type ShellCommandRequirement struct {
 type ResourceRequirement struct {
 	CoresMin int
 	CoresMax int
+	RAMMin   int
+	RAMMax   int
+	// presently not handling tmpdirMin/Max or outdirMin/Max
 }

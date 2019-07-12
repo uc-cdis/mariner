@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	// "encoding/json"
 
 	"github.com/robertkrimen/otto"
 )
@@ -239,7 +240,13 @@ func (input *Input) Flatten() []string {
 	case "int":
 		flattened = append(flattened, fmt.Sprintf("%v", input.Provided.Int))
 	case "File":
-		flattened = append(flattened, input.Provided.Entry.Location)
+		if input.Binding != nil && input.Binding.ValueFrom.String != "" {
+			// ValueFrom case must be handled separately
+			// value from ValueFrom gets stored in input.Provided.Raw in transformInput() in K8sEngine.go
+			flattened = append(flattened, input.Provided.Raw.(string))
+		} else {
+			flattened = append(flattened, input.Provided.Entry.Location)
+		}
 	case "Any":
 		switch v := input.Provided.Raw.(type) {
 		case string:
@@ -316,37 +323,62 @@ func (ins Inputs) Swap(i, j int) {
 }
 
 // ToJavaScriptVM ...
-func (ins Inputs) ToJavaScriptVM() (*otto.Otto, error) {
+// load all context into js vm
+// NOTE: NOT using this function in gen3cwl - we are using our own, better function for loading inputs context
+func (ins Inputs) ToJavaScriptVM(prefix string) (*otto.Otto, error) {
 	self := map[string]interface{}{}
+	var (
+		id        string
+		path      string
+		basename  string
+		splitPath []string
+	)
 	for _, i := range ins {
+		id = strings.TrimPrefix(i.ID, prefix)
+		/*
+			fmt.Printf("Input ID: %v\n", id)
+			fmt.Println("Handling this input:")
+			seeIn, _ := json.MarshalIndent(i, "", "    ")
+			fmt.Println(string(seeIn))
+			fmt.Println("Provided:")
+			seeProvided, _ := json.MarshalIndent(i.Provided, "", "    ")
+			fmt.Println(string(seeProvided))
+		*/
+		path, basename = "", ""
 		if i.Provided != nil {
 			if i.Provided.Entry != nil {
-				self[i.ID] = map[string]interface{}{
-					"path": i.Provided.Entry.Location,
-				}
-				continue
+				path = i.Provided.Entry.Location
 			}
-			if i.Types[0].Type == "string" {
-				self[i.ID] = i.Provided.Raw
+			// every non-file handled here - populate with raw value
+			// this is a janky way of loading context - needs to be made much more robust
+			if i.Types[0].Type != "File" {
+				self[id] = i.Provided.Raw
 				continue
 			}
 		}
 		if i.Default != nil && i.Default.Entry != nil {
-			self[i.ID] = map[string]interface{}{
-				"path": i.Default.Entry.Location,
+			path = i.Default.Entry.Location
+		}
+		if path != "" {
+			splitPath = strings.Split(path, "/")
+			basename = splitPath[len(splitPath)-1]
+			self[id] = map[string]interface{}{
+				"path":     path,
+				"location": path,
+				"basename": basename,
 			}
-			continue
 		}
 	}
 
-	// No contents to load
-	if len(self) == 0 {
-		return nil, nil
+	// Create the js vm
+	vm := otto.New()
+
+	// Load any input variables into the vm
+	if len(self) > 0 {
+		if err := vm.Set("inputs", self); err != nil {
+			return nil, err
+		}
 	}
 
-	vm := otto.New()
-	if err := vm.Set("inputs", self); err != nil {
-		return nil, err
-	}
 	return vm, nil
 }
