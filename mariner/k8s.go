@@ -118,7 +118,8 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 					Labels: make(map[string]string), // to be populated - labels for pod object
 				},
 				Spec: k8sv1.PodSpec{
-					RestartPolicy: k8sv1.RestartPolicyNever,
+					ServiceAccountName: "mariner-service-account", // see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+					RestartPolicy:      k8sv1.RestartPolicyNever,
 					Volumes: []k8sv1.Volume{
 						{
 							Name: "shared-data", // implicitly set to be an emptyDir
