@@ -106,9 +106,10 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 			Kind:       "Job",
 			APIVersion: "v1",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "test-workflow",         // replace
-			Labels: make(map[string]string), // to be populated - labels for job object
+		ObjectMeta: metav1.ObjectMeta{ // https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
+			Name:      "test-workflow",         // replace
+			Labels:    make(map[string]string), // to be populated - labels for job object
+			Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
@@ -312,8 +313,9 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
-			Labels: make(map[string]string), // to be populated - labels for job object
+			Name:      jobName,
+			Labels:    make(map[string]string), // to be populated - labels for job object
+			Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
