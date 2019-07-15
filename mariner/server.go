@@ -18,5 +18,5 @@ func makeRouter() *mux.Router {
 
 func Server() {
 	httpLogger := log.New(os.Stdout, "", log.LstdFlags)
-	httpLogger.Fatal(http.ListenAndServe(":8000", makeRouter()))
+	httpLogger.Fatal(http.ListenAndServe(":80", makeRouter()))
 }
