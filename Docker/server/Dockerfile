@@ -14,13 +14,11 @@ WORKDIR /go/src/github.com/uc-cdis
 RUN git clone -b feat/k8s --single-branch https://github.com/uc-cdis/mariner/
 WORKDIR /go/src/github.com/uc-cdis/mariner
 
-RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
-
-## commenting out the scratch/copy thing here, just to see if the thing works 
+RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
 
 # Set up small scratch image, and copy necessary things over
-# FROM scratch
+FROM scratch
 
-# COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /mariner
+COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /mariner
 
-ENTRYPOINT ["/mariner listen"]
+ENTRYPOINT ["/mariner", "listen"]
