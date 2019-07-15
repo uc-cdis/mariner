@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/rest"
 )
 
 // this file contains code for interacting with k8s cluster via k8s api
@@ -210,19 +210,20 @@ func (engine K8sEngine) RunK8sJob(proc *Process) error {
 
 func getJobClient() batchtypev1.JobInterface {
 	// creates the in-cluster config
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	/////////// begin section for getting out-of-cluster config for testing locally ////////////
+	// use the current context in kubeconfig
 	/*
-		config, err := rest.InClusterConfig()
+		config, err := clientcmd.BuildConfigFromFlags("", "/Users/mattgarvin/.kube/config") // for testing locally...
 		if err != nil {
 			panic(err.Error())
 		}
 	*/
-
-	/////////// begin section for getting out-of-cluster config for testing locally ////////////
-	// use the current context in kubeconfig
-	config, err := clientcmd.BuildConfigFromFlags("", "/Users/mattgarvin/.kube/config") // for testing locally...
-	if err != nil {
-		panic(err.Error())
-	}
 	//////////// end section for getting out-of-cluster config ////////////////////////////////
 
 	clientset, err := kubernetes.NewForConfig(config)

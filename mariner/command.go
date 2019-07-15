@@ -107,8 +107,8 @@ func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
 		return nil, err
 	}
 
-	// prefix := tool.WorkingDir // commented out for testing // prefixissue
-	prefix := ""
+	prefix := tool.WorkingDir // commented out for testing // prefixissue
+	// prefix := ""
 
 	// 2>> for stderr, 1>> for stdout
 	// NOTE: presently using ">>" (append) and not ">" (write) in case multiple steps/tools redirect stdout/stderr to the same file

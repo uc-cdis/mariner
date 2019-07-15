@@ -205,16 +205,19 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			5. if there is an InitialWorkDirRequirement (https://www.commonwl.org/v1.0/Workflow.html#InitialWorkDirRequirement)
 		*/
 
-		// currently using this directory to test the workflow output collection/globbing
-		var prefix string
-		if proc.Task.ScatterIndex != 0 {
-			// NOTE: each scattered subtask of a scattered task will have its own working dir
-			prefix = fmt.Sprintf("/Users/mattgarvin/_fakes3/testWorkflow/%v-scatter-%v/", proc.Task.Root.ID, proc.Task.ScatterIndex)
-		} else {
-			prefix = fmt.Sprintf("/Users/mattgarvin/_fakes3/testWorkflow/%v/", proc.Task.Root.ID)
-		}
-		// paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern) // commented out for testing locally - prefixissue
-		paths, err := filepath.Glob(prefix + pattern)
+		/*
+			// currently using this directory to test locally the workflow output collection/globbing
+			var prefix string
+			if proc.Task.ScatterIndex != 0 {
+				// NOTE: each scattered subtask of a scattered task will have its own working dir
+				prefix = fmt.Sprintf("/Users/mattgarvin/_fakes3/testWorkflow/%v-scatter-%v/", proc.Task.Root.ID, proc.Task.ScatterIndex)
+			} else {
+				prefix = fmt.Sprintf("/Users/mattgarvin/_fakes3/testWorkflow/%v/", proc.Task.Root.ID)
+			}
+			paths, err := filepath.Glob(prefix + pattern)
+		*/
+
+		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern) // commented out for testing locally - prefixissue
 		if err != nil {
 			return results, err
 		}

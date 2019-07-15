@@ -78,8 +78,8 @@ func (tool *Tool) initWorkDir() (err error) {
 					2. `entry` did not return a file object - then returned value is in `contents` and must be written to a new file with filename stored in `entryName` (supported)
 				*/
 
-				// prefix := tool.WorkingDir // commented out for testing - prefixissue
-				prefix := "/Users/mattgarvin/_fakes3/testWorkflow/#initdir_test.cwl" // for testing locally
+				prefix := tool.WorkingDir // commented out for testing - prefixissue
+				// prefix := "/Users/mattgarvin/_fakes3/testWorkflow/#initdir_test.cwl" // for testing locally
 				if resFile != nil {
 					// "If the value is an expression that evaluates to a File object,
 					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."
