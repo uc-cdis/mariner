@@ -14,12 +14,14 @@ WORKDIR /go/src/github.com/uc-cdis
 RUN git clone -b feat/k8s --single-branch https://github.com/uc-cdis/mariner/
 WORKDIR /go/src/github.com/uc-cdis/mariner
 
-RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
+RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
+
+## testing without last bits here, just to see if the thing works - need to read about the scratch/copy thing going on
 
 # Set up small scratch image, and copy necessary things over
-FROM scratch
+# FROM scratch
 
-COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /mariner
+# COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /mariner
 
 # commenting out this entrypoint because the engine container needs to wait for the engine-sidecar to mount the bucket and write request.json to /data/request.json
 # see mariner/k8s.go the container spec for mariner-engine job
