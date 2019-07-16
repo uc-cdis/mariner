@@ -166,7 +166,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 									ValueFrom: &awscreds,
 								},
 							},
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							SecurityContext: &k8sv1.SecurityContext{
 								Privileged: getBoolPointer(true),
 							},
@@ -363,7 +363,7 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 								"/bin/sh",
 							},
 							Args:            proc.Tool.getSidecarArgs(),
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullIfNotPresent),
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							SecurityContext: &k8sv1.SecurityContext{
 								Privileged: getBoolPointer(true),
 							},
