@@ -107,16 +107,16 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{ // https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
-			Name:      "test-workflow",         // replace
-			Labels:    make(map[string]string), // to be populated - labels for job object
-			Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
+			Name:      "test-workflow",                                 // replace
+			Labels:    make(map[string]string),                         // to be populated - labels for job object
+			Namespace: "mariner-service.mattgarvin1.svc.cluster.local", // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-workflow",         // replace
-					Labels:    make(map[string]string), // to be populated - labels for pod object
-					Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
+					Name:      "test-workflow",                                 // replace
+					Labels:    make(map[string]string),                         // to be populated - labels for pod object
+					Namespace: "mariner-service.mattgarvin1.svc.cluster.local", // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "mariner-service-account", // see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
@@ -316,15 +316,15 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
-			Labels:    make(map[string]string), // to be populated - labels for job object
-			Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
+			Labels:    make(map[string]string),                         // to be populated - labels for job object
+			Namespace: "mariner-service.mattgarvin1.svc.cluster.local", // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      jobName,
-					Labels:    make(map[string]string), // to be populated - labels for pod object
-					Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
+					Labels:    make(map[string]string),                         // to be populated - labels for pod object
+					Namespace: "mariner-service.mattgarvin1.svc.cluster.local", // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 				},
 				Spec: k8sv1.PodSpec{
 					RestartPolicy: k8sv1.RestartPolicyNever,
