@@ -66,9 +66,7 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 		"/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)",
 		"goofys workflow-engine-garvin:$S3PREFIX /data",
 		sidecarCmd,
-		"echo successfully setup engine-sidecar",
-		"echo sleeping now",
-		"sleep infinity",
+		"while true; do echo sidecar setup complete; done",
 	}
 	return args
 }
