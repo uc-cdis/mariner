@@ -231,7 +231,7 @@ func getJobClient() batchtypev1.JobInterface {
 
 	clientset, err := kubernetes.NewForConfig(config)
 	batchClient := clientset.BatchV1()
-	jobsClient := batchClient.Jobs("default")
+	jobsClient := batchClient.Jobs("mattgarvin1") // HERE TODO - what namespace we're dispatching jobs in - make this dynamic/configurable - NOT hardcoded like this
 	return jobsClient
 }
 
