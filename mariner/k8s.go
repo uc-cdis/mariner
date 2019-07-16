@@ -67,6 +67,8 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 		"goofys workflow-engine-garvin:$S3PREFIX /data",
 		sidecarCmd,
 		"echo successfully setup engine-sidecar",
+		"echo sleeping now",
+		"sleep infinity",
 	}
 	return args
 }
