@@ -130,7 +130,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 							Image:           "quay.io/cdis/mariner-engine:feat_k8s",
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							Command: []string{
-								"bin/sh",
+								"/bin/sh",
 							},
 							Args: getEngineArgs(S3Prefix),
 							// no resources specified here currently - research/find a good value for this - find a good example
