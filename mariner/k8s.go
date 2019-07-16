@@ -114,8 +114,9 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "test-workflow",         // replace
-					Labels: make(map[string]string), // to be populated - labels for pod object
+					Name:      "test-workflow",         // replace
+					Labels:    make(map[string]string), // to be populated - labels for pod object
+					Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "mariner-service-account", // see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
@@ -321,8 +322,9 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   jobName,
-					Labels: make(map[string]string), // to be populated - labels for pod object
+					Name:      jobName,
+					Labels:    make(map[string]string), // to be populated - labels for pod object
+					Namespace: "mattgarvin1",           // for testing in a dev env - make this dynamic variable in config - NOT hardcoded
 				},
 				Spec: k8sv1.PodSpec{
 					RestartPolicy: k8sv1.RestartPolicyNever,
