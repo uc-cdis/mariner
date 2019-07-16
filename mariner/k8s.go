@@ -66,6 +66,7 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 		"/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)",
 		"goofys workflow-engine-garvin:$S3PREFIX /data",
 		sidecarCmd,
+		"echo successfully setup engine-sidecar",
 	}
 	return args
 }
@@ -77,6 +78,10 @@ func getEngineArgs(prefix string) []string {
 		fmt.Sprintf(`
     while [[ ! -f /data/request.json ]]; do
       echo "Waiting for mariner-engine-sidecar to finish setting up..";
+			echo "here is /:"
+			ls /
+			echo "here is /data/:"
+			ls /data
       sleep 1
     done
 		echo "Sidecar setup complete! Running mariner-engine now.."
