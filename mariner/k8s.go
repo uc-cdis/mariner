@@ -77,7 +77,7 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 	args := []string{
 		"/bin/sh",
 		"-c",
-		fmt.Sprintf(`env WORKFLOW_REQUEST="%v" /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`, request),
+		fmt.Sprintf(`env WORKFLOW_REQUEST="%v" /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`, string(request)),
 	}
 	return args
 }
