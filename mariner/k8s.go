@@ -53,28 +53,7 @@ func getS3Prefix(content WorkflowRequest) (prefix string) {
 	return prefix
 }
 
-// HERE - TODO - put this in a config doc, or a bash script or something - don't hardcode it here
 func getEngineSidecarArgs(content WorkflowRequest) []string {
-	/*
-		request, err := json.Marshal(content)
-		if err != nil {
-			panic("failed to marshal request body (workflow content) into json")
-		}
-
-		// put all this in a bash script
-		// simply run the bash script
-		sidecarCmd := fmt.Sprintf(`echo "%v" > /data/request.json`, string(request))
-		args := []string{
-			"-c",
-			"/root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)",
-			"/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)",
-			"goofys workflow-engine-garvin:$S3PREFIX /data",
-			sidecarCmd,
-			"while true; do echo sidecar setup complete; done",
-		}
-	*/
-
-	// may need to pass or export AWSCREDS and S3PREFIX and WORKFLOW_REQUEST envVars for script to run
 	args := []string{
 		fmt.Sprintf(`/go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`),
 	}

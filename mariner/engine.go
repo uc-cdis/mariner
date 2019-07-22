@@ -112,13 +112,13 @@ type Engine interface {
 
 // K8sEngine runs all *Tools - including expression tools - should these functionalities be decoupled?
 type K8sEngine struct {
-	TaskSequence       []string            // for testing purposes
-	Commands           map[string][]string // also for testing purposes
-	UnfinishedProcs    map[string]*Process // engine's stack of CLT's that are running (task.Root.ID, Process) pairs
-	FinishedProcs      map[string]*Process // engine's stack of completed processes (task.Root.ID, Process) pairs
-	AWSAccessKeyID     string              // awsusercreds get passed to task job spec sidecar container to mount user bucket
-	AWSSecretAccessKey string
-	S3Prefix           string // the /user/workflow-timestamp/ prefix to pass to task sidecar to mount correct prefix from user bucket -> s3://workflow-engine-garvin/user/wf-timestamp/
+	TaskSequence    []string            // for testing purposes
+	Commands        map[string][]string // also for testing purposes
+	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running (task.Root.ID, Process) pairs
+	FinishedProcs   map[string]*Process // engine's stack of completed processes (task.Root.ID, Process) pairs
+	// AWSAccessKeyID     string              // awsusercreds get passed to task job spec sidecar container to mount user bucket
+	// AWSSecretAccessKey string
+	S3Prefix string // the /user/workflow-timestamp/ prefix to pass to task sidecar to mount correct prefix from user bucket -> s3://workflow-engine-garvin/user/wf-timestamp/
 }
 
 // Process represents a leaf in the graph of a workflow

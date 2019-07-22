@@ -67,28 +67,6 @@ func main() {
 				return fmt.Errorf("missing /user/timestamp/ S3 prefix")
 			}
 
-			// load awsusercreds from secret mounted as files in a volume
-			// see volumes in engine job pod spec in k8s.go
-			// see dockerfile for engine sidecar on how to access the secrets as files
-			AWSAccessKeyIDf, err := os.Open("/awsusercreds/awsusercreds.json/id")
-			if err != nil {
-				return err
-			}
-			AWSAccessKeyID, err := ioutil.ReadAll(AWSAccessKeyIDf)
-			if err != nil {
-				return err
-			}
-			engine.AWSAccessKeyID = string(AWSAccessKeyID)
-			AWSSecretAccessKeyf, err := os.Open("/awsusercreds/awsusercreds.json/secret")
-			if err != nil {
-				return err
-			}
-			AWSSecretAccessKey, err := ioutil.ReadAll(AWSSecretAccessKeyf)
-			if err != nil {
-				return err
-			}
-			engine.AWSSecretAccessKey = string(AWSSecretAccessKey)
-
 			// NOTE: the ID is not used in this processing pipeline - could remove that parameter, or keep it in case it may be needed later
 			mariner.RunWorkflow(wfRequest.ID, wfRequest.Workflow, wfRequest.Input, engine)
 		}
