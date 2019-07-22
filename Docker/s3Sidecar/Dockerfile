@@ -16,6 +16,13 @@ RUN ./awscli-bundle/install -b ~/bin/aws
 # see the mounted volume/mount point for container in k8s job spec
 RUN mkdir -p /data
 
+# clone mariner repo to get setup bash script
+RUN mkdir -p /go/src/github.com/uc-cdis
+WORKDIR /go/src/github.com/uc-cdis
+RUN git clone -b feat/k8s --single-branch https://github.com/uc-cdis/mariner/
+
+# NOTE: work from a scratch image
+
 #### Below this line, need to be passed as arguments from the k8s deployment spec - can't reference envVars in the image
 
 # configure aws credentials - awsusercreds.json passed in as AWSCREDS envVar

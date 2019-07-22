@@ -59,14 +59,25 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 	if err != nil {
 		panic("failed to marshal request body (workflow content) into json")
 	}
-	sidecarCmd := fmt.Sprintf(`echo "%v" > /data/request.json`, string(request))
+	/*
+		// put all this in a bash script
+		// simply run the bash script
+		sidecarCmd := fmt.Sprintf(`echo "%v" > /data/request.json`, string(request))
+		args := []string{
+			"-c",
+			"/root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)",
+			"/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)",
+			"goofys workflow-engine-garvin:$S3PREFIX /data",
+			sidecarCmd,
+			"while true; do echo sidecar setup complete; done",
+		}
+	*/
+
+	// may need to pass or export AWSCREDS and S3PREFIX envVars for script to run
 	args := []string{
+		"/bin/sh",
 		"-c",
-		"/root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)",
-		"/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)",
-		"goofys workflow-engine-garvin:$S3PREFIX /data",
-		sidecarCmd,
-		"while true; do echo sidecar setup complete; done",
+		fmt.Sprintf(`env WORKFLOW_REQUEST="%v" /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`, request),
 	}
 	return args
 }
