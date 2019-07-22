@@ -55,11 +55,12 @@ func getS3Prefix(content WorkflowRequest) (prefix string) {
 
 // HERE - TODO - put this in a config doc, or a bash script or something - don't hardcode it here
 func getEngineSidecarArgs(content WorkflowRequest) []string {
-	request, err := json.Marshal(content)
-	if err != nil {
-		panic("failed to marshal request body (workflow content) into json")
-	}
 	/*
+		request, err := json.Marshal(content)
+		if err != nil {
+			panic("failed to marshal request body (workflow content) into json")
+		}
+
 		// put all this in a bash script
 		// simply run the bash script
 		sidecarCmd := fmt.Sprintf(`echo "%v" > /data/request.json`, string(request))
@@ -73,11 +74,9 @@ func getEngineSidecarArgs(content WorkflowRequest) []string {
 		}
 	*/
 
-	// may need to pass or export AWSCREDS and S3PREFIX envVars for script to run
+	// may need to pass or export AWSCREDS and S3PREFIX and WORKFLOW_REQUEST envVars for script to run
 	args := []string{
-		"/bin/sh",
-		"-c",
-		fmt.Sprintf(`env WORKFLOW_REQUEST="%v" /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`, string(request)),
+		fmt.Sprintf(`/go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`),
 	}
 	return args
 }
@@ -117,6 +116,10 @@ var awscreds = k8sv1.EnvVarSource{
 func DispatchWorkflowJob(content WorkflowRequest) error {
 	jobsClient := getJobClient()
 	S3Prefix := getS3Prefix(content) // bc of timestamp -> need to call this exactly once, and then pass that generated prefix to wherever elsewhere needed - ow timestamp changes
+	request, err := json.Marshal(content)
+	if err != nil {
+		panic("failed to marshal request body (workflow content) into json")
+	}
 	batchJob := &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
@@ -173,6 +176,10 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 								{
 									Name:      "AWSCREDS",
 									ValueFrom: &awscreds,
+								},
+								{
+									Name:  "WORKFLOW_REQUEST", // body of POST http request
+									Value: string(request),
 								},
 							},
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
