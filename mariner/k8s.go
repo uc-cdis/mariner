@@ -234,7 +234,7 @@ func getJobClient() batchtypev1.JobInterface {
 
 	clientset, err := kubernetes.NewForConfig(config)
 	batchClient := clientset.BatchV1()
-	jobsClient := batchClient.Jobs("mattgarvin1") // HERE TODO - what namespace we're dispatching jobs in - make this dynamic/configurable - NOT hardcoded like this
+	jobsClient := batchClient.Jobs(os.Getenv("USER")) // the namespace in which to dispatch jobs - using USER for testing in dev env
 	return jobsClient
 }
 
