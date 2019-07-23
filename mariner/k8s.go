@@ -271,8 +271,12 @@ func (proc *Process) getCLToolArgs() []string {
       sleep 5
     done
 		echo "Sidecar setup complete! Running command script now.."
+		pwd
+		ls
+		ls /data
+		ls %v
 		%v %vrun.sh
-		`, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir),
+		`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir),
 	}
 	return args
 }
