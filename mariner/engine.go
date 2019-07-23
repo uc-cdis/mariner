@@ -92,8 +92,10 @@ func (tool *Tool) initWorkDir() (err error) {
 					if err != nil {
 						return err
 					}
+					os.MkdirAll(prefix, os.ModePerm)                      // create tool working dir if it doesn't already exist
 					f, err := os.Create(filepath.Join(prefix, entryName)) // prefixissue - prefix should be tool.WorkingDir
 					if err != nil {
+						fmt.Println("failed to create file in initworkdir req")
 						return err
 					}
 					f.Write(jContents)
@@ -154,7 +156,7 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	tool := task.getTool()
 	err = tool.setupTool()
 	if err != nil {
-		fmt.Printf("ERROR setting up tool: %v", err) // HERE tues afternoon - seems to be an error here
+		fmt.Printf("ERROR setting up tool: %v\n", err)
 		return err
 	}
 
@@ -240,6 +242,7 @@ func (tool *Tool) setupTool() (err error) {
 	}
 	err = tool.initWorkDir()
 	if err != nil {
+		fmt.Println("Error handling initWorkDir req")
 		return err
 	}
 	return nil
