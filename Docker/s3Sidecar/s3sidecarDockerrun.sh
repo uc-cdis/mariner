@@ -2,6 +2,7 @@
 # common to engine and task ->
 /root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)
 /root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)
+echo "mounting prefix $S3PREFIX"
 goofys workflow-engine-garvin:$S3PREFIX /data
 # <- common to engine and task
 
