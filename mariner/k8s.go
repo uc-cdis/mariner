@@ -275,7 +275,7 @@ func (proc *Process) getCLToolArgs() []string {
 		ls
 		ls /data
 		ls %v
-		%v %vrun.sh
+		%v %vrun.sh || while true; do echo "staying alive for debugging"; done
 		`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir),
 	}
 	return args
