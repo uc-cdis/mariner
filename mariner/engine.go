@@ -154,6 +154,7 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	tool := task.getTool()
 	err = tool.setupTool()
 	if err != nil {
+		fmt.Printf("ERROR setting up tool: %v", err) // HERE tues afternoon - seems to be an error here
 		return err
 	}
 
