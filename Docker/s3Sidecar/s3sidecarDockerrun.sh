@@ -12,7 +12,7 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
   echo "successfully wrote workflow request to /data/request.json"
 else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
-  echo '$TOOL_COMMAND' > $TOOL_WORKING_DIR\run.sh
+  echo $TOOL_COMMAND > $TOOL_WORKING_DIR\run.sh # this might be a problematic way of writing/passing the command - quotations and spaces/breaks preserved or not, etc
   echo "successfully wrote tool command to $TOOL_WORKING_DIR\run.sh"
 fi
 
