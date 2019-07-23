@@ -53,7 +53,7 @@ func getS3Prefix(content WorkflowRequest) (prefix string) {
 	return prefix
 }
 
-func getEngineSidecarArgs(content WorkflowRequest) []string {
+func getS3SidecarArgs() []string {
 	args := []string{
 		fmt.Sprintf(`/go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`),
 	}
@@ -67,10 +67,6 @@ func getEngineArgs(prefix string) []string {
 		fmt.Sprintf(`
     while [[ ! -f /data/request.json ]]; do
       echo "Waiting for mariner-engine-sidecar to finish setting up..";
-			echo "here is /:"
-			ls /
-			echo "here is /data/:"
-			ls /data
       sleep 1
     done
 		echo "Sidecar setup complete! Running mariner-engine now.."
@@ -146,7 +142,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 							Command: []string{
 								"/bin/sh",
 							},
-							Args: getEngineSidecarArgs(content), // writes request body to /data/request.json - request body contains ID, workflow and input
+							Args: getS3SidecarArgs(), // calls bash setup script
 							Env: []k8sv1.EnvVar{
 								{
 									Name:  "S3PREFIX",
@@ -155,6 +151,10 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 								{
 									Name:      "AWSCREDS",
 									ValueFrom: &awscreds,
+								},
+								{
+									Name:  "MARINER_COMPONENT",
+									Value: "ENGINE", // put this in config, don't hardcode it here - also potentially use different flag name
 								},
 								{
 									Name:  "WORKFLOW_REQUEST", // body of POST http request
@@ -237,12 +237,11 @@ func getJobClient() batchtypev1.JobInterface {
 }
 
 // almost identical to engine sidecar args - just writing a different file
-// HERE TODO - write the actual command, not the "run this ..." test message
+// this function made obsolete by Dockerrun file and passing additional flags as envVars in the different jobs
 func (tool *Tool) getSidecarArgs() []string {
 	toolCmd := strings.Join(tool.Command.Args, " ")
 	fmt.Printf("command: %q\n", toolCmd)
 	// to run the actual command: remove the second "echo" from the second line
-	// need to add commands here to install goofys and mount the s3 bucket
 	sidecarCmd := fmt.Sprintf(`
 	echo sidecar is running..
 	/root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)
@@ -262,6 +261,7 @@ func (tool *Tool) getSidecarArgs() []string {
 // in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
 // need to test that we write/read run.sh to/from tool's working dir correctly
+// HERE TODO - put this in a bash script
 func (proc *Process) getCLToolArgs() []string {
 	args := []string{
 		"-c",
@@ -358,7 +358,7 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 							Command: []string{
 								"/bin/sh",
 							},
-							Args:            proc.Tool.getSidecarArgs(),
+							Args:            getS3SidecarArgs(), // calls bash setup script - see envVars for vars referenced in the script
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							SecurityContext: &k8sv1.SecurityContext{
 								Privileged: getBoolPointer(true),
@@ -371,6 +371,18 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 								{
 									Name:  "S3PREFIX",
 									Value: engine.S3Prefix, // mounting whole user dir to /data -> not just the dir for the task - not sure what the best approach is here yet
+								},
+								{
+									Name:  "MARINER_COMPONENT", // flag to tell setup sidecar script this is a task, not an engine job
+									Value: "TASK",              // put this in config, don't hardcode it here - also potentially use different flag name
+								},
+								{
+									Name:  "TOOL_COMMAND", // the command from the commandlinetool to actually execute
+									Value: strings.Join(proc.Tool.Command.Args, " "),
+								},
+								{
+									Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., /data/task_id
+									Value: proc.Tool.WorkingDir,
 								},
 							},
 							VolumeMounts: []k8sv1.VolumeMount{
