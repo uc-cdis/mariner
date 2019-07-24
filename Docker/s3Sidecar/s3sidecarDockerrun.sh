@@ -10,7 +10,7 @@ export AWS_ACCESS_KEY_ID=$(echo $AWSCREDS | jq .id | tr -d '"')
 export AWS_SECRET_ACCESS_KEY=$(echo $AWSCREDS | jq .secret | tr -d '"')
 
 echo "mounting prefix $S3PREFIX"
-goofys workflow-engine-garvin:$S3PREFIX /data
+goofys -f workflow-engine-garvin:$S3PREFIX /data
 # <- common to engine and task
 
 # conditional here
