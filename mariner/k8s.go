@@ -330,7 +330,8 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 					Labels: make(map[string]string), // to be populated - labels for pod object
 				},
 				Spec: k8sv1.PodSpec{
-					RestartPolicy: k8sv1.RestartPolicyNever,
+					ServiceAccountName: "mariner-service-account",
+					RestartPolicy:      k8sv1.RestartPolicyNever,
 					Volumes: []k8sv1.Volume{
 						{
 							Name: "shared-data", // implicitly set to be an emptyDir
