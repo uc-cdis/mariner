@@ -23,6 +23,7 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
 else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
   echo "mounting prefix $S3PREFIX"
+  ls /data
   goofys -f workflow-engine-garvin:$S3PREFIX /data
   echo $TOOL_COMMAND > $TOOL_WORKING_DIR\run.sh # this might be a problematic way of writing/passing the command - quotations and spaces/breaks preserved or not, etc
   echo "successfully wrote tool command to $TOOL_WORKING_DIR\run.sh"
