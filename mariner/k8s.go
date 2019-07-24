@@ -55,7 +55,7 @@ func getS3Prefix(content WorkflowRequest) (prefix string) {
 
 func getS3SidecarArgs() []string {
 	args := []string{
-		fmt.Sprintf(`. /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`),
+		fmt.Sprintf(`/go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`),
 	}
 	return args
 }
