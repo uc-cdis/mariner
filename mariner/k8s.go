@@ -272,11 +272,13 @@ func (proc *Process) getCLToolArgs() []string {
     done
 		echo "Sidecar setup complete! Running command script now.."
 		pwd
+		cd %v
+		pwd
 		ls
 		ls /data
 		ls %v
 		%v %vrun.sh || while true; do echo "staying alive for debugging" && sleep 10; done
-		`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir),
+		`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir),
 	}
 	return args
 }
@@ -339,8 +341,8 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 					},
 					Containers: []k8sv1.Container{
 						{
-							Name:            "commandlinetool",
-							WorkingDir:      proc.Tool.WorkingDir,
+							Name: "commandlinetool",
+							// WorkingDir:      proc.Tool.WorkingDir, // WOW what a problem this was!
 							Image:           proc.getDockerImage(),
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							Command: []string{
