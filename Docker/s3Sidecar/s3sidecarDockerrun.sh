@@ -26,7 +26,7 @@ else # $MARINER_COMPONENT is "TASK"
   echo "here is /data:"
   ls -R /data
   echo "mounting bucket.."
-  goofys -f workflow-engine-garvin:$S3PREFIX /data
+  goofys workflow-engine-garvin:$S3PREFIX /data
   echo "creating working dir for tool.."
   mkdir -p $S3PREFIX
   echo "writing command to workdir.."
