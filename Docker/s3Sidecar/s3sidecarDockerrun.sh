@@ -20,6 +20,10 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
   goofys workflow-engine-garvin:$S3PREFIX /data
   echo $WORKFLOW_REQUEST > /data/request.json
   echo "successfully wrote workflow request to /data/request.json"
+  echo "waiting for workflow to finish.."
+  while [[ ! -f /data/done ]]; do
+    :
+  done
 else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
   echo "mounting prefix $S3PREFIX"
@@ -32,6 +36,10 @@ else # $MARINER_COMPONENT is "TASK"
   echo "writing command to workdir.."
   echo $TOOL_COMMAND > $TOOL_WORKING_DIR\run.sh # this might be a problematic way of writing/passing the command - quotations and spaces/breaks preserved or not, etc
   echo "successfully wrote tool command to $TOOL_WORKING_DIR\run.sh"
+  echo "waiting for commandlinetool to finish.."
+  while [[ ! -f $TOOL_WORKING_DIR\done ]]; do
+    :
+  done
 fi
 
 # while true; do

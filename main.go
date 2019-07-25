@@ -69,6 +69,13 @@ func main() {
 
 			// NOTE: the ID is not used in this processing pipeline - could remove that parameter, or keep it in case it may be needed later
 			mariner.RunWorkflow(wfRequest.ID, wfRequest.Workflow, wfRequest.Input, engine)
+
+			// tell sidecar that the workflow is done running so that container can terminate and the job can finish 
+			_, err = os.Create("/data/done")
+			if err != nil {
+				fmt.Println("error writing workflow-done flag")
+				return err
+			}
 		}
 		return nil
 	}
