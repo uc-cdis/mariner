@@ -272,11 +272,11 @@ func (proc *Process) getCLToolArgs() []string {
     done
 		echo "Sidecar setup complete! Running command script now.."
 		cd %v
-		%v %vrun.sh || while true; do echo "staying alive for debugging" && sleep 10; done
+		echo "running command $(cat %vrun.sh)"
+		%v %vrun.sh
 		echo "commandlinetool has finished running" > %vdone
-		`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir, proc.Tool.WorkingDir),
+		`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir, proc.Tool.WorkingDir),
 	}
-	// touch done in order to tell the s3sidecar that the tool is done running so that container can terminate and the job can finish/complete
 	return args
 }
 
