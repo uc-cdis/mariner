@@ -34,7 +34,7 @@ else # $MARINER_COMPONENT is "TASK"
   echo "successfully wrote tool command to $TOOL_WORKING_DIR\run.sh"
 fi
 
-while true; do
-  echo "staying alive"
-  sleep 10
-done
+# while true; do
+#   echo "staying alive"
+#   sleep 10
+# done
