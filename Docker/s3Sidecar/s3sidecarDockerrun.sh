@@ -23,7 +23,7 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
   echo "waiting for workflow to finish.."
   sleep 10
   while [[ ! -f /data/done ]]; do
-    :
+    echo "not done"
   done
 else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
@@ -38,10 +38,10 @@ else # $MARINER_COMPONENT is "TASK"
   echo $TOOL_COMMAND > $TOOL_WORKING_DIR\run.sh # this might be a problematic way of writing/passing the command - quotations and spaces/breaks preserved or not, etc
   echo "successfully wrote tool command to $TOOL_WORKING_DIR\run.sh"
   echo "waiting for commandlinetool to finish.."
-  sleep 10
   ls $TOOL_WORKING_DIR
+  sleep 10
   while [[ ! -f $TOOL_WORKING_DIR\done ]]; do
-    :
+    echo "not done"
   done
 fi
 
