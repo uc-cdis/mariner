@@ -213,15 +213,12 @@ func (task *Task) getWorkingDir() string {
 
 func (tool *Tool) makeWorkingDir() error {
 	fmt.Printf("making working directory %v\n\n", tool.WorkingDir)
-	// Commented out for testing locally - uncomment for testing/running in k8s cluster
-	/*
-		err := os.MkdirAll(tool.WorkingDir, 0777)
-		if err != nil {
-			fmt.Printf("error while making directory: %v\n", err)
-			return err
-		}
-		fmt.Printf("successfully created working directory %v\n\n", tool.WorkingDir)
-	*/
+	err := os.MkdirAll(tool.WorkingDir, 0777)
+	if err != nil {
+		fmt.Printf("error while making directory: %v\n", err)
+		return err
+	}
+	fmt.Printf("successfully created working directory %v\n\n", tool.WorkingDir)
 	return nil
 }
 
