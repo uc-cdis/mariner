@@ -40,5 +40,10 @@ spec:
       - name: mariner
         image: quay.io/cdis/mariner-server:feat_k8s
         imagePullPolicy: Always
+        env:
+          - name: GEN3_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         ports:
         - containerPort: 80

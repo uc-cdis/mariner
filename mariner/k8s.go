@@ -126,6 +126,12 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 							Command: []string{
 								"/bin/sh",
 							},
+							Env: []k8sv1.EnvVar{
+								{
+									Name: "GEN3_NAMESPACE",
+									Value: os.Getenv("GEN3_NAMESPACE"),
+								},
+							},
 							Args: getEngineArgs(S3Prefix),
 							// no resources specified here currently - research/find a good value for this - find a good example
 							VolumeMounts: []k8sv1.VolumeMount{
@@ -231,7 +237,7 @@ func getJobClient() batchtypev1.JobInterface {
 
 	clientset, err := kubernetes.NewForConfig(config)
 	batchClient := clientset.BatchV1()
-	jobsClient := batchClient.Jobs("mattgarvin1") // FIXME: don't hardcode this! -> the namespace in which to dispatch jobs
+	jobsClient := batchClient.Jobs(os.Getenv("GEN3_NAMESPACE"))
 	// see: https://github.com/uc-cdis/ssjdispatcher/blob/master/handlers/jobs.go#L45
 	return jobsClient
 }
