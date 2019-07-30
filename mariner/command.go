@@ -26,8 +26,8 @@ Sketch of Steps:
 1. Per argument, construct CommandElement -> cmdElts = append(cmdElts, cmdElt)
 2. Per input, construct CommandElement -> cmdElts = append(cmdElts, cmdElt)
 3. Sort(cmdElts) -> using Position field values (or whatever sorting key we want to use later on)
-4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Value...)
-5. cmd = append(baseCmd, cmd...)
+4. Use baseCommand as initial arguments for command -> cmd := BaseCommand
+5. Iterate through sorted cmdElts and append each to command -> cmd = append(cmd, cmdElt.Value...)
 6. return cmd
 */
 
@@ -38,7 +38,8 @@ type CommandElement struct {
 	Value       []string // representation of this input/arg on the commandline (after any/all valueFrom, eval, prefix, separators, shellQuote, etc. has been resolved)
 }
 
-// define this type and methods for sort.Interface so these CommandElements can be sorted by position
+// CommandElements is an array of CommandElements
+// we define this type and methods for sort.Interface so these CommandElements can be sorted by position
 type CommandElements []*CommandElement
 
 // from first example at: https://golang.org/pkg/sort/
@@ -48,15 +49,15 @@ func (cmdElts CommandElements) Less(i, j int) bool { return cmdElts[i].Position 
 
 // GenerateCommand ..
 func (tool *Tool) GenerateCommand() (err error) {
-	cmdElts, err := tool.getCmdElts() // 1. get arguments (okay) 2. get inputs from bindings - TODO
+	cmdElts, err := tool.getCmdElts()
 	if err != nil {
 		return err
 	}
 
-	// 3. Sort the command elements by position (okay)
+	// Sort the command elements by position
 	sort.Sort(cmdElts)
 
-	// 3.1. capture stdout if specified - tool.Root.Stdout resolves to a file name where stdout will be redirected
+	// capture stdout if specified - tool.Root.Stdout resolves to a file name where stdout will be redirected
 	if tool.Root.Stdout != "" {
 		// append "1> stdout_file" to end of command
 		stdoutElts, err := tool.getStdElts(1)
@@ -66,7 +67,7 @@ func (tool *Tool) GenerateCommand() (err error) {
 		cmdElts = append(cmdElts, stdoutElts...)
 	}
 
-	// 3.2. capture stderr if specified - tool.Root.Stderr resolves to a file name where stderr will be redirected
+	// capture stderr if specified - tool.Root.Stderr resolves to a file name where stderr will be redirected
 	if tool.Root.Stderr != "" {
 		// append "2> stderr_file" to end of command
 		stderrElts, err := tool.getStdElts(2)
@@ -76,15 +77,10 @@ func (tool *Tool) GenerateCommand() (err error) {
 		cmdElts = append(cmdElts, stderrElts...)
 	}
 
-	fmt.Println("here are cmdElts:")
-	PrintJSON(cmdElts)
+	// fmt.Println("here are cmdElts:")
+	// PrintJSON(cmdElts)
 
-	/*
-		4. Iterate through sorted cmdElts -> cmd = append(cmd, cmdElt.Args...) (okay)
-		5. cmd = append(baseCmd, cmd...) (okay)
-		6. return cmd (okay)
-	*/
-	cmd := tool.Root.BaseCommands // BaseCommands is []string - zero length if no BaseCommand specified
+	cmd := tool.Root.BaseCommands // BaseCommands is []string - empty array if no BaseCommand specified
 	for _, cmdElt := range cmdElts {
 		cmd = append(cmd, cmdElt.Value...)
 	}
@@ -93,7 +89,6 @@ func (tool *Tool) GenerateCommand() (err error) {
 }
 
 // i==1 --> stdout; i==2 --> stderr
-// TODO - handle prefix issue in order to write file to this step's dir in path/to/mount_point/workflow/step_dir
 func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0)
 	var f string
@@ -107,8 +102,7 @@ func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
 		return nil, err
 	}
 
-	prefix := tool.WorkingDir // commented out for testing // prefixissue
-	// prefix := ""
+	prefix := tool.WorkingDir
 
 	// 2>> for stderr, 1>> for stdout
 	// NOTE: presently using ">>" (append) and not ">" (write) in case multiple steps/tools redirect stdout/stderr to the same file
@@ -125,18 +119,17 @@ func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
 }
 
 func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
-	// 0.
 	cmdElts = make([]*CommandElement, 0)
 
-	// 1. handle arguments
-	argElts, err := tool.getArgElts() // good - need to test
+	// handle arguments
+	argElts, err := tool.getArgElts()
 	if err != nil {
 		return nil, err
 	}
 	cmdElts = append(cmdElts, argElts...)
 
-	// 2. handle inputs
-	inputElts, err := tool.getInputElts() // good - need to test
+	// handle inputs
+	inputElts, err := tool.getInputElts()
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +153,7 @@ func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 					break
 				}
 			}
-			val, err := getInputValue(input, input.Provided.Raw, inputType, input.Binding) // TODO - return []string which is the resolved binding (representation on commandline) for this input
+			val, err := getInputValue(input, input.Provided.Raw, inputType, input.Binding)
 			if err != nil {
 				return nil, err
 			}
@@ -174,7 +167,7 @@ func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 	return cmdElts, nil
 }
 
-// okay - inputs of type 'object' presently not supported
+// NOTE: inputs of type 'object' presently not supported
 func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, binding *cwl.Binding) (val []string, err error) {
 	// binding is non-nil
 	// input sources:
@@ -201,14 +194,14 @@ func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, bin
 		// "Add prefix only, and recursively add object fields for which inputBinding is specified."
 		return nil, fmt.Errorf("inputs of type 'object' not supported. input: %v", rawInput)
 
-	case "array": // okay - presently not supporting shellQuote feature for bindings on array inputs because need to find an example to work with
+	case "array": // NOTE: presently not supporting shellQuote feature for bindings on array inputs because need to find an example to work with
 		// add prefix if specified
 		if binding.Prefix != "" {
 			val = append(val, binding.Prefix)
 		}
 		if binding.Separator != "NOT SPECIFIED" {
 			// get string repr of array with specified separator
-			s, err = joinArray(input) // [a, b, c] & sep=="," -> "a,b,c"
+			s, err = joinArray(input) // ex: [a, b, c] & sep=="," -> "a,b,c"
 			if err != nil {
 				return nil, err
 			}
@@ -261,10 +254,10 @@ func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, bin
 		return val, nil
 		////// <-- end array no itemSeparator case //////
 
-	case "null": // okay
+	case "null":
 		// "Add nothing."
 		return val, nil
-	case "boolean": // okay
+	case "boolean":
 		if binding.Prefix == "" {
 			return nil, fmt.Errorf("boolean input provided but no prefix provided")
 		}
@@ -283,13 +276,13 @@ func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, bin
 		}
 		return val, nil
 
-	case "string", "number": // okay
+	case "string", "number":
 		s, err = getValFromRaw(rawInput)
-	case "File", "Directory": // okay
+	case "File", "Directory":
 		s, err = getPathFromRaw(rawInput)
 	}
 	// string/number and file/directory share the same processing here
-	// other cases end with return statements
+	// other cases end with return statements -> maybe refactor/revise this
 	if err != nil {
 		return nil, err
 	}
@@ -314,8 +307,7 @@ func joinArray(input *cwl.Input) (arr string, err error) {
 	for _, item := range input.Types {
 		if item.Type != "null" {
 			// retrieve first non-null type listed
-			// not immediately sure how to handle multiple different datatypes in a single array
-			// can address this issue later
+			// NOTE: not immediately sure how to handle multiple different datatypes in a single array - can address this issue later
 			itemType = item.Type
 			break
 		}
@@ -416,12 +408,12 @@ func (tool *Tool) getArgElts() (cmdElts CommandElements, err error) {
 // gets value from an argument - i.e., returns []string containing strings which will be put on the commandline to represent this argument
 func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
 	// cases:
-	// either a string literal or an expression (okay)
-	// OR a binding with valueFrom field specified (okay)
+	// either a string literal or an expression
+	// OR a binding with valueFrom field specified
 	fmt.Println("getting arg value..")
 	val = make([]string, 0)
 	if arg.Value != "" {
-		// implies string literal or expression to eval - okay - see NOTE at typeSwitch
+		// implies string literal or expression to eval - see NOTE at typeSwitch
 		fmt.Println("string literal or expression to eval..")
 		// NOTE: *might* need to check "$(" or "${" instead of just "$"
 		if strings.HasPrefix(arg.Value, "$") {

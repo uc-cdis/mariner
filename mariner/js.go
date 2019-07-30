@@ -14,6 +14,9 @@ import (
 // EvalExpression evals a single expression (something like $(...) or ${...})
 // resolveExpressions processes a string which may contain several embedded expressions, each wrapped in their own $()/${} wrapper
 
+// NOTE: make uniform either UpperCase, or camelCase for naming functions
+// ----- none of these names really need to be exported, since they get called within the `mariner` package
+
 // getJS strips the cwl prefix for an expression
 // and tells whether to just eval the expression, or eval the exp as a js function
 // this is modified from the cwl.Eval.ToJavaScriptString() method
@@ -128,7 +131,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 }
 
 /*
-explanation for PreProcessContext():
+	explanation for PreProcessContext
 
 	problem: setting variable name in a js vm to a golang struct doesn't work
 

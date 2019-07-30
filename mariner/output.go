@@ -2,8 +2,6 @@ package mariner
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,9 +24,7 @@ import (
 // TODO: implement CommandLineTool and ExpressionTool types and their methods, as well as the Tool interface
 // ---
 // NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
-// need to investigate/handle case when there is no outputBinding specified
-// - if a CLT, or if multiple output values or multiple output parameters -
-// how would output get collected? I feel this must be an error in the given cwl if this happens
+// ----- no binding provided -> output won't be collected
 func (proc *Process) CollectOutput() (err error) {
 	proc.Task.Outputs = make(map[string]cwl.Parameter)
 	fmt.Println("collecting output..")
@@ -48,7 +44,7 @@ func (proc *Process) CollectOutput() (err error) {
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
-	PrintJSON(proc.Task.Outputs)
+	// PrintJSON(proc.Task.Outputs)
 	return nil
 }
 
@@ -56,9 +52,7 @@ func (proc *Process) CollectOutput() (err error) {
 // stores resulting output parameters object in proc.Task.Outputs
 // From my CWL reading.. each output parameter SHOULD have a binding
 // if no binding, not sure what the procedure is
-// for  now, no binding -> output won't be collected
-//
-// using dir "/Users/mattgarvin/_fakes3/testWorkflow/initdir_test.cwl" for testing locally
+// for now, no binding -> output won't be collected
 func (proc *Process) HandleCLTOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
 		if output.Binding == nil {
@@ -67,16 +61,16 @@ func (proc *Process) HandleCLTOutput() (err error) {
 
 		/*
 			Steps for handling CommandLineTool output files (in this order):
-			1. Glob everything in the glob list [glob implies File or array of Files output]  (good - see prefix issue)
-			2. loadContents (good - see prefix issue)
-			3. outputEval (good - need to test)
-			4. secondaryFiles (good - need to test expression case)
+			1. Glob everything in the glob list [glob implies File or array of Files output]
+			2. loadContents
+			3. outputEval
+			4. secondaryFiles
 		*/
 
 		//// Begin 4 step pipeline for collecting/handling CommandLineTool output files ////
 		var results []*File
 
-		// 1. Glob - good - prefixissue
+		// 1. Glob - prefixissue
 		if len(output.Binding.Glob) > 0 {
 			results, err = proc.Glob(&output)
 			if err != nil {
@@ -84,7 +78,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			}
 		}
 
-		// 2. Load Contents - good
+		// 2. Load Contents
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
 
@@ -100,7 +94,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			}
 		}
 
-		// 3. OutputEval - good - TODO: test this functionality
+		// 3. OutputEval - TODO: test this functionality
 		if output.Binding.Eval != nil {
 			// eval the expression and store result in task.Outputs
 			proc.outputEval(&output, results)
@@ -109,7 +103,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			return nil
 		}
 
-		// 4. SecondaryFiles - okay - currently only supporting simplest case when handling expressions here
+		// 4. SecondaryFiles - currently only supporting simplest case when handling expressions here
 		if len(output.SecondaryFiles) > 0 {
 			for _, entry := range output.SecondaryFiles {
 				// see the secondaryFiles field description at:
@@ -138,21 +132,21 @@ func (proc *Process) HandleCLTOutput() (err error) {
 						vm.Set("self", self)
 
 						// eval js
-						jsResult, err := vm.Run(val)
+						jsResult, err := EvalExpression(val, vm)
 						if err != nil {
 							return err
 						}
 
 						// retrieve secondaryFile's path (type interface{} with underlying type string)
-						sFilePath, err := jsResult.Export()
-						if err != nil {
-							return err
+						sFilePath, ok := jsResult.(string)
+						if !ok {
+							return fmt.Errorf("secondaryFile expression did not return string")
 						}
 
 						// TODO: check if resulting secondaryFile actually exists (should encapsulate this to a function)
 
 						// get file object for secondaryFile and append it to the output file's SecondaryFiles field
-						sFileObj := getFileObj(sFilePath.(string))
+						sFileObj := getFileObj(sFilePath)
 						fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
 					}
 
@@ -177,7 +171,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 			proc.Task.Outputs[output.ID] = results[0]
 		} else {
 			// output should be an array of File objects
-			// also need to add error handling here
+			// NOTE: also need to add error handling here
 			proc.Task.Outputs[output.ID] = results
 		}
 	}
@@ -193,36 +187,13 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		if err != nil {
 			return results, err
 		}
-		/*
-			where exactly should we be globbing?
-			there should be some kind of prefix
-			like "{mount_point}/workflows/{jobID}/{stepID}/" or something
-			prefix depends on:
-			1. fuse mount location
-			2. any intermediate path-walking to get to the `workflows` dir
-			3. the top-level workflow job get its own dir
-			4. each step gets its own dir in the top-level workflow dir
-			5. if there is an InitialWorkDirRequirement (https://www.commonwl.org/v1.0/Workflow.html#InitialWorkDirRequirement)
-		*/
 
-		/*
-			// currently using this directory to test locally the workflow output collection/globbing
-			var prefix string
-			if proc.Task.ScatterIndex != 0 {
-				// NOTE: each scattered subtask of a scattered task will have its own working dir
-				prefix = fmt.Sprintf("/Users/mattgarvin/_fakes3/testWorkflow/%v-scatter-%v/", proc.Task.Root.ID, proc.Task.ScatterIndex)
-			} else {
-				prefix = fmt.Sprintf("/Users/mattgarvin/_fakes3/testWorkflow/%v/", proc.Task.Root.ID)
-			}
-			paths, err := filepath.Glob(prefix + pattern)
-		*/
-
-		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern) // commented out for testing locally - prefixissue
+		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
 		if err != nil {
 			return results, err
 		}
 		for _, path := range paths {
-			fileObj := getFileObj(path) // these are full paths, no need to add working dir to path
+			fileObj := getFileObj(path) // these are full paths, so no need to add working dir to path
 			results = append(results, fileObj)
 		}
 	}
@@ -234,14 +205,14 @@ func (proc *Process) getPattern(glob string) (pattern string, err error) {
 		// expression needs to get eval'd
 		// glob pattern is the resulting string
 		// eval'ing in the InputsVM with no additional context
-		// not sure if additional context will need to be added in other cases
+		// not sure if additional context will be needed in other cases
 
-		// HERE - $(inputs.input_bam.basename) fails to eval in VM
-		// what's the deal
-		inputs, _ := proc.Tool.Root.InputsVM.Run("inputs")
-		seeInputs, _ := inputs.Export()
-		fmt.Println("here is inputs in the vm:")
-		PrintJSON(seeInputs)
+		/*
+			inputs, _ := proc.Tool.Root.InputsVM.Run("inputs")
+			seeInputs, _ := inputs.Export()
+			fmt.Println("here is inputs in the vm:")
+			PrintJSON(seeInputs)
+		*/
 
 		expResult, err := EvalExpression(glob, proc.Tool.Root.InputsVM)
 		if err != nil {
@@ -316,37 +287,5 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 
 	// assign expression eval result to output parameter
 	proc.Task.Outputs[output.ID] = evalResult
-	return nil
-}
-
-// GatherOutputs gather outputs from the finished task
-// NOTE: currently not being used - artifact
-func (tool *Tool) GatherOutputs() error {
-
-	// If "cwl.output.json" exists on executed command directory,
-	// dump the file contents on stdout.
-	// This is described on official document.
-	// See also https://www.commonwl.org/v1.0/Tool.html#Output_binding
-	whatthefuck := filepath.Join(tool.Command.Dir, "cwl.output.json")
-	if defaultout, err := os.Open(whatthefuck); err == nil {
-		defer defaultout.Close()
-		if _, err := io.Copy(os.Stdout, defaultout); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	// Load Contents as JavaScript RunTime if needed.
-	vm, err := tool.Root.Outputs.LoadContents(tool.Command.Dir)
-	if err != nil {
-		return err
-	}
-
-	// CWL wants to dump metadata of outputs with type="File"
-	// See also https://www.commonwl.org/v1.0/Tool.html#File
-	if err := tool.Root.Outputs.Dump(vm, tool.Command.Dir, tool.Root.Stdout, tool.Root.Stderr, os.Stdout); err != nil {
-		return err
-	}
-
 	return nil
 }

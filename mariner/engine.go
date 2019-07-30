@@ -1,126 +1,29 @@
 package mariner
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
 // this file contains the top level functions for the task engine
-// the task engine 1. sets up a *Tool and 2. runs the *Tool 3. if k8s job, then listens for job to finish
+// the task engine
+// 1. sets up a *Tool
+// 2. runs the *Tool
+// 3. if k8s job, then listens for job to finish
 
-// initDirReq handles the InitialWorkDirRequirement if specified for this tool
-// TODO: handle prefix issue; support cases where File or dirent is returned from `entry`
-// NOTE: this function really needs to be cleaned up/revised
-// ----- also this fn should go in a different file, maybe its own file
-func (tool *Tool) initWorkDir() (err error) {
-	var result, resFile interface{}
-
-	for _, requirement := range tool.Root.Requirements {
-		if requirement.Class == "InitialWorkDirRequirement" {
-			fmt.Println("found InitialWorkDirRequirement:")
-			PrintJSON(requirement)
-			for _, listing := range requirement.Listing {
-				// handling the case where `entry` is content (expression or string) to be written to a file
-				// and `entryname` is the name of the file to be created
-				var contents interface{}
-				if strings.HasPrefix(listing.Entry, "$") {
-					// `entry` is an expression which may return a string, File or `dirent`
-					// NOTE: presently NOT supporting the File or dirent case
-					// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
-					result, err = EvalExpression(listing.Entry, tool.Root.InputsVM)
-					if err != nil {
-						return err
-					}
-					fmt.Printf("entry expression: %v\n", listing.Entry)
-					fmt.Println("result of entry expression:")
-					PrintJSON(result)
-					/*
-						// to handle case where result is a file object
-						// presently writing whatever the expression returns to the newly created file
-						if isFile(result) {
-							resFile = result
-						} else {
-							contents = result
-						}
-					*/
-					contents = result
-				} else {
-					contents = listing.Entry
-				}
-				PrintJSON(contents)
-
-				// `entryName` for sure is a string literal or an expression which evaluates to a string
-				// `entryName` is the name of the file to be created
-				var entryName string
-				if strings.HasPrefix(listing.EntryName, "$") {
-					result, err = EvalExpression(listing.EntryName, tool.Root.InputsVM)
-					if err != nil {
-						return err
-					}
-					var ok bool
-					entryName, ok = result.(string)
-					if !ok {
-						return fmt.Errorf("entryname expression did not return a string")
-					}
-				} else {
-					entryName = listing.EntryName
-				}
-
-				/*
-					Cases:
-					1. `entry` returned a file object - file object stored as an interface{} in `resFile` (NOT SUPPORTED)
-					2. `entry` did not return a file object - then returned value is in `contents` and must be written to a new file with filename stored in `entryName` (supported)
-				*/
-
-				prefix := tool.WorkingDir // commented out for testing - prefixissue
-				// prefix := "/Users/mattgarvin/_fakes3/testWorkflow/#initdir_test.cwl" // for testing locally
-				if resFile != nil {
-					// "If the value is an expression that evaluates to a File object,
-					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."
-					// NOTE: the "designated output directory" is just the directory corresponding to the *Tool
-					// not sure what the purpose/meaning/use of this feature is - pretty sure all i/o for *Tools gets handled already
-					// presently not supporting this case - will implement this feature once I find an example to work with
-					panic("feature not supported: entry expression returned a file object")
-				} else {
-					jContents, err := json.Marshal(contents)
-					if err != nil {
-						return err
-					}
-					os.MkdirAll(prefix, os.ModePerm)                      // create tool working dir if it doesn't already exist
-					f, err := os.Create(filepath.Join(prefix, entryName)) // prefixissue - prefix should be tool.WorkingDir
-					if err != nil {
-						fmt.Println("failed to create file in initworkdir req")
-						return err
-					}
-					f.Write(jContents)
-					f.Close()
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// Engine ...
-type Engine interface {
-	DispatchTask(jobID string, task *Task) error
-}
-
-// K8sEngine runs all *Tools - including expression tools - should these functionalities be decoupled?
+// K8sEngine runs all *Tools, where a *Tool is a CWL expressiontool or commandlinetool
+// NOTE: engine object code store all the logs/event-monitoring/statistics for the workflow run
+// ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
 	TaskSequence    []string            // for testing purposes
 	Commands        map[string][]string // also for testing purposes
-	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running (task.Root.ID, Process) pairs
-	FinishedProcs   map[string]*Process // engine's stack of completed processes (task.Root.ID, Process) pairs
-	// AWSAccessKeyID     string              // awsusercreds get passed to task job spec sidecar container to mount user bucket
-	// AWSSecretAccessKey string
-	S3Prefix string // the /user/workflow-timestamp/ prefix to pass to task sidecar to mount correct prefix from user bucket -> s3://workflow-engine-garvin/user/wf-timestamp/
+	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
+	FinishedProcs   map[string]*Process // engine's stack of completed processes; (task.Root.ID, Process) pairs
+	S3Prefix        string              // the /user/workflow-timestamp/ prefix to pass to task sidecar to mount correct prefix from user bucket -> s3://workflow-engine-garvin/user/wf-timestamp/
 }
 
 // Process represents a leaf in the graph of a workflow
@@ -131,7 +34,7 @@ type K8sEngine struct {
 // as soon as a job is complete, the Process struct gets popped from the stack
 // and a function is called to collect the output from that completed process
 //
-// presently ExpressionTools run in a js vm "in the workflow engine", so they don't get dispatched as k8s jobs
+// presently ExpressionTools run in a js vm in the mariner-engine, so they don't get dispatched as k8s jobs
 type Process struct {
 	JobName string // if a k8s job (i.e., if a CommandLineTool)
 	JobID   string // if a k8s job (i.e., if a CommandLineTool)
@@ -141,8 +44,8 @@ type Process struct {
 
 // Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
 type Tool struct {
-	Outdir           string // Given by context - not sure what this is for
-	WorkingDir       string // e.g., /data/task_id/
+	Outdir           string // Given by context - NOTE: not sure what this is for
+	WorkingDir       string // e.g., /data/taskID/
 	Root             *cwl.Root
 	Parameters       cwl.Parameters
 	Command          *exec.Cmd
@@ -151,7 +54,7 @@ type Tool struct {
 	ExpressionResult map[string]interface{}    // storing the result of an expression tool here for now - maybe there's a better way to do this
 }
 
-// DispatchTask does some setup for and dispatches workflow *Tools - i.e., CommandLineTools and ExpressionTools
+// DispatchTask does some setup for and dispatches workflow *Tools
 func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 	tool := task.getTool()
 	err = tool.setupTool()
@@ -166,10 +69,11 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 		Tool: tool,
 		Task: task,
 	}
-	fmt.Println("\n\t\tThis task has been dispatched and should get its own directory!")
-	fmt.Printf("\t\tHere is the task.Root.ID and scatter index: %v : %v\n\n", task.Root.ID, task.ScatterIndex)
 
-	// (when should the process get pushed onto the stack?)
+	// fmt.Println("\n\t\tThis task has been dispatched and should get its own directory!")
+	// fmt.Printf("\t\tHere is the task.Root.ID and scatter index: %v : %v\n\n", task.Root.ID, task.ScatterIndex)
+
+	// {Q: when should the process get pushed onto the stack?}
 	// push newly started process onto the engine's stack of running processes
 	engine.UnfinishedProcs[tool.Root.ID] = proc
 
@@ -184,8 +88,7 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 
 // GetTool returns a Tool object
 // The Tool represents a workflow *Tool and so is either a CommandLineTool or an ExpressionTool
-// tool looks like mostly a subset of task..
-// code needs to be polished/organized/refactored once the engine is actually running properly
+// NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
 func (task *Task) getTool() *Tool {
 	tool := &Tool{
 		Root:         task.Root,
@@ -199,8 +102,8 @@ func (task *Task) getTool() *Tool {
 // see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
 // "characters to avoid" for keys in s3 buckets
 // probably need to do some more filtering of other potentially problematic characters
-// additionally, should make the mount point a go constant - i.e., const MountPoint = "/data/"
-// could come up with a better/more uniform naming scheme
+// NOTE: should make the mount point a go constant - i.e., const MountPoint = "/data/"
+// ----- could come up with a better/more uniform naming scheme
 func (task *Task) getWorkingDir() string {
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
 	dir := fmt.Sprintf("/data/%v", safeID)
@@ -211,17 +114,19 @@ func (task *Task) getWorkingDir() string {
 	return dir
 }
 
+// create working directory for this *Tool
 func (tool *Tool) makeWorkingDir() error {
-	fmt.Printf("making working directory %v\n\n", tool.WorkingDir)
+	// fmt.Printf("making working directory %v\n\n", tool.WorkingDir)
 	err := os.MkdirAll(tool.WorkingDir, 0777)
 	if err != nil {
 		fmt.Printf("error while making directory: %v\n", err)
 		return err
 	}
-	fmt.Printf("successfully created working directory %v\n\n", tool.WorkingDir)
+	// fmt.Printf("successfully created working directory %v\n\n", tool.WorkingDir)
 	return nil
 }
 
+// performs some setup for a *Tool to prepare for the engine to run the *Tool
 func (tool *Tool) setupTool() (err error) {
 	err = tool.makeWorkingDir()
 	if err != nil {
@@ -232,7 +137,7 @@ func (tool *Tool) setupTool() (err error) {
 		fmt.Printf("\tError loading inputs: %v\n", err)
 		return err
 	}
-	err = tool.inputsToVM() // loads inputs context to js vm tool.Root.InputsVM (Ready to test, but needs to be extended)
+	err = tool.inputsToVM() // loads inputs context to js vm tool.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
 	if err != nil {
 		fmt.Printf("\tError loading inputs to js VM: %v\n", err)
 		return err
@@ -277,14 +182,16 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 	return nil
 }
 
-// RunCommandLineTool runs a CommandLineTool
+// runCommandLineTool..
+// 1. generates the command to execute
+// 2. makes call to RunK8sJob to dispatch job to run the commandline tool
 func (engine K8sEngine) runCommandLineTool(proc *Process) (err error) {
 	fmt.Println("\tRunning CommandLineTool")
-	err = proc.Tool.GenerateCommand() // need to test different cases of generating commands
+	err = proc.Tool.GenerateCommand()
 	if err != nil {
 		return err
 	}
-	err = engine.RunK8sJob(proc) // push Process struct onto engine.UnfinishedProcs
+	err = engine.DispatchTaskJob(proc)
 	if err != nil {
 		return err
 	}
@@ -292,7 +199,9 @@ func (engine K8sEngine) runCommandLineTool(proc *Process) (err error) {
 }
 
 // ListenForDone listens to k8s until the job status is "Completed"
-// when complete, calls a function to collect output and update engine's proc stacks
+// once that happens, calls a function to collect output and update engine's proc stacks
+// TODO: implement error handling, listen for errors and failures, retries as well
+// ----- handle the cases where the job status is not "Completed" or "Running"
 func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 	fmt.Println("\tListening for job to finish..")
 	status := ""

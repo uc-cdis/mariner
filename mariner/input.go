@@ -10,6 +10,7 @@ import (
 )
 
 // this file contains code for loading/processing inputs for *Tools
+// for an explanation of the PreProcessContext function, see "explanation for PreProcessContext" comment in js.go
 
 // LoadInputs passes parameter value to input.Provided for each input
 // in this setting, "ValueFrom" may appear either in:
@@ -149,14 +150,14 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	if isFile(out) {
-		fmt.Println("is a file object")
+		// fmt.Println("is a file object")
 		path, err := GetPath(out)
 		if err != nil {
 			return nil, err
 		}
 		out = getFileObj(path)
 	} else {
-		fmt.Println("is not a file object")
+		// fmt.Println("is not a file object")
 	}
 
 	// fmt.Println("after creating file object:")
@@ -167,22 +168,22 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// tool inputBinding ValueFrom case
 	if input.Binding != nil && input.Binding.ValueFrom != nil {
 		valueFrom := input.Binding.ValueFrom.String
-		fmt.Println("here is valueFrom:")
-		fmt.Println(valueFrom)
+		// fmt.Println("here is valueFrom:")
+		// fmt.Println(valueFrom)
 		if strings.HasPrefix(valueFrom, "$") {
 			vm := otto.New()
 			var context interface{}
 			if _, f := out.(*File); f {
-				fmt.Println("context is a file")
+				// fmt.Println("context is a file")
 				context, err = PreProcessContext(out)
 				if err != nil {
 					return nil, err
 				}
 			} else {
-				fmt.Println("context is not a file")
+				// fmt.Println("context is not a file")
 				context = out
 			}
-			vm.Set("self", context) // again, will more than likely need additional context here to cover other cases
+			vm.Set("self", context) // NOTE: again, will more than likely need additional context here to cover other cases
 			if out, err = EvalExpression(valueFrom, vm); err != nil {
 				return nil, err
 			}
@@ -201,7 +202,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
 	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
-	fmt.Println("loading inputs to vm..")
+	// fmt.Println("loading inputs to vm..")
 	tool.Root.InputsVM = otto.New()
 	context := make(map[string]interface{})
 	var fileObj *File

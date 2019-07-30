@@ -10,7 +10,7 @@ import (
 
 // this file contains code for handling/processing file objects
 
-// File represents a CWL file object
+// the File type represents a CWL file object
 // NOTE: the json representation of field names is what gets loaded into js vm
 // ----- see PreProcessContext() and accompanying note of explanation.
 // ----- these json aliases are the fieldnames defined by cwl for cwl File objects
@@ -141,7 +141,7 @@ func (fileObj *File) loadContents() (err error) {
 }
 
 // determines whether a map i represents a CWL file object
-// note: since objects of type File are not maps, they return false -> unfortunate, but not a critical problem
+// NOTE: since objects of type File are not maps, they return false -> unfortunate, but not a critical problem
 // ----- maybe do some renaming to clear this up
 func isFile(i interface{}) (f bool) {
 	iType := reflect.TypeOf(i)
@@ -161,7 +161,7 @@ func isFile(i interface{}) (f bool) {
 	return f
 }
 
-// exists returns whether the given file or directory exists
+// returns whether the given file or directory exists
 func exists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {

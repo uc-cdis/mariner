@@ -10,6 +10,7 @@ import (
 
 // this file contains code for processing scattered workflow steps
 // NOTE: scattered subtasks get run concurrently -> see runScatterTasks()
+// what does "scatter" mean? great question -> see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
 
 func (task *Task) runScatter() (err error) {
 	if err = task.validateScatterMethod(); err != nil {
@@ -82,11 +83,11 @@ func (task *Task) gatherScatterOutputs() (err error) {
 				// wait for scattered task to finish
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
-			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note ScatterIndex begins at 1, not 0
+			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note: ScatterIndex begins at 1, not 0
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
-	task.Outputs[task.Root.Outputs[0].ID] = totalOutput // not sure what output ID to use here?
+	task.Outputs[task.Root.Outputs[0].ID] = totalOutput // not sure what output ID to use here (?)
 	return nil
 }
 
@@ -150,7 +151,7 @@ func buildArray(i interface{}) (arr []interface{}, isArr bool) {
 
 // populates task.ScatterTasks with scattered subtasks according to scatterMethod
 func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err error) {
-	fmt.Printf("\tBuilding scatter subtasks for %v input(s) with scatterMethod %v\n", len(scatterParams), task.ScatterMethod)
+	// fmt.Printf("\tBuilding scatter subtasks for %v input(s) with scatterMethod %v\n", len(scatterParams), task.ScatterMethod)
 	task.ScatterTasks = make(map[int]*Task)
 	switch task.ScatterMethod {
 	case "", "dotproduct": // simple scattering over one input is a special case of dotproduct
@@ -167,7 +168,7 @@ func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err
 	return nil
 }
 
-// should work, need to test
+// see dotproduct and flatCrossproduct descriptions in this section of cwl docs: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
 func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error) {
 	// no need to check input lengths - this already got validated in Task.getScatterParams()
 	_, inputLength := uniformLength(scatterParams)
@@ -193,7 +194,6 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 
 // get cartesian product of input arrays
 // tested algorithm in goplayground: https://play.golang.org/p/jiN5uP08rnm
-// should work, need to test with workflow
 func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err error) {
 	paramIDList := make([]string, 0, len(scatterParams))
 	inputArrays := make([][]interface{}, 0, len(scatterParams))
@@ -224,9 +224,9 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 	return nil
 }
 
+// used in flatCrossproduct()
 // nextIndex sets ix to the lexicographically next value,
 // such that for each i>0, 0 <= ix[i] < lens(i).
-// used in flatCrossproduct()
 func nextIndex(ix []int, lens func(i int) int) {
 	for j := len(ix) - 1; j >= 0; j-- {
 		ix[j]++

@@ -13,13 +13,14 @@ import (
 )
 
 /*
-mariner as an executable needs to be able to:
-1. setup the mariner server to listen for API requests
+mariner needs to be able to:
+1. setup the mariner-server to listen for API requests
 2. run a workflow
 
-useage:
+usage:
  - to setup the mariner server: `mariner listen`
- - to run a workflow: `mariner run` (runs workflow in /data/request.json, which is s3://workflow-engine-garvin/user/workflow/request.json)
+ - to run a workflow: `mariner run $S3PREFIX`
+ 	 (runs workflow in /data/request.json, which is s3://workflow-engine-garvin/userID/workflow-run-timestamp/request.json)
 */
 func main() {
 	app := cli.NewApp()
@@ -34,7 +35,7 @@ func main() {
 			return nil
 		case "run":
 			// mariner running in mariner-engine container
-			// `bucket/user/workflow/` has been mounted to `/data`
+			// `bucket/userID/workflow/` has been mounted to `/data/`
 			// `/data/request.json` contains the workflow, input, and id
 
 			// NOTE: this section should be encapsulated to a function and maybe put in another file
@@ -64,13 +65,13 @@ func main() {
 			// collect S3 prefix to mount from user bucket
 			engine.S3Prefix = c.Args().Get(1)
 			if engine.S3Prefix == "" {
-				return fmt.Errorf("missing /user/timestamp/ S3 prefix")
+				return fmt.Errorf("missing /userID/workflow-run-timestamp/ S3 prefix")
 			}
 
 			// NOTE: the ID is not used in this processing pipeline - could remove that parameter, or keep it in case it may be needed later
 			mariner.RunWorkflow(wfRequest.ID, wfRequest.Workflow, wfRequest.Input, engine)
 
-			// tell sidecar that the workflow is done running so that container can terminate and the job can finish 
+			// tell sidecar that the workflow is done running so that container can terminate and the job can finish
 			_, err = os.Create("/data/done")
 			if err != nil {
 				fmt.Println("error writing workflow-done flag")

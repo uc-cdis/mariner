@@ -28,21 +28,6 @@ type JobInfo struct {
 	Status string `json:"status"`
 }
 
-// see: https://godoc.org/k8s.io/api/core/v1#Volume
-// https://godoc.org/k8s.io/api/core/v1#VolumeSource
-// https://godoc.org/k8s.io/api/core/v1#SecretVolumeSource
-// NOT using this anymore - loading aws creds as secret to each sidecar
-func getAWSCredsSecret() k8sv1.Volume {
-	vol := k8sv1.Volume{
-		Name: "awsusercreds",
-	}
-	vol.Secret = &k8sv1.SecretVolumeSource{
-		SecretName: "workflow-bot-g3auto", // HERE TODO - don't hardcode this - put this in a congiguration doc - look at how hatchery works
-		Optional:   getBoolPointer(false),
-	}
-	return vol
-}
-
 // probably can come up with a better ID for a workflow, but for now this will work
 // can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
 // so not exactly sure how to label the workflow runs besides a timestamp
@@ -53,6 +38,7 @@ func getS3Prefix(content WorkflowRequest) (prefix string) {
 	return prefix
 }
 
+// run bash setup script in sidecar container to mount s3 bucket to shared volume at "/data/"
 func getS3SidecarArgs() []string {
 	args := []string{
 		fmt.Sprintf(`/go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`),
@@ -76,6 +62,7 @@ func getEngineArgs(prefix string) []string {
 	return args
 }
 
+// for mounting aws-user-creds secret to s3sidecar
 // HERE - TODO - put this in the config
 var awscreds = k8sv1.EnvVarSource{
 	SecretKeyRef: &k8sv1.SecretKeySelector{
@@ -115,7 +102,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 					RestartPolicy:      k8sv1.RestartPolicyNever,
 					Volumes: []k8sv1.Volume{
 						{
-							Name: "shared-data", // implicitly set to be an emptyDir
+							Name: "shared-data", // implicitly set to be an emptyDir -> this may be deprecated -> make emptyDir explicit
 						},
 					},
 					Containers: []k8sv1.Container{
@@ -128,7 +115,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 							},
 							Env: []k8sv1.EnvVar{
 								{
-									Name: "GEN3_NAMESPACE",
+									Name:  "GEN3_NAMESPACE",
 									Value: os.Getenv("GEN3_NAMESPACE"),
 								},
 							},
@@ -163,7 +150,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 									Value: "ENGINE", // put this in config, don't hardcode it here - also potentially use different flag name
 								},
 								{
-									Name:  "WORKFLOW_REQUEST", // body of POST http request
+									Name:  "WORKFLOW_REQUEST", // body of POST http request made to api
 									Value: string(request),
 								},
 							},
@@ -196,7 +183,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 }
 
 // RunK8sJob runs the CommandLineTool in a container as a k8s job with a sidecar container to write command to run.sh, install s3fs/goofys and mount bucket
-func (engine K8sEngine) RunK8sJob(proc *Process) error {
+func (engine K8sEngine) DispatchTaskJob(proc *Process) error {
 	fmt.Println("\tCreating k8s job spec..")
 	batchJob, nil := engine.createJobSpec(proc)
 
@@ -213,60 +200,27 @@ func (engine K8sEngine) RunK8sJob(proc *Process) error {
 	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
 	proc.JobID = string(newJob.GetUID())
 	proc.JobName = newJob.Name
-	// fmt.Printf("\tNew job status: %v\n", jobStatusToString(&newJob.Status))
 	return nil
 }
 
 func getJobClient() batchtypev1.JobInterface {
 	// creates the in-cluster config
-
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
 
-	/////////// begin section for getting out-of-cluster config for testing locally ////////////
-	// use the current context in kubeconfig
-	/*
-		config, err := clientcmd.BuildConfigFromFlags("", "/Users/mattgarvin/.kube/config") // for testing locally...
-		if err != nil {
-			panic(err.Error())
-		}
-	*/
-	//////////// end section for getting out-of-cluster config ////////////////////////////////
-
 	clientset, err := kubernetes.NewForConfig(config)
 	batchClient := clientset.BatchV1()
+	// provide k8s namespace in which to dispatch jobs
+	// namespace is inherited from whatever namespace the mariner-server was deployed in
 	jobsClient := batchClient.Jobs(os.Getenv("GEN3_NAMESPACE"))
-	// see: https://github.com/uc-cdis/ssjdispatcher/blob/master/handlers/jobs.go#L45
 	return jobsClient
-}
-
-// almost identical to engine sidecar args - just writing a different file
-// this function made obsolete by Dockerrun file and passing additional flags as envVars in the different jobs
-func (tool *Tool) getSidecarArgs() []string {
-	toolCmd := strings.Join(tool.Command.Args, " ")
-	fmt.Printf("command: %q\n", toolCmd)
-	// to run the actual command: remove the second "echo" from the second line
-	sidecarCmd := fmt.Sprintf(`
-	echo sidecar is running..
-	/root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)
-	/root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)
-	goofys workflow-engine-garvin:$S3PREFIX /data
-	echo "echo %v" > %vrun.sh
-	echo successfully created %vrun.sh
-	`, "run this bash script to execute the commandlinetool", tool.WorkingDir, tool.WorkingDir)
-	args := []string{
-		"-c",
-		sidecarCmd,
-	}
-	return args
 }
 
 // wait for sidecar to setup
 // in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
-// need to test that we write/read run.sh to/from tool's working dir correctly
 // HERE TODO - put this in a bash script
 func (proc *Process) getCLToolArgs() []string {
 	args := []string{
@@ -310,9 +264,9 @@ func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
 	return env
 }
 
-// probably should do some more careful error handling with the various get*() functions to populate job spec here
-// those functions should return the value and an error - or maybe panic works just fine
-// something to think about
+// NOTE: need to do some more careful error handling with the various get*() functions to populate job spec here
+// ----- those functions should return the value and an error - or maybe panic works just fine
+// ----- something to think about
 // l8est NOTE: use a CONFIG file to store all these horrific details, then just cleanly read from config doc to populate job spec
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
@@ -344,12 +298,11 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 					},
 					Containers: []k8sv1.Container{
 						{
-							Name: "commandlinetool",
-							// WorkingDir:      proc.Tool.WorkingDir, // WOW what a problem this was!
+							Name:            "commandlinetool",
 							Image:           proc.getDockerImage(),
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							Command: []string{
-								proc.getCLTBash(), // get path to bash for docker image (needs better solution)
+								proc.getCLTBash(), // get path to bash for docker image (NOTE: TODO - needs better solution)
 							},
 							Args:      proc.getCLToolArgs(), // need function here to identify path to bash based on docker image - not sure how to navigate this
 							Env:       proc.getEnv(),        // set any environment variables if specified
@@ -380,7 +333,7 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 								},
 								{
 									Name:  "S3PREFIX",
-									Value: engine.S3Prefix, // mounting whole user dir to /data -> not just the dir for the task - not sure what the best approach is here yet
+									Value: engine.S3Prefix, // mounting whole user dir to /data -> not just the dir for the task
 								},
 								{
 									Name:  "MARINER_COMPONENT", // flag to tell setup sidecar script this is a task, not an engine job
@@ -411,14 +364,6 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 	return batchJob, nil
 }
 
-// utility.. for testing
-func homeDir() string {
-	if h := os.Getenv("HOME"); h != "" {
-		return h
-	}
-	return os.Getenv("USERPROFILE") // windows
-}
-
 // replace disallowed job name characters
 func (proc *Process) makeJobName() string {
 	taskID := proc.Task.Root.ID
@@ -433,23 +378,25 @@ func (proc *Process) makeJobName() string {
 	return jobName
 }
 
+// move to config
 func getBoolPointer(val bool) (pval *bool) {
 	return &val
 }
 
+// move to config
 func getPropagationMode(val k8sv1.MountPropagationMode) (pval *k8sv1.MountPropagationMode) {
 	return &val
 }
 
 // handles the DockerRequirement if specified and returns the image to be used for the CommandLineTool
-// if no image specified, returns `ubuntu` as a default image - need to ask/check if there is a better default image to use
+// NOTE: if no image specified, returns `ubuntu` as a default image - need to ask/check if there is a better default image to use
 // NOTE: presently only supporting use of the `dockerPull` CWL field
 func (proc *Process) getDockerImage() string {
 	for _, requirement := range proc.Task.Root.Requirements {
 		if requirement.Class == "DockerRequirement" {
 			if requirement.DockerPull != "" {
-				// Shenglai made comment about adding `sha256` tag in order to pull exactly the latest image you want
-				// ask for detail/example and ask others to see if I should implement that
+				// NOTE: Shenglai made comment about adding `sha256` tag in order to pull exactly the latest image you want
+				// ----- ask for detail/example and ask others to see if I should implement that
 				return string(requirement.DockerPull)
 			}
 		}
@@ -459,7 +406,7 @@ func (proc *Process) getDockerImage() string {
 
 // get path to bash.. it is problematic to have to deal with this
 // only doing this right now temporarily so that test workflow runs
-// here TODO: come up with a better solution for this
+// HERE TODO: come up with a better solution for this
 func (proc *Process) getCLTBash() string {
 	if proc.getDockerImage() == "alpine" {
 		return "/bin/sh"
