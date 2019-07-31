@@ -89,13 +89,17 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{ // https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
 			Name:   "test-workflow",         // replace
-			Labels: make(map[string]string), // to be populated - labels for job object
+			Labels: map[string]string{
+				"app": "mariner-engine",
+				}, // NOTE: what other labels should be here?
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   "test-workflow",         // replace
-					Labels: make(map[string]string), // to be populated - labels for pod object
+					Labels: map[string]string{
+						"app": "mariner-engine",
+						}, // NOTE: what other labels should be here?
 				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "mariner-service-account", // see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
@@ -280,13 +284,17 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   jobName,
-			Labels: make(map[string]string), // to be populated - labels for job object
+			Labels: map[string]string{
+				"app": "mariner-task",
+				}, // NOTE: what other labels should be here?
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   jobName,
-					Labels: make(map[string]string), // to be populated - labels for pod object
+					Labels: map[string]string{
+						"app": "mariner-task",
+						}, // NOTE: what other labels should be here?
 				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "mariner-service-account",
