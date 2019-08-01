@@ -18,8 +18,6 @@ func (tool *Tool) initWorkDir() (err error) {
 
 	for _, requirement := range tool.Root.Requirements {
 		if requirement.Class == "InitialWorkDirRequirement" {
-			fmt.Println("found InitialWorkDirRequirement:")
-			PrintJSON(requirement)
 			for _, listing := range requirement.Listing {
 				// handling the case where `entry` is content (expression or string) to be written to a file
 				// and `entryname` is the name of the file to be created
@@ -36,7 +34,7 @@ func (tool *Tool) initWorkDir() (err error) {
 				} else {
 					contents = listing.Entry
 				}
-				PrintJSON(contents)
+				// PrintJSON(contents)
 
 				// `entryName` for sure is a string literal or an expression which evaluates to a string
 				// `entryName` is the name of the file to be created
