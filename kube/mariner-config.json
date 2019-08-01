@@ -41,7 +41,7 @@
         "pull_policy": "always",
         "command": ["/bin/sh", "./s3sidecarDockerrun.sh"],
         "securitycontext": {
-          "privileged": "true"
+          "privileged": true
         },
         "volume_mounts": [
           {
