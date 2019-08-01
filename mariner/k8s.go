@@ -83,30 +83,31 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 		panic("failed to marshal request body (workflow content) into json")
 	}
 	batchJob := &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{ // preprocess
 			Kind:       "Job",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{ // https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
-			Name: "test-workflow", // replace
+			Name: "test-workflow", // replace - preprocess
 			Labels: map[string]string{
-				"app": "mariner-engine",
+				"app": "mariner-engine", // config
 			}, // NOTE: what other labels should be here?
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-workflow", // replace
+					Name: "test-workflow", // replace - preprocess
 					Labels: map[string]string{
-						"app": "mariner-engine",
+						"app": "mariner-engine", // config
 					}, // NOTE: what other labels should be here?
 				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "mariner-service-account", // see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
-					RestartPolicy:      k8sv1.RestartPolicyNever,
+					RestartPolicy:      k8sv1.RestartPolicyNever,  // config
 					Volumes: []k8sv1.Volume{
 						{
-							Name: "shared-data", // implicitly set to be an emptyDir -> this may be deprecated -> make emptyDir explicit
+							Name: "shared-data", // preprocess
+							// EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 						},
 					},
 					Containers: []k8sv1.Container{
@@ -139,30 +140,30 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 							Command: []string{ // in config
 								"/bin/sh",
 							},
-							Args: getS3SidecarArgs(), // calls bash setup script
+							Args: getS3SidecarArgs(), // in config -> calls bash setup script
 							Env: []k8sv1.EnvVar{
 								{
-									Name:  "S3PREFIX",
-									Value: S3Prefix, // see last line of mariner-engine-sidecar dockerfile -> RUN goofys workflow-engine-garvin:$S3PREFIX /data
+									Name:  "S3PREFIX", // in preprocessing
+									Value: S3Prefix,   // see last line of mariner-engine-sidecar dockerfile -> RUN goofys workflow-engine-garvin:$S3PREFIX /data
 								},
 								{
-									Name:      "AWSCREDS",
+									Name:      "AWSCREDS", // in preprocessing
 									ValueFrom: &awscreds,
 								},
 								{
-									Name:  "MARINER_COMPONENT",
-									Value: "ENGINE", // put this in config, don't hardcode it here - also potentially use different flag name
+									Name:  "MARINER_COMPONENT", // in preprocessing
+									Value: "ENGINE",
 								},
 								{
-									Name:  "WORKFLOW_REQUEST", // body of POST http request made to api
+									Name:  "WORKFLOW_REQUEST", // in proprocessing body of POST http request made to api
 									Value: string(request),
 								},
 							},
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
-							SecurityContext: &k8sv1.SecurityContext{
-								Privileged: getBoolPointer(true),
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways), // in config
+							SecurityContext: &k8sv1.SecurityContext{ // in config
+								Privileged: getBoolPointer(true), // HERE - Q: run as user? run as group?
 							},
-							VolumeMounts: []k8sv1.VolumeMount{
+							VolumeMounts: []k8sv1.VolumeMount{ // in config
 								{
 									Name:             "shared-data",
 									MountPath:        "/data",
@@ -278,30 +279,29 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 	proc.JobName = jobName
 	fmt.Printf("Pulling image %v for task %v\n", proc.getDockerImage(), proc.Task.Root.ID)
 	batchJob = &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{ // preprocessing
 			Kind:       "Job",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: jobName,
-			Labels: map[string]string{
+			Name: jobName, // preprocessing
+			Labels: map[string]string{ // config
 				"app": "mariner-task",
 			}, // NOTE: what other labels should be here?
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: jobName,
-					Labels: map[string]string{
+					Name: jobName, // preprocessing
+					Labels: map[string]string{ // config
 						"app": "mariner-task",
 					}, // NOTE: what other labels should be here?
 				},
 				Spec: k8sv1.PodSpec{
-					ServiceAccountName: "mariner-service-account",
-					RestartPolicy:      k8sv1.RestartPolicyNever,
+					RestartPolicy: k8sv1.RestartPolicyNever,
 					Volumes: []k8sv1.Volume{
 						{
-							Name: "shared-data", // implicitly set to be an emptyDir
+							Name: "shared-data", // preprocess
 						},
 					},
 					Containers: []k8sv1.Container{
