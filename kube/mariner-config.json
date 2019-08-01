@@ -1,5 +1,11 @@
 {
   "mariner": {
+    "secrets": {
+      "awsusercreds": {
+        "name": "workflow-bot-g3auto",
+        "key": "awsusercreds.json"
+      }
+    },
     "jobs": {
       "engine": {
         "labels": {

@@ -63,7 +63,7 @@ func getEngineArgs(prefix string) []string {
 }
 
 // for mounting aws-user-creds secret to s3sidecar
-// HERE - TODO - put this in the config
+// config
 var awscreds = k8sv1.EnvVarSource{
 	SecretKeyRef: &k8sv1.SecretKeySelector{
 		LocalObjectReference: k8sv1.LocalObjectReference{
