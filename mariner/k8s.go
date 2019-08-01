@@ -41,7 +41,7 @@ func getS3Prefix(content WorkflowRequest) (prefix string) {
 // run bash setup script in sidecar container to mount s3 bucket to shared volume at "/data/"
 func getS3SidecarArgs() []string {
 	args := []string{
-		fmt.Sprintf(`/go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh`),
+		fmt.Sprintf(`./s3sidecarDockerrun.sh`),
 	}
 	return args
 }
@@ -88,18 +88,18 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{ // https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
-			Name:   "test-workflow",         // replace
+			Name: "test-workflow", // replace
 			Labels: map[string]string{
 				"app": "mariner-engine",
-				}, // NOTE: what other labels should be here?
+			}, // NOTE: what other labels should be here?
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "test-workflow",         // replace
+					Name: "test-workflow", // replace
 					Labels: map[string]string{
 						"app": "mariner-engine",
-						}, // NOTE: what other labels should be here?
+					}, // NOTE: what other labels should be here?
 				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "mariner-service-account", // see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
@@ -111,21 +111,21 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 					},
 					Containers: []k8sv1.Container{
 						{
-							Name:            "mariner-engine",
-							Image:           "quay.io/cdis/mariner-engine:feat_k8s",
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
-							Command: []string{
+							Name:            "mariner-engine",                       // in config
+							Image:           "quay.io/cdis/mariner-engine:feat_k8s", // in config
+							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),     // in config
+							Command: []string{ // in config
 								"/bin/sh",
 							},
-							Env: []k8sv1.EnvVar{
+							Env: []k8sv1.EnvVar{ // in pre-processing
 								{
 									Name:  "GEN3_NAMESPACE",
 									Value: os.Getenv("GEN3_NAMESPACE"),
 								},
 							},
-							Args: getEngineArgs(S3Prefix),
-							// no resources specified here currently - research/find a good value for this - find a good example
-							VolumeMounts: []k8sv1.VolumeMount{
+							Args: getEngineArgs(S3Prefix), // HERE - in pre-processing -> OR put in bash script or something
+							// HERE - TODO - add sensible resource requirements here - ask devops
+							VolumeMounts: []k8sv1.VolumeMount{ // in config
 								{
 									Name:             "shared-data",
 									MountPath:        "/data",
@@ -134,9 +134,9 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 							},
 						},
 						{
-							Name:  "mariner-s3sidecar",
-							Image: "quay.io/cdis/mariner-s3sidecar:feat_k8s",
-							Command: []string{
+							Name:  "mariner-s3sidecar",                       // in config
+							Image: "quay.io/cdis/mariner-s3sidecar:feat_k8s", // in config
+							Command: []string{ // in config
 								"/bin/sh",
 							},
 							Args: getS3SidecarArgs(), // calls bash setup script
@@ -283,18 +283,18 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   jobName,
+			Name: jobName,
 			Labels: map[string]string{
 				"app": "mariner-task",
-				}, // NOTE: what other labels should be here?
+			}, // NOTE: what other labels should be here?
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   jobName,
+					Name: jobName,
 					Labels: map[string]string{
 						"app": "mariner-task",
-						}, // NOTE: what other labels should be here?
+					}, // NOTE: what other labels should be here?
 				},
 				Spec: k8sv1.PodSpec{
 					ServiceAccountName: "mariner-service-account",

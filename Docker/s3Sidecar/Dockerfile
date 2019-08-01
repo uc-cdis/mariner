@@ -20,14 +20,6 @@ RUN mkdir -p /data
 RUN mkdir -p /go/src/github.com/uc-cdis
 WORKDIR /go/src/github.com/uc-cdis
 RUN git clone -b feat/k8s --single-branch https://github.com/uc-cdis/mariner/
+WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3sidecar/
 
 # NOTE: work from a scratch image
-
-#### Below this line, need to be passed as arguments from the k8s deployment spec - can't reference envVars in the image
-
-# configure aws credentials - awsusercreds.json passed in as AWSCREDS envVar
-# RUN /root/bin/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id)
-# RUN /root/bin/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret)
-
-# mount bucket:prefix
-# RUN goofys workflow-engine-garvin:$S3PREFIX /data
