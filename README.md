@@ -1,8 +1,2 @@
-Terms:
-workflow - description of a type of workflow
-tool - commandlinetool/expressiontool - description of a type of tool
-step - a step in a workflow, it can contain a subworkflow or a tool
-
-
-Job - an actual run of a workflow
-Task - an actual run of a tool
+# mariner: the gen3 workflow engine
+A "workflow" is a partially ordered set of computations, where the output of one step may be input for another step. Workflows are written in a workflow language, such as [Common Workflow Language](https://www.commonwl.org/). In order to execute a workflow, you must pass it to some workflow engine to parse the workflow and actually perform the computations. mariner is a workflow engine for gen3.
