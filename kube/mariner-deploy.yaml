@@ -56,6 +56,5 @@ spec:
           - name: mariner-config
             readOnly: true
             mountPath: /mariner.json
-            subPath: mariner.json
         ports:
         - containerPort: 80

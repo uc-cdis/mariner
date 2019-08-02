@@ -32,6 +32,11 @@
             "name": "shared-data",
             "mountpath": "/data",
             "mountpropagation": "HostToContainer"
+          },
+          {
+            "name": "mariner-config",
+            "mountpath": "/mariner.json",
+            "read_only": true
           }
         ]
       },

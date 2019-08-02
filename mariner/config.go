@@ -31,6 +31,7 @@ type VolumeMount struct {
 	Name             string `json:"name"`
 	MountPath        string `json:"mountpath"`
 	MountPropagation string `json:"mountpropagation"`
+	ReadOnly         bool   `json:"read_only"`
 }
 
 // run as user? run as group? should mariner have those settings?

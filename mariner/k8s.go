@@ -149,7 +149,6 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 								{
 									Name:      "mariner-config",
 									MountPath: "/mariner.json",
-									SubPath:   "mariner.json",
 									ReadOnly:  true,
 								},
 							},
