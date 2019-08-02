@@ -107,7 +107,21 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 					Volumes: []k8sv1.Volume{
 						{
 							Name: "shared-data", // preprocess
-							// EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+							// EmptyDir: &k8sv1.EmptyDirVolumeSource{}, // can't construct struct literal with promoted field
+						},
+						{
+							Name: "mariner-config", // preprocess
+							/*
+								ConfigMap: &k8sv1.ConfigMapVolumeSource{ // can't construct struct literal with promoted field
+									Name: "mariner-config",
+									Items: []k8sv1.KeyToPath{
+										{
+											Key:  "config",
+											Path: "mariner.json",
+										},
+									},
+								},
+							*/
 						},
 					},
 					Containers: []k8sv1.Container{
@@ -131,6 +145,12 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 									Name:             "shared-data",
 									MountPath:        "/data",
 									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
+								},
+								{
+									Name:      "mariner-config",
+									MountPath: "/mariner.json",
+									SubPath:   "mariner.json",
+									ReadOnly:  true,
 								},
 							},
 						},

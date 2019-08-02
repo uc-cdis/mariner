@@ -23,6 +23,13 @@ spec:
         public: "yes"
     spec:
       serviceAccountName: mariner-service-account
+      volumes:
+        - name: mariner-config
+          configMap:
+            name: mariner-config
+            items:
+              - key: config
+                path: mariner.json
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -45,5 +52,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+        volumeMounts:
+          - name: mariner-config
+            readOnly: true
+            mountPath: /mariner.json
+            subPath: mariner.json
         ports:
         - containerPort: 80
