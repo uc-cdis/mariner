@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 )
 
-// this file contains various config vars, consts, type definitions
+// this file contains type definitions for the config struct and a function for loading the config
 
 type FullMarinerConfig struct {
 	Config MarinerConfig `json:"mariner"`
