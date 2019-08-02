@@ -15,6 +15,14 @@ import (
 
 // NOTE: workflow steps are processed concurrently - see RunSteps()
 
+// load in config from `mariner-config.json`
+// which is a configmap object in the k8s cluster with name `mariner-config`
+// NOTE: when moving stuff to cloud automation,
+// ----- probably the config will be put in the manifest which holds the config for all the other services
+// ----- and the configmap name might change to `manifest-mariner`
+// ----- when this happens, need to update 1. mariner-config.json 2. mariner-deploy.yaml 3. engine job spec (DispatchWorkflowJob)
+var Config = loadConfig("/mariner.json")
+
 /*
  	a Task is a process is a node on the graph is one of [Workflow, CommandLineTool, ExpressionTool, ...]
 

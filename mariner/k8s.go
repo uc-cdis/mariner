@@ -147,9 +147,9 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
 								},
 								{
-									Name:      "mariner-config",
+									Name:      "mariner-config", // config
 									MountPath: "/mariner.json",
-									ReadOnly:  true,
+									ReadOnly:  true, // default is false
 								},
 							},
 						},

@@ -1,5 +1,10 @@
 package mariner
 
+import (
+	"encoding/json"
+	"io/ioutil"
+)
+
 // this file contains various config vars, consts, type definitions
 
 type FullMarinerConfig struct {
@@ -63,9 +68,11 @@ type AWSUserCreds struct {
 	Key  string `json:"key"`
 }
 
-/*
-// HERE -> function to read in config and marhsal into usable golang struct
-func loadConfig(path string) FullMarinerConfig {
-
+// read `mariner-config.json` from configmap `mariner-config`
+// unmarshal into go config struct FullMarinerConfig
+// path is "/mariner.json"
+func loadConfig(path string) (marinerConfig FullMarinerConfig) {
+	config, _ := ioutil.ReadFile(path)
+	_ = json.Unmarshal(config, &marinerConfig)
+	return marinerConfig
 }
-*/
