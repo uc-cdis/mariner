@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
 	"strings"
 	"time"
+	"os"
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -16,33 +16,129 @@ import (
 
 // this file contains all the k8s details for creating job spec for mariner-engine and mariner-task jobs
 
-// JobInfo - k8s job information
-type JobInfo struct {
-	UID    string `json:"uid"`
-	Name   string `json:"name"`
-	Status string `json:"status"`
+// returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
+func getWorkflowJob(request WorkflowRequest) (workflowJob *batchv1.Job, err error) {
+	// get job spec all populated except for pod volumes and containers
+	workflowJob = getJobSpec(ENGINE)
+
+	// fill in the rest of the spec
+	workflowJob.Spec.Template.Spec.Volumes = getEngineVolumes()
+	workflowJob.Spec.Template.Spec.Containers = getEngineContainers(request)
+
+	return workflowJob, nil
 }
 
-// probably can come up with a better ID for a workflow, but for now this will work
+// returns volumes field for workflow/engine job spec
+func getEngineVolumes() (volumes []k8sv1.Volume) {
+	// the s3 bucket `workflow-engine-garvin` gets mounted in this volume
+	// which is why the volume is  initialized as an empty directory
+	workflowBucket := k8sv1.Volume{Name: "shared-data"}
+	workflowBucket.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
+
+	// `mariner-config.json` is a configmap object in the cluster
+	// gets mounted as a volume in this way
+	configMap :=  k8sv1.Volume{Name: "mariner-config"}
+	configMap.ConfigMap.Name = "mariner-config"
+	configMap.ConfigMap.Items = []k8sv1.KeyToPath{{Key: "config", Path: "mariner.json"}}
+
+	volumes = []k8sv1.Volume{workflowBucket, configMap}
+	return volumes
+}
+
+// HERE - TODO - add sensible resource requirements here - ask devops
+func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container) {
+	engine := getEngineContainer()
+	s3sidecar := getS3SidecarContainer(request)
+	containers = []k8sv1.Container{*engine, *s3sidecar}
+	return containers
+}
+
+func getEngineContainer() (container *k8sv1.Container) {
+	container = getBaseContainer(&Config.Config.Containers.Engine)
+	container.Env = getEngineEnv()
+	container.Args = getEngineArgs() // TODO - put this in a bash script
+	return container
+}
+
+func getS3SidecarContainer(request WorkflowRequest) (container *k8sv1.Container) {
+	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
+	// container.Args = S3SIDECARARGS, // don't need, because Command contains full command
+	container.Env = getS3SidecarEnv(request) // for ENGINE-sidecar
+	return container
+}
+
+func getBaseContainer(conf *Container) (container *k8sv1.Container) {
+	container = &k8sv1.Container{
+		Name:            conf.Name,
+		Image:           conf.Image,
+		Command:         conf.Command,
+		ImagePullPolicy: conf.getPullPolicy(),
+		SecurityContext: conf.getSecurityContext(),
+		VolumeMounts:    conf.getVolumeMounts(),
+	}
+	return container
+}
+
+// NOTE: probably can come up with a better ID for a workflow, but for now this will work
 // can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
 // so not exactly sure how to label the workflow runs besides a timestamp
-func getS3Prefix(content WorkflowRequest) (prefix string) {
+func getS3Prefix(request WorkflowRequest) (prefix string) {
 	now := time.Now()
 	timeStamp := fmt.Sprintf("%v-%v-%v_%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
-	prefix = fmt.Sprintf("/%v/%v/", content.ID, timeStamp)
+	prefix = fmt.Sprintf("/%v/%v/", request.ID, timeStamp)
 	return prefix
 }
 
-// run bash setup script in sidecar container to mount s3 bucket to shared volume at "/data/"
-func getS3SidecarArgs() []string {
-	args := []string{
-		fmt.Sprintf(`./s3sidecarDockerrun.sh`),
+func getEngineEnv() (env []k8sv1.EnvVar) {
+	env = []k8sv1.EnvVar{
+		{
+			Name:  "GEN3_NAMESPACE",
+			Value: os.Getenv("GEN3_NAMESPACE"),
+		},
 	}
-	return args
+	return env
+}
+
+func getS3SidecarEnv(request WorkflowRequest) (env []k8sv1.EnvVar) {
+	S3Prefix := getS3Prefix(request)
+	requestJSON, _ := json.Marshal(request)
+	env = []k8sv1.EnvVar{
+		{
+			Name:  "S3PREFIX", // in preprocessing
+			Value: S3Prefix,   // see last line of mariner-engine-sidecar dockerfile -> RUN goofys workflow-engine-garvin:$S3PREFIX /data
+		},
+		{
+			Name:      "AWSCREDS", // in preprocessing
+			ValueFrom: &awscreds,
+		},
+		{
+			Name:  "MARINER_COMPONENT", // in preprocessing
+			Value: ENGINE,
+		},
+		{
+			Name:  "WORKFLOW_REQUEST", // in proprocessing body of POST http request made to api
+			Value: string(requestJSON),
+		},
+	}
+	return env
+}
+
+// returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
+func getJobSpec(component string) (job *batchv1.Job) {
+	jobConfig := Config.getJobConfig(component)
+	job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
+	objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
+	job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta // meta for pod and job objects are same
+	job.Spec.Template.Spec.RestartPolicy = jobConfig.getRestartPolicy()
+	if component == ENGINE {
+		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
+	}
+	return job
 }
 
 // analogous to task main container args - maybe restructure code, less redundancy
-func getEngineArgs(prefix string) []string {
+// TODO - put it in a bash script
+func getEngineArgs() []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
@@ -51,152 +147,21 @@ func getEngineArgs(prefix string) []string {
       sleep 1
     done
 		echo "Sidecar setup complete! Running mariner-engine now.."
-		/mariner run %v
-		`, prefix),
+		/mariner run $S3PREFIX
+		`),
 	}
 	return args
-}
-
-// for mounting aws-user-creds secret to s3sidecar
-// config
-var awscreds = k8sv1.EnvVarSource{
-	SecretKeyRef: &k8sv1.SecretKeySelector{
-		LocalObjectReference: k8sv1.LocalObjectReference{
-			Name: "workflow-bot-g3auto",
-		},
-		Key: "awsusercreds.json",
-	},
-}
-
-func getWorkflowJob(content WorkflowRequest) (workflowJob *batchv1.Job, err error) {
-	S3Prefix := getS3Prefix(content)
-	request, err := json.Marshal(content)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request body (workflow content) into json: %v", err)
-	}
-	// what should the order of construction be here..
-	// maybe a function to create each container
-	// and function to fill out job and pod spec
-	workflowJob = &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{ // preprocess
-			Kind:       "Job",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{ // https://godoc.org/k8s.io/apimachinery/pkg/apis/meta/v1#ObjectMeta
-			Name: "test-workflow", // replace - preprocess
-			Labels: map[string]string{
-				"app": "mariner-engine", // config
-			}, // NOTE: what other labels should be here?
-		},
-		Spec: batchv1.JobSpec{
-			Template: k8sv1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-workflow", // replace - preprocess
-					Labels: map[string]string{
-						"app": "mariner-engine", // config
-					}, // NOTE: what other labels should be here?
-				},
-				Spec: k8sv1.PodSpec{
-					ServiceAccountName: "mariner-service-account", // see: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
-					RestartPolicy:      k8sv1.RestartPolicyNever,  // config
-					Volumes: []k8sv1.Volume{
-						{
-							Name: "shared-data", // preprocess
-							// EmptyDir: &k8sv1.EmptyDirVolumeSource{}, // can't construct struct literal with promoted field
-						},
-						{
-							Name: "mariner-config", // preprocess
-							/*
-								ConfigMap: &k8sv1.ConfigMapVolumeSource{ // can't construct struct literal with promoted field
-									Name: "mariner-config",
-									Items: []k8sv1.KeyToPath{
-										{
-											Key:  "config",
-											Path: "mariner.json",
-										},
-									},
-								},
-							*/
-						},
-					},
-					Containers: []k8sv1.Container{
-						{
-							Name:            "mariner-engine",                       // in config
-							Image:           "quay.io/cdis/mariner-engine:feat_k8s", // in config
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),     // in config
-							Command: []string{ // in config
-								"/bin/sh",
-							},
-							Env: []k8sv1.EnvVar{ // in pre-processing
-								{
-									Name:  "GEN3_NAMESPACE",
-									Value: os.Getenv("GEN3_NAMESPACE"),
-								},
-							},
-							Args: getEngineArgs(S3Prefix), // HERE - in pre-processing -> OR put in bash script or something
-							// HERE - TODO - add sensible resource requirements here - ask devops
-							VolumeMounts: []k8sv1.VolumeMount{ // in config
-								{
-									Name:             "shared-data",
-									MountPath:        "/data",
-									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
-								},
-								{
-									Name:      "mariner-config", // config
-									MountPath: "/mariner.json",
-									ReadOnly:  true, // default is false
-								},
-							},
-						},
-						{
-							Name:  "mariner-s3sidecar",                       // in config
-							Image: "quay.io/cdis/mariner-s3sidecar:feat_k8s", // in config
-							Command: []string{ // in config
-								"/bin/sh",
-							},
-							Args: getS3SidecarArgs(), // in config -> calls bash setup script
-							Env: []k8sv1.EnvVar{
-								{
-									Name:  "S3PREFIX", // in preprocessing
-									Value: S3Prefix,   // see last line of mariner-engine-sidecar dockerfile -> RUN goofys workflow-engine-garvin:$S3PREFIX /data
-								},
-								{
-									Name:      "AWSCREDS", // in preprocessing
-									ValueFrom: &awscreds,
-								},
-								{
-									Name:  "MARINER_COMPONENT", // in preprocessing
-									Value: "ENGINE",
-								},
-								{
-									Name:  "WORKFLOW_REQUEST", // in proprocessing body of POST http request made to api
-									Value: string(request),
-								},
-							},
-							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways), // in config
-							SecurityContext: &k8sv1.SecurityContext{ // in config
-								Privileged: getBoolPointer(true), // HERE - Q: run as user? run as group?
-							},
-							VolumeMounts: []k8sv1.VolumeMount{ // in config
-								{
-									Name:             "shared-data",
-									MountPath:        "/data",
-									MountPropagation: getPropagationMode(k8sv1.MountPropagationBidirectional),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	return workflowJob, nil
 }
 
 // wait for sidecar to setup
 // in particular wait until run.sh exists (run.sh is the command for the Tool)
 // as soon as run.sh exists, run this script
 // HERE TODO - put this in a bash script
+// actually don't, because the CLT runs in its own container
+// - won't have the mariner repo, and we shouldn't clone it in there
+// so, just make this string a constant or something in the config file
+// TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
+// HERE - how to handle case of different possible bash, depending on CLT image specified in CWL?
 func (proc *Process) getCLToolArgs() []string {
 	args := []string{
 		"-c",
@@ -244,6 +209,7 @@ func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
 // ----- something to think about
 // l8est NOTE: use a CONFIG file to store all these horrific details, then just cleanly read from config doc to populate job spec
 // see: https://godoc.org/k8s.io/api/core/v1#Container
+// HERE - Tuesday
 func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, err error) {
 	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
@@ -289,20 +255,21 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 								{
 									Name:             "shared-data",
 									MountPath:        "/data",
-									MountPropagation: getPropagationMode(k8sv1.MountPropagationHostToContainer),
+									MountPropagation: &MountPropagationHostToContainer,
 								},
 							},
 						},
+						// make method for engine - engine.getS3SidecarContainer(tool) or something
 						{
 							Name:  "mariner-s3sidecar",
 							Image: "quay.io/cdis/mariner-s3sidecar:feat_k8s", // put in config
 							Command: []string{
 								"/bin/sh",
 							},
-							Args:            getS3SidecarArgs(), // calls bash setup script - see envVars for vars referenced in the script
+							// Args:            S3SIDECARARGS, // calls bash setup script - see envVars for vars referenced in the script
 							ImagePullPolicy: k8sv1.PullPolicy(k8sv1.PullAlways),
 							SecurityContext: &k8sv1.SecurityContext{
-								Privileged: getBoolPointer(true),
+								Privileged: &trueVal,
 							},
 							Env: []k8sv1.EnvVar{
 								{
@@ -315,7 +282,7 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 								},
 								{
 									Name:  "MARINER_COMPONENT", // flag to tell setup sidecar script this is a task, not an engine job
-									Value: "TASK",              // put this in config, don't hardcode it here - also potentially use different flag name
+									Value: TASK,                // put this in config, don't hardcode it here - also potentially use different flag name
 								},
 								{
 									Name:  "TOOL_COMMAND", // the command from the commandlinetool to actually execute
@@ -330,7 +297,7 @@ func (engine *K8sEngine) createJobSpec(proc *Process) (batchJob *batchv1.Job, er
 								{
 									Name:             "shared-data",
 									MountPath:        "/data",
-									MountPropagation: getPropagationMode(k8sv1.MountPropagationBidirectional),
+									MountPropagation: &MountPropagationBidirectional,
 								},
 							},
 						},
@@ -354,16 +321,6 @@ func (proc *Process) makeJobName() string {
 		jobName = fmt.Sprintf("%v-scattered-%v", jobName, proc.Task.ScatterIndex)
 	}
 	return jobName
-}
-
-// move to config
-func getBoolPointer(val bool) (pval *bool) {
-	return &val
-}
-
-// move to config
-func getPropagationMode(val k8sv1.MountPropagationMode) (pval *k8sv1.MountPropagationMode) {
-	return &val
 }
 
 // handles the DockerRequirement if specified and returns the image to be used for the CommandLineTool

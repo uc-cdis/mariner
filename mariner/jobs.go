@@ -15,6 +15,13 @@ import (
 // e.g., get cluster config, handle runtime requirements, create job spec, execute job, get job info/status
 // NOTE: clean up the code - move all the config/spec-related things into a separate file
 
+// JobInfo - k8s job information
+type JobInfo struct {
+	UID    string `json:"uid"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
 // DispatchWorkflowJob runs a workflow provided in mariner api request
 // TODO - decide on an approach to error handling, and apply it uniformly
 func DispatchWorkflowJob(content WorkflowRequest) error {
@@ -41,6 +48,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 }
 
 // RunK8sJob runs the CommandLineTool in a container as a k8s job with a sidecar container to write command to run.sh, install s3fs/goofys and mount bucket
+// HERE - MONDAY
 func (engine K8sEngine) DispatchTaskJob(proc *Process) error {
 	fmt.Println("\tCreating k8s job spec..")
 	batchJob, nil := engine.createJobSpec(proc)
@@ -105,7 +113,6 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 	if status == nil {
 		return "Unknown"
 	}
-
 	// https://kubernetes.io/docs/api-reference/batch/v1/definitions/#_v1_jobstatus
 	if status.Succeeded >= 1 {
 		return "Completed"

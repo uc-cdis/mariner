@@ -186,6 +186,8 @@ func (task *Task) runStep(curStepID string, parentTask *Task) {
 		// the section on "Merging", with the "MultipleInputFeatureRequirement" and "linkMerge" fields specifying either "merge_nested" or "merge_flattened"
 		source := input.Source[0]
 
+		// I/O DEPENDENCY HANDLING
+
 		// if this input's source is the ID of an output parameter of another step
 		if depStepID, ok := parentTask.outputIDMap[source]; ok {
 			// wait until dependency step output is there
