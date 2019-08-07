@@ -27,17 +27,15 @@ var (
 const (
 	TASK               = "TASK"
 	ENGINE             = "ENGINE"
-	AWSUSERCREDSSECRET = "workflow-bot-g3auto"
-	AWSUSERCREDSKEY    = "awsusercreds.json"
 )
 
 // for mounting aws-user-creds secret to s3sidecar
 var awscreds = k8sv1.EnvVarSource{
 	SecretKeyRef: &k8sv1.SecretKeySelector{
 		LocalObjectReference: k8sv1.LocalObjectReference{
-			Name: AWSUSERCREDSSECRET,
+			Name: Config.Config.Secrets.AWSUserCreds.Name,
 		},
-		Key: AWSUSERCREDSKEY,
+		Key: Config.Config.Secrets.AWSUserCreds.Key,
 	},
 }
 
@@ -64,7 +62,7 @@ type MarinerConfig struct {
 type Containers struct {
 	Engine          Container `json:"engine"`
 	S3sidecar       Container `json:"s3sidecar"`
-	CommandLineTool Container `json:"commandlinetool"`
+	Task 						Container `json:"task"`
 }
 
 type Container struct {

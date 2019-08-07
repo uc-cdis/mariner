@@ -56,7 +56,11 @@
           }
         ]
       },
-      "commandlinetool": {
+      "task": {
+        "name": "mariner-task",
+        "image": "alpine",
+        "pull_policy": "always",
+        "command": ["/bin/sh"],
         "volume_mounts": [
           {
             "name": "shared-data",

@@ -51,7 +51,7 @@ func DispatchWorkflowJob(content WorkflowRequest) error {
 // HERE - MONDAY
 func (engine K8sEngine) DispatchTaskJob(proc *Process) error {
 	fmt.Println("\tCreating k8s job spec..")
-	batchJob, nil := engine.createJobSpec(proc)
+	batchJob, nil := engine.getTaskJob(proc)
 
 	jobsClient := getJobClient()
 
