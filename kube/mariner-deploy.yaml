@@ -47,6 +47,10 @@ spec:
       - name: mariner
         image: quay.io/cdis/mariner-server:feat_k8s
         imagePullPolicy: Always
+        resources:
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
         env:
           - name: GEN3_NAMESPACE
             valueFrom:
