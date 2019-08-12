@@ -94,12 +94,14 @@ func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceReq
 	if conf.Resources.Limits.Memory != "" {
 		limits[k8sv1.ResourceMemory] = k8sResource.MustParse(conf.Resources.Limits.Memory)
 	}
+	/*
 	if conf.Resources.Requests.CPU != "" {
 		requests[k8sv1.ResourceCPU] = k8sResource.MustParse(conf.Resources.Requests.CPU)
 	}
 	if conf.Resources.Requests.Memory != "" {
 		requests[k8sv1.ResourceMemory] = k8sResource.MustParse(conf.Resources.Requests.Memory)
 	}
+	*/
 	if len(limits) > 0 {
 		requirements.Limits = limits
 	}
