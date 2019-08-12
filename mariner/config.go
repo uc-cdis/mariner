@@ -8,6 +8,7 @@ import (
 	// "time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	k8sResource "k8s.io/apimachinery/pkg/api/resource"
 	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// batchv1 "k8s.io/api/batch/v1"
 )
@@ -25,8 +26,8 @@ var (
 )
 
 const (
-	TASK               = "TASK"
-	ENGINE             = "ENGINE"
+	TASK   = "TASK"
+	ENGINE = "ENGINE"
 )
 
 // for mounting aws-user-creds secret to s3sidecar
@@ -60,9 +61,9 @@ type MarinerConfig struct {
 }
 
 type Containers struct {
-	Engine          Container `json:"engine"`
-	S3sidecar       Container `json:"s3sidecar"`
-	Task 						Container `json:"task"`
+	Engine    Container `json:"engine"`
+	S3sidecar Container `json:"s3sidecar"`
+	Task      Container `json:"task"`
 }
 
 type Container struct {
@@ -72,6 +73,40 @@ type Container struct {
 	Command         []string        `json:"command"`
 	VolumeMounts    []VolumeMount   `json:"volume_mounts"`
 	SecurityContext SecurityContext `json:"securitycontext"`
+	Resources       Resources       `json:"resources"`
+}
+
+type Resources struct {
+	Limits   Resource `json:"limits"`
+	Requests Resource `json:"requests"`
+}
+
+type Resource struct {
+	CPU    string `json:"cpu"`
+	Memory string `json:"memory"`
+}
+
+func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceRequirements) {
+	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
+	if conf.Resources.Limits.CPU != "" {
+		limits[k8sv1.ResourceCPU] = k8sResource.MustParse(conf.Resources.Limits.CPU)
+	}
+	if conf.Resources.Limits.Memory != "" {
+		limits[k8sv1.ResourceMemory] = k8sResource.MustParse(conf.Resources.Limits.Memory)
+	}
+	if conf.Resources.Requests.CPU != "" {
+		requests[k8sv1.ResourceCPU] = k8sResource.MustParse(conf.Resources.Requests.CPU)
+	}
+	if conf.Resources.Requests.Memory != "" {
+		requests[k8sv1.ResourceMemory] = k8sResource.MustParse(conf.Resources.Requests.Memory)
+	}
+	if len(limits) > 0 {
+		requirements.Limits = limits
+	}
+	if len(requests) > 0 {
+		requirements.Requests = requests
+	}
+	return requirements
 }
 
 func (conf *Container) getPullPolicy() (policy k8sv1.PullPolicy) {
@@ -130,8 +165,8 @@ type Jobs struct {
 
 type JobConfig struct {
 	Labels         map[string]string `json:"labels"`
-	ServiceAccount string `json:"serviceaccount"`
-	RestartPolicy  string `json:"restart_policy"`
+	ServiceAccount string            `json:"serviceaccount"`
+	RestartPolicy  string            `json:"restart_policy"`
 }
 
 func (conf *JobConfig) getRestartPolicy() (policy k8sv1.RestartPolicy) {

@@ -27,6 +27,12 @@
         "image": "quay.io/cdis/mariner-engine:feat_k8s",
         "pull_policy": "always",
         "command": ["/bin/sh"],
+        "resources": {
+          "limits": {
+            "memory": "256Mi",
+            "cpu": "400m"
+          }
+        },
         "volume_mounts": [
           {
             "name": "shared-data",
@@ -45,6 +51,12 @@
         "image": "quay.io/cdis/mariner-s3sidecar:feat_k8s",
         "pull_policy": "always",
         "command": ["/bin/sh", "./s3sidecarDockerrun.sh"],
+        "resources": {
+          "limits": {
+            "memory": "256Mi",
+            "cpu": "100m"
+          }
+        },
         "securitycontext": {
           "privileged": true
         },
@@ -61,6 +73,12 @@
         "image": "alpine",
         "pull_policy": "always",
         "command": ["/bin/sh"],
+        "resources": {
+          "limits": {
+            "memory": "512Mi",
+            "cpu": "900m"
+          }
+        },
         "volume_mounts": [
           {
             "name": "shared-data",

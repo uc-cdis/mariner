@@ -321,7 +321,8 @@ func (proc *Process) getCLTBash() string {
 }
 
 // only set limits when they are specified in the CWL
-// the "default" limits are no limits
+// Monday
+// the "default" limits are no limits - FIXME - TODO - set default "fallback" limits - maybe also vet workflows ahead of time excessive resource demands/requirements
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 // the `Resources` field
 // for k8s resource info see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
@@ -375,8 +376,10 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 		panic("cores maximum specified less than cores minimum specified")
 	}
 
-	resourceReqs := k8sv1.ResourceRequirements{}
-	// only want to populate values if specified in the CWL
+	// start with default settings
+	resourceReqs := Config.Config.Containers.Task.getResourceRequirements()
+
+	// only want to overwrite default limits if requirements specified in the CWL
 	if len(requests) > 0 {
 		resourceReqs.Requests = requests
 	}
@@ -389,6 +392,7 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 /////// General purpose - for TASK & ENGINE -> ///////
 
 // for info, see: https://godoc.org/k8s.io/api/core/v1#Container
+// Monday - add resource limits for engine, task, sidecar containers - put in config, implement read from config
 func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 	container = &k8sv1.Container{
 		Name:            conf.Name,
@@ -397,6 +401,7 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 		ImagePullPolicy: conf.getPullPolicy(),
 		SecurityContext: conf.getSecurityContext(),
 		VolumeMounts:    conf.getVolumeMounts(),
+		Resources: 			 conf.getResourceRequirements(),
 	}
 	return container
 }
