@@ -408,14 +408,19 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
 func getJobSpec(component string) (job *batchv1.Job) {
+	fmt.Println("getting job config..")
 	jobConfig := Config.getJobConfig(component)
 	job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
+	fmt.Println("populating objectMeta..")
 	objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
 	job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta // meta for pod and job objects are same
+	fmt.Println("getting restart policy..")
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.getRestartPolicy()
 	if component == ENGINE {
+		fmt.Println("getting service account..")
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
+	fmt.Println("successfully got job spec")
 	return job
 }
 
