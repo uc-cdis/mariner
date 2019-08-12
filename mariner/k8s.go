@@ -26,10 +26,13 @@ import (
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func getWorkflowJob(request WorkflowRequest) (workflowJob *batchv1.Job, err error) {
 	// get job spec all populated except for pod volumes and containers
+	fmt.Println("getting job spec..")
 	workflowJob = getJobSpec(ENGINE)
 
 	// fill in the rest of the spec
+	fmt.Println("getting engine volumes..")
 	workflowJob.Spec.Template.Spec.Volumes = getEngineVolumes()
+	fmt.Println("getting engine containers..")
 	workflowJob.Spec.Template.Spec.Containers = getEngineContainers(request)
 
 	return workflowJob, nil
