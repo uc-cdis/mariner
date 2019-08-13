@@ -26,13 +26,13 @@ import (
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func getWorkflowJob(request WorkflowRequest) (workflowJob *batchv1.Job, err error) {
 	// get job spec all populated except for pod volumes and containers
-	fmt.Println("getting job spec..")
+	defer fmt.Println("getting job spec..")
 	workflowJob = getJobSpec(ENGINE)
 
 	// fill in the rest of the spec
-	fmt.Println("getting engine volumes..")
+	defer fmt.Println("getting engine volumes..")
 	workflowJob.Spec.Template.Spec.Volumes = getEngineVolumes()
-	fmt.Println("getting engine containers..")
+	defer fmt.Println("getting engine containers..")
 	workflowJob.Spec.Template.Spec.Containers = getEngineContainers(request)
 
 	return workflowJob, nil
@@ -44,7 +44,7 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 	// which is why the volume is  initialized as an empty directory
 	workflowBucket := getWorkflowBucketVolume()
 
-	// `mariner-config.json` is a configmap object in the cluster
+	// `mariner-config.json` is a configmap object (named `mariner-config` with key `config`) in the cluster
 	// gets mounted as a volume in this way
 	configMap :=  k8sv1.Volume{Name: "mariner-config"}
 	configMap.ConfigMap.Name = "mariner-config"
@@ -55,23 +55,30 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 }
 
 func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container) {
+	defer fmt.Println("getting engine container..")
 	engine := getEngineContainer()
+	defer fmt.Println("getting s3sidecar container..")
 	s3sidecar := getS3SidecarContainer(request)
 	containers = []k8sv1.Container{*engine, *s3sidecar}
 	return containers
 }
 
 func getEngineContainer() (container *k8sv1.Container) {
+	defer fmt.Println("getting engine base container..")
 	container = getBaseContainer(&Config.Config.Containers.Engine)
+	defer fmt.Println("getting engine env..")
 	container.Env = getEngineEnv()
+	defer fmt.Println("getting engine args..")
 	container.Args = getEngineArgs() // FIXME - TODO - put this in a bash script
 	return container
 }
 
 // for ENGINE job
 func getS3SidecarContainer(request WorkflowRequest) (container *k8sv1.Container) {
+	defer fmt.Println("getting sidecar base container..")
 	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
 	// container.Args = S3SIDECARARGS, // don't need, because Command contains full command
+	defer fmt.Println("getting sidecar env..")
 	container.Env = getS3SidecarEnv(request) // for ENGINE-sidecar
 	return container
 }
@@ -410,19 +417,19 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
 func getJobSpec(component string) (job *batchv1.Job) {
-	fmt.Println("getting job config..")
+	defer fmt.Println("getting job config..")
 	jobConfig := Config.getJobConfig(component)
 	job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
-	fmt.Println("populating objectMeta..")
+	defer fmt.Println("populating objectMeta..")
 	objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
 	job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta // meta for pod and job objects are same
-	fmt.Println("getting restart policy..")
+	defer fmt.Println("getting restart policy..")
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.getRestartPolicy()
 	if component == ENGINE {
-		fmt.Println("getting service account..")
+		defer fmt.Println("getting service account..")
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
-	fmt.Println("successfully got job spec")
+	defer fmt.Println("successfully got job spec")
 	return job
 }
 
