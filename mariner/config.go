@@ -201,7 +201,13 @@ type AWSUserCreds struct {
 // unmarshal into go config struct FullMarinerConfig
 // path is "/mariner.json"
 func loadConfig(path string) (marinerConfig FullMarinerConfig) {
-	config, _ := ioutil.ReadFile(path)
-	_ = json.Unmarshal(config, &marinerConfig)
+	config, err := ioutil.ReadFile(path)
+	if err != nil {
+		fmt.Printf("ERROR reading in config: %v", err)
+	}
+	err = json.Unmarshal(config, &marinerConfig)
+	if err != nil {
+		fmt.Printf("ERROR unmarshalling config into FullMarinerConfig struct: %v", err)
+	}
 	return marinerConfig
 }
