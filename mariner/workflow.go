@@ -21,7 +21,7 @@ import (
 // ----- probably the config will be put in the manifest which holds the config for all the other services
 // ----- and the configmap name might change to `manifest-mariner`
 // ----- when this happens, need to update 1. mariner-config.json 2. mariner-deploy.yaml 3. engine job spec (DispatchWorkflowJob)
-var Config = loadConfig("/mariner.json")
+var Config = loadConfig("/mariner-config/mariner-config.json")
 
 /*
  	a Task is a process is a node on the graph is one of [Workflow, CommandLineTool, ExpressionTool, ...]
