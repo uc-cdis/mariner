@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"encoding/json"
+	"fmt"
 	// "fmt"
 	"io/ioutil"
 	// "os"
@@ -45,6 +46,8 @@ type FullMarinerConfig struct {
 }
 
 func (config *FullMarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
+	defer fmt.Println("in getJobConfig..")
+	defer PrintJSON(&config)
 	switch component {
 	case ENGINE:
 		jobConfig = config.Config.Jobs.Engine
@@ -95,12 +98,12 @@ func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceReq
 		limits[k8sv1.ResourceMemory] = k8sResource.MustParse(conf.Resources.Limits.Memory)
 	}
 	/*
-	if conf.Resources.Requests.CPU != "" {
-		requests[k8sv1.ResourceCPU] = k8sResource.MustParse(conf.Resources.Requests.CPU)
-	}
-	if conf.Resources.Requests.Memory != "" {
-		requests[k8sv1.ResourceMemory] = k8sResource.MustParse(conf.Resources.Requests.Memory)
-	}
+		if conf.Resources.Requests.CPU != "" {
+			requests[k8sv1.ResourceCPU] = k8sResource.MustParse(conf.Resources.Requests.CPU)
+		}
+		if conf.Resources.Requests.Memory != "" {
+			requests[k8sv1.ResourceMemory] = k8sResource.MustParse(conf.Resources.Requests.Memory)
+		}
 	*/
 	if len(limits) > 0 {
 		requirements.Limits = limits
