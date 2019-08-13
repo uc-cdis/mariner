@@ -17,8 +17,9 @@ RUN ./awscli-bundle/install -b ~/bin/aws
 RUN mkdir -p /data
 
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
-WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar
+WORKDIR /go/src/github.com/uc-cdis/mariner
 ADD . .
+WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
 # clone mariner repo to get setup bash script
 # RUN mkdir -p /go/src/github.com/uc-cdis
