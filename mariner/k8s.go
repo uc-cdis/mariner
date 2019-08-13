@@ -447,6 +447,7 @@ func getWorkflowBucketVolume() (v k8sv1.Volume) {
 }
 
 func getEmptyVolume() (v k8sv1.Volume) {
+	v = k8sv1.Volume{}
 	v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
 	return v
 }
