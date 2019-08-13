@@ -47,16 +47,12 @@ type FullMarinerConfig struct {
 }
 
 func (config *FullMarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
-	defer fmt.Println("in getJobConfig..")
-	defer PrintJSON(config)
 	switch component {
 	case ENGINE:
-		defer fmt.Println("getting engine config..")
 		jobConfig = config.Config.Jobs.Engine
 	case TASK:
 		jobConfig = config.Config.Jobs.Task
 	}
-	defer fmt.Println("got engine config")
 	return jobConfig
 }
 

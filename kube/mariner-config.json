@@ -41,7 +41,7 @@
           },
           {
             "name": "mariner-config",
-            "mountpath": "/mariner.json",
+            "mountpath": "/mariner-config",
             "read_only": true
           }
         ]
