@@ -49,13 +49,14 @@ type FullMarinerConfig struct {
 func (config *FullMarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
 	defer fmt.Println("in getJobConfig..")
 	defer PrintJSON(config)
-	defer PrintJSON(Config)
 	switch component {
 	case ENGINE:
+		defer fmt.Println("getting engine config..")
 		jobConfig = config.Config.Jobs.Engine
 	case TASK:
 		jobConfig = config.Config.Jobs.Task
 	}
+	defer fmt.Println("got engine config")
 	return jobConfig
 }
 
@@ -200,7 +201,7 @@ type AWSUserCreds struct {
 // read `mariner-config.json` from configmap `mariner-config`
 // unmarshal into go config struct FullMarinerConfig
 // path is "/mariner.json"
-func loadConfig(path string) (marinerConfig FullMarinerConfig) {
+func loadConfig(path string) (marinerConfig *FullMarinerConfig) {
 	config, err := ioutil.ReadFile(path)
 	if err != nil {
 		fmt.Printf("ERROR reading in config: %v", err)
