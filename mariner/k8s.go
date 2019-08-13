@@ -39,17 +39,20 @@ func getWorkflowJob(request WorkflowRequest) (workflowJob *batchv1.Job, err erro
 
 // returns volumes field for workflow/engine job spec
 func getEngineVolumes() (volumes []k8sv1.Volume) {
+	defer fmt.Println("getting engine volumes..")
 	// the s3 bucket `workflow-engine-garvin` gets mounted in this volume
 	// which is why the volume is  initialized as an empty directory
 	workflowBucket := getWorkflowBucketVolume()
 
 	// `mariner-config.json` is a configmap object (named `mariner-config` with key `config`) in the cluster
 	// gets mounted as a volume in this way
-	configMap := k8sv1.Volume{Name: "mariner-config"}
+	defer fmt.Println("creating configMap volume..")
+	configMap := &k8sv1.Volume{Name: "mariner-config"}
 	configMap.ConfigMap.Name = "mariner-config"
 	configMap.ConfigMap.Items = []k8sv1.KeyToPath{{Key: "config", Path: "mariner.json"}}
 
-	volumes = []k8sv1.Volume{workflowBucket, configMap}
+	volumes = []k8sv1.Volume{*workflowBucket, *configMap}
+	defer fmt.Println("got engine volumes")
 	return volumes
 }
 
@@ -160,7 +163,7 @@ func (engine *K8sEngine) getTaskJob(proc *Process) (taskJob *batchv1.Job, err er
 
 func getTaskVolumes() (volumes []k8sv1.Volume) {
 	workflowBucket := getWorkflowBucketVolume()
-	volumes = []k8sv1.Volume{workflowBucket}
+	volumes = []k8sv1.Volume{*workflowBucket}
 	return volumes
 }
 
@@ -188,6 +191,7 @@ func (engine *K8sEngine) getS3SidecarContainer(proc *Process) (container *k8sv1.
 // if a field is not specified, the spec should be filled out using values from the mariner-config
 func (proc *Process) getTaskContainer() (container *k8sv1.Container, err error) {
 	conf := Config.Config.Containers.Task
+	container = new(k8sv1.Container)
 	container.Name = conf.Name
 	container.VolumeMounts = conf.getVolumeMounts()
 	container.ImagePullPolicy = conf.getPullPolicy()
@@ -400,7 +404,6 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 /////// General purpose - for TASK & ENGINE -> ///////
 
 // for info, see: https://godoc.org/k8s.io/api/core/v1#Container
-// Monday - add resource limits for engine, task, sidecar containers - put in config, implement read from config
 func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 	container = &k8sv1.Container{
 		Name:            conf.Name,
@@ -416,7 +419,6 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
 func getJobSpec(component string) (job *batchv1.Job) {
-	defer fmt.Println("getting job config..")
 	jobConfig := Config.getJobConfig(component)
 	// job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
 
@@ -426,28 +428,24 @@ func getJobSpec(component string) (job *batchv1.Job) {
 	job.Kind, job.APIVersion = "Job", "v1"
 	job.Name, job.Labels = "REPLACEME", jobConfig.Labels
 
-	defer fmt.Println("populating objectMeta..")
 	// objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
 	// job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta        // meta for pod and job objects are same
 	job.Spec.Template.Name, job.Spec.Template.Labels = "REPLACEME", jobConfig.Labels
-	defer fmt.Println("getting restart policy..")
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.getRestartPolicy()
 	if component == ENGINE {
-		defer fmt.Println("getting service account..")
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
-	defer fmt.Println("successfully got job spec")
 	return job
 }
 
-func getWorkflowBucketVolume() (v k8sv1.Volume) {
+func getWorkflowBucketVolume() (v *k8sv1.Volume) {
 	v = getEmptyVolume()
 	v.Name = "shared-data"
 	return v
 }
 
-func getEmptyVolume() (v k8sv1.Volume) {
-	v = k8sv1.Volume{}
+func getEmptyVolume() (v *k8sv1.Volume) {
+	v = new(k8sv1.Volume)
 	v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
 	return v
 }
