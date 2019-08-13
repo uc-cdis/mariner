@@ -4,14 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"time"
-	"os"
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // this file contains all the k8s details for creating job spec for mariner-engine and mariner-task jobs
@@ -46,7 +45,7 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 
 	// `mariner-config.json` is a configmap object (named `mariner-config` with key `config`) in the cluster
 	// gets mounted as a volume in this way
-	configMap :=  k8sv1.Volume{Name: "mariner-config"}
+	configMap := k8sv1.Volume{Name: "mariner-config"}
 	configMap.ConfigMap.Name = "mariner-config"
 	configMap.ConfigMap.Items = []k8sv1.KeyToPath{{Key: "config", Path: "mariner.json"}}
 
@@ -111,7 +110,7 @@ func getS3SidecarEnv(request WorkflowRequest) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "S3PREFIX",
-			Value: S3Prefix,   // see last line of mariner-engine-sidecar dockerfile -> "RUN goofys workflow-engine-garvin:$S3PREFIX /data"
+			Value: S3Prefix, // see last line of mariner-engine-sidecar dockerfile -> "RUN goofys workflow-engine-garvin:$S3PREFIX /data"
 		},
 		{
 			Name:      "AWSCREDS",
@@ -410,7 +409,7 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 		ImagePullPolicy: conf.getPullPolicy(),
 		SecurityContext: conf.getSecurityContext(),
 		VolumeMounts:    conf.getVolumeMounts(),
-		Resources: 			 conf.getResourceRequirements(),
+		Resources:       conf.getResourceRequirements(),
 	}
 	return container
 }
@@ -419,10 +418,14 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 func getJobSpec(component string) (job *batchv1.Job) {
 	defer fmt.Println("getting job config..")
 	jobConfig := Config.getJobConfig(component)
-	job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
+	// job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
+	job.Kind, job.APIVersion = "Job", "v1"
+	job.Name, job.Labels = "REPLACEME", jobConfig.Labels
+
 	defer fmt.Println("populating objectMeta..")
-	objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
-	job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta // meta for pod and job objects are same
+	// objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
+	// job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta        // meta for pod and job objects are same
+	job.Spec.Template.Name, job.Spec.Template.Labels = "REPLACEME", jobConfig.Labels
 	defer fmt.Println("getting restart policy..")
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.getRestartPolicy()
 	if component == ENGINE {
