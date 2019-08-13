@@ -25,13 +25,10 @@ import (
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func getWorkflowJob(request WorkflowRequest) (workflowJob *batchv1.Job, err error) {
 	// get job spec all populated except for pod volumes and containers
-	defer fmt.Println("getting job spec..")
-	workflowJob = getJobSpec(ENGINE)
+	workflowJob = getJobSpec(ENGINE, "test-workflow") // FIXME - define jobname for a workflow - same as S3Prefix, or - timestamp, or
 
 	// fill in the rest of the spec
-	defer fmt.Println("getting engine volumes..")
 	workflowJob.Spec.Template.Spec.Volumes = getEngineVolumes()
-	defer fmt.Println("getting engine containers..")
 	workflowJob.Spec.Template.Spec.Containers = getEngineContainers(request)
 
 	return workflowJob, nil
@@ -39,49 +36,39 @@ func getWorkflowJob(request WorkflowRequest) (workflowJob *batchv1.Job, err erro
 
 // returns volumes field for workflow/engine job spec
 func getEngineVolumes() (volumes []k8sv1.Volume) {
-	defer fmt.Println("getting engine volumes..")
 	// the s3 bucket `workflow-engine-garvin` gets mounted in this volume
 	// which is why the volume is  initialized as an empty directory
 	workflowBucket := getWorkflowBucketVolume()
 
 	// `mariner-config.json` is a configmap object (named `mariner-config` with key `config`) in the cluster
 	// gets mounted as a volume in this way
-	defer fmt.Println("creating configMap volume..")
 	configMap := &k8sv1.Volume{Name: "mariner-config"}
 	configMap.ConfigMap = new(k8sv1.ConfigMapVolumeSource)
-	configMap.ConfigMap.Name = "mariner-config" // HERE - wow
+	configMap.ConfigMap.Name = "mariner-config"
 	configMap.ConfigMap.Items = []k8sv1.KeyToPath{{Key: "config", Path: "mariner.json"}}
 
 	volumes = []k8sv1.Volume{*workflowBucket, *configMap}
-	defer fmt.Println("got engine volumes")
 	return volumes
 }
 
 func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container) {
-	defer fmt.Println("getting engine container..")
 	engine := getEngineContainer()
-	defer fmt.Println("getting s3sidecar container..")
 	s3sidecar := getS3SidecarContainer(request)
 	containers = []k8sv1.Container{*engine, *s3sidecar}
 	return containers
 }
 
 func getEngineContainer() (container *k8sv1.Container) {
-	defer fmt.Println("getting engine base container..")
 	container = getBaseContainer(&Config.Config.Containers.Engine)
-	defer fmt.Println("getting engine env..")
 	container.Env = getEngineEnv()
-	defer fmt.Println("getting engine args..")
 	container.Args = getEngineArgs() // FIXME - TODO - put this in a bash script
 	return container
 }
 
 // for ENGINE job
 func getS3SidecarContainer(request WorkflowRequest) (container *k8sv1.Container) {
-	defer fmt.Println("getting sidecar base container..")
 	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
 	// container.Args = S3SIDECARARGS, // don't need, because Command contains full command
-	defer fmt.Println("getting sidecar env..")
 	container.Env = getS3SidecarEnv(request) // for ENGINE-sidecar
 	return container
 }
@@ -153,7 +140,7 @@ func getEngineArgs() []string {
 func (engine *K8sEngine) getTaskJob(proc *Process) (taskJob *batchv1.Job, err error) {
 	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
-	taskJob = getJobSpec(TASK)
+	taskJob = getJobSpec(TASK, jobName)
 	taskJob.Spec.Template.Spec.Volumes = getTaskVolumes()
 	taskJob.Spec.Template.Spec.Containers, err = engine.getTaskContainers(proc) // HERE - TODO
 	if err != nil {
@@ -419,15 +406,13 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 }
 
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
-func getJobSpec(component string) (job *batchv1.Job) {
+func getJobSpec(component string, name string) (job *batchv1.Job) {
 	jobConfig := Config.getJobConfig(component)
-	// job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
 
-	// wow
 	job = new(batchv1.Job)
-
+	// job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
 	job.Kind, job.APIVersion = "Job", "v1"
-	job.Name, job.Labels = "REPLACEME", jobConfig.Labels
+	job.Name, job.Labels = name, jobConfig.Labels
 
 	// objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
 	// job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta        // meta for pod and job objects are same
