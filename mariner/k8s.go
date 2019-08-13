@@ -419,6 +419,10 @@ func getJobSpec(component string) (job *batchv1.Job) {
 	defer fmt.Println("getting job config..")
 	jobConfig := Config.getJobConfig(component)
 	// job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
+
+	// wow
+	job = new(batchv1.Job)
+
 	job.Kind, job.APIVersion = "Job", "v1"
 	job.Name, job.Labels = "REPLACEME", jobConfig.Labels
 
