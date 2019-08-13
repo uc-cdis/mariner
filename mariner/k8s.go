@@ -54,7 +54,6 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 	return volumes
 }
 
-// HERE - TODO - add sensible resource requirements here - ask devops
 func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container) {
 	engine := getEngineContainer()
 	s3sidecar := getS3SidecarContainer(request)

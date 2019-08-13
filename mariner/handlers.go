@@ -50,6 +50,7 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 	// -> `mariner run $S3PREFIX`, where
 	// S3PREFIX is the working directory for this workflow in the workflow bucket
 	fmt.Printf("running workflow for user %v\n", content.ID)
+	fmt.Println("DEBUGGING..")
 	err = DispatchWorkflowJob(content)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
