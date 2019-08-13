@@ -49,7 +49,7 @@ type FullMarinerConfig struct {
 func (config *FullMarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
 	defer fmt.Println("in getJobConfig..")
 	defer PrintJSON(config)
-	defer PrintJSON(&config)
+	defer PrintJSON(Config)
 	switch component {
 	case ENGINE:
 		jobConfig = config.Config.Jobs.Engine
