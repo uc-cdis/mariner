@@ -69,7 +69,6 @@ func getEngineContainer(S3Prefix string) (container *k8sv1.Container) {
 // for ENGINE job
 func getS3SidecarContainer(request WorkflowRequest, S3Prefix string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
-	// container.Args = S3SIDECARARGS, // don't need, because Command contains full command
 	container.Env = getS3SidecarEnv(request, S3Prefix) // for ENGINE-sidecar
 	return container
 }
@@ -146,7 +145,7 @@ func (engine *K8sEngine) getTaskJob(proc *Process) (taskJob *batchv1.Job, err er
 	proc.JobName = jobName
 	taskJob = getJobSpec(TASK, jobName)
 	taskJob.Spec.Template.Spec.Volumes = getTaskVolumes()
-	taskJob.Spec.Template.Spec.Containers, err = engine.getTaskContainers(proc) // HERE - TODO
+	taskJob.Spec.Template.Spec.Containers, err = engine.getTaskContainers(proc)
 	if err != nil {
 		return nil, err
 	}
@@ -172,8 +171,7 @@ func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Co
 // for TASK job
 func (engine *K8sEngine) getS3SidecarContainer(proc *Process) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
-	// container.Args = S3SIDECARARGS, // don't need, because Command contains full command
-	container.Env = engine.getS3SidecarEnv(proc) //
+	container.Env = engine.getS3SidecarEnv(proc)
 	return container
 }
 
@@ -325,8 +323,6 @@ func (proc *Process) getCLTBash() string {
 }
 
 // only set limits when they are specified in the CWL
-// Monday
-// the "default" limits are no limits - FIXME - TODO - set default "fallback" limits - maybe also vet workflows ahead of time excessive resource demands/requirements
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 // the `Resources` field
 // for k8s resource info see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
@@ -412,15 +408,11 @@ func getBaseContainer(conf *Container) (container *k8sv1.Container) {
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
 func getJobSpec(component string, name string) (job *batchv1.Job) {
 	jobConfig := Config.getJobConfig(component)
-
 	job = new(batchv1.Job)
-	// job.TypeMeta = metav1.TypeMeta{Kind: "Job", APIVersion: "v1"}
 	job.Kind, job.APIVersion = "Job", "v1"
+	// meta for pod and job objects are same
 	job.Name, job.Labels = name, jobConfig.Labels
-
-	// objectMeta := metav1.ObjectMeta{Name: "REPLACEME", Labels: jobConfig.Labels} // TODO - make jobname a parameter
-	// job.ObjectMeta, job.Spec.Template.ObjectMeta = objectMeta, objectMeta        // meta for pod and job objects are same
-	job.Spec.Template.Name, job.Spec.Template.Labels = "REPLACEME", jobConfig.Labels
+	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.getRestartPolicy()
 	if component == ENGINE {
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount

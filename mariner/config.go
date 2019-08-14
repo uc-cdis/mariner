@@ -196,7 +196,7 @@ type AWSUserCreds struct {
 
 // read `mariner-config.json` from configmap `mariner-config`
 // unmarshal into go config struct FullMarinerConfig
-// path is "/mariner.json"
+// path is "/mariner-config/mariner-config.json"
 func loadConfig(path string) (marinerConfig *FullMarinerConfig) {
 	config, err := ioutil.ReadFile(path)
 	if err != nil {
