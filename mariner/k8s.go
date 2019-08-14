@@ -52,24 +52,25 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 }
 
 func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container) {
-	engine := getEngineContainer()
-	s3sidecar := getS3SidecarContainer(request)
+	S3Prefix := getS3Prefix(request)
+	engine := getEngineContainer(S3Prefix)
+	s3sidecar := getS3SidecarContainer(request, S3Prefix)
 	containers = []k8sv1.Container{*engine, *s3sidecar}
 	return containers
 }
 
-func getEngineContainer() (container *k8sv1.Container) {
+func getEngineContainer(S3Prefix string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Config.Containers.Engine)
-	container.Env = getEngineEnv()
+	container.Env = getEngineEnv(S3Prefix)
 	container.Args = getEngineArgs() // FIXME - TODO - put this in a bash script
 	return container
 }
 
 // for ENGINE job
-func getS3SidecarContainer(request WorkflowRequest) (container *k8sv1.Container) {
+func getS3SidecarContainer(request WorkflowRequest, S3Prefix string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
 	// container.Args = S3SIDECARARGS, // don't need, because Command contains full command
-	container.Env = getS3SidecarEnv(request) // for ENGINE-sidecar
+	container.Env = getS3SidecarEnv(request, S3Prefix) // for ENGINE-sidecar
 	return container
 }
 
@@ -84,19 +85,22 @@ func getS3Prefix(request WorkflowRequest) (prefix string) {
 }
 
 // k8s namespace in which to dispatch jobs
-func getEngineEnv() (env []k8sv1.EnvVar) {
+func getEngineEnv(S3Prefix string) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "GEN3_NAMESPACE",
 			Value: os.Getenv("GEN3_NAMESPACE"),
+		},
+		{
+			Name:  "S3PREFIX",
+			Value: S3Prefix,
 		},
 	}
 	return env
 }
 
 // for ENGINE job
-func getS3SidecarEnv(request WorkflowRequest) (env []k8sv1.EnvVar) {
-	S3Prefix := getS3Prefix(request)
+func getS3SidecarEnv(request WorkflowRequest, S3Prefix string) (env []k8sv1.EnvVar) {
 	requestJSON, _ := json.Marshal(request)
 	env = []k8sv1.EnvVar{
 		{
