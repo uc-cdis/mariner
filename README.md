@@ -72,7 +72,7 @@ Endpoints:
   - `POST`: run a workflow; returns runID for the workflow job
 
 `/runs/{runID}`
-  - `GET`: get complete logs for the given workflow run (i.e., full entry for that run from workflowHistorydb)
+  - `GET`: get complete logs (including output JSON) for the given workflow run (i.e., full entry for that run from workflowHistorydb)
     - might be nice for there to be an endpoint/option for: get output of a successfully completed workflow run,
     which returns only the output JSON and none of the logs/stats/versioning information from the run.
     Unsure of the usefulness of a separate endpoint for this though, if the parent endpoint
