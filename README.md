@@ -18,6 +18,10 @@ Bioinformatics at scale necessitates running workflows over massive amounts of d
 In order for Gen3 to be a more complete and useful cloud-based bioinformatics platform,
 Gen3 needs the functionality to run these large scale workflows.
 
+### Workflow Graph Representation
+
+<img src="./docs/diagrams/graph.svg">
+
 ### What does it mean to "run a workflow"?
 
 A workflow is specified in some workflow language.
