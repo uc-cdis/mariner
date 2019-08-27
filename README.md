@@ -102,7 +102,7 @@ Endpoints:
 ### workflowHistorydb
   - stores logs of all workflow runs
 
-### data entities
+### data components
   - data commons (input source)
   - user data (input source)
   - engine workspace (serves as an isolated working directory for a particular workflow run)
