@@ -1,4 +1,4 @@
-# mariner: the gen3 workflow engine
+# mariner: the Gen3 workflow execution service
 
 ## Context 
 
