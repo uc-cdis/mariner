@@ -137,7 +137,12 @@ mariner-engine logs all events of the workflow run and incrementally writes thes
 
 The final output JSON of the workflow run gets written to workflowHistorydb.
 
-Retrieve output JSON and workflow run logs by hitting the mariner API `/runs/{runID}` endpoint.
+The user can check the status of a workflow run by hitting the `/runs/{runID}/status` API endpoint,
+where the status will be one of: `in-progress`, `complete`, `failed`.
+
+At any point, the user can retrieve logs of any workflow run (i.e., regardless of run status) by hitting the `/runs/{runID}` endpoint.
+
+Once a workflow run's status is `complete`, the user can retrieve the output JSON (along with the logs) of that workflow run by hitting the mariner API `/runs/{runID}` endpoint.
 
 ## Who has authZ to run workflows? 
 
