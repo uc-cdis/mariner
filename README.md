@@ -1,4 +1,4 @@
-# mariner: the gen3 workflow engine
+# mariner: the Gen3 workflow execution service
 
 ## Context 
 
@@ -111,6 +111,9 @@ Endpoints:
   - every call to the mariner API must include a token for auth
   - mariner passes token from API request to arborist to check that user's privileges;
   only upon arborist's okay does mariner perform the requested action
+  
+## System Components Diagram
+<img src="./docs/diagrams/components.svg">
 
 ## How does it work? 
 
@@ -120,11 +123,13 @@ To run a workflow, pass (workflow, inputs, token)
 as the JSON body of a POST request to the mariner API `/runs` endpoint.
 
 mariner will first check authorization for the user by passing the token
-to arborist. arborist will check workflow privileges for the user
+to [arborist](https://github.com/uc-cdis/arborist). arborist will check workflow privileges for the user
 and return either "okay" or "not okay" for this user to run a workflow.
 
 If the user is authorized to run workflows, then the mariner-server will dispatch
 an instance of mariner-engine as a k8s job to run the workflow.
+In this case the server returns a `runID` to the user to allow the user
+to track status, retrieve logs, and eventually retrieve output of that workflow run.
 
 mariner-engine resolves the graph of the workflow and
 creates an input/output dependency map for all the steps of the workflow.
