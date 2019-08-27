@@ -137,6 +137,8 @@ mariner-engine logs all events of the workflow run and incrementally writes thes
 
 The final output JSON of the workflow run gets written to workflowHistorydb.
 
+Retrieve output JSON and workflow run logs by hitting the mariner API `/runs/{runID}` endpoint.
+
 ## Who has authZ to run workflows? 
 
 Anyone with `admin` privileges can run workflows.
