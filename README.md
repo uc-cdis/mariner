@@ -73,9 +73,10 @@ it first creates a graph representation of the workflow
 and then recursively traverses the graph from the top down.
 When mariner handles a particular vertex in the graph, the logic is this:
 - if workflow, then resolve(workflow)
-- else, dispatch(task)
-where to resolve a workflow means to handle all of its steps,
-and to dispatch a task means to run that task as a job.
+- else, dispatch(task)   
+
+where to "resolve a workflow" means to handle all of its steps,
+and to "dispatch a task" means to run that task as a job.
 
 ### Dependencies Between Steps; Job Scheduling
 
