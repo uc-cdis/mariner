@@ -89,9 +89,11 @@ Input to a step comes from one (or both) of the following sources:
 
 For a workflow consisting of steps X and Y, we say there exists a dependency
 between X and Y if X takes as input the ouput of Y.
-
 Dependencies like this have implications for job scheduling
-in that step X cannot be scheduled until step Y runs and finishes running.
+in that step X cannot run until step Y runs and finishes running.  
+
+In the case where there is no dependency between steps X and Y (i.e., X and Y are independent),
+then X and Y run concurrently.
 
 ### Example
 
