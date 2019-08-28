@@ -18,9 +18,58 @@ Bioinformatics at scale necessitates running workflows over massive amounts of d
 In order for Gen3 to be a more complete and useful cloud-based bioinformatics platform,
 Gen3 needs the functionality to run these large scale workflows.
 
-### Workflow Graph Representation
+### Workflow As Graph
 
-<img src="./docs/diagrams/graph.svg">
+A workflow may be represented as a graph, where  
+- each vertex represents a workflow process, and
+- edges between vertices represent the workflow-step relation between processes;  
+the upstream vertex is the workflow and the immediately downstream vertex is a step of that workflow
+
+Each vertex in the graph is either a leaf or not a leaf,
+where a leaf is a vertex which has exactly one edge.
+In workflow parlance, a vertex which is not a leaf represents a "workflow",
+while a vertex which is a leaf represents a "task".
+That is, a workflow has steps (i.e., a workflow has edges to downstream vertices),
+while a task does not have steps (a task has no edges to downstream vertices)
+but is itself a computational step of some parent workflow (a task has one edge to its immediately upstream parent workflow vertex).
+
+#### Example
+
+<img src="./docs/diagrams/graph.svg" height="500" align="right">
+
+This graph represents a workflow consisting of processes A,...,E.
+Vertex A represents the top-level workflow,
+which consists of steps B and C.
+Step C is a task, while step B is itself a workflow consisting of steps D and E.
+
+The arrows in the diagram indicate how inputs and outputs are passed between processes.
+For workflow A, the input to step B comes from the input provided to the top-level workflow (A),
+while the input to step C is the output of step B.
+For job scheduling, this implies that task C will not run until workflow B runs and finishes running.
+
+Workflow B consists of steps D and E, where D and E are tasks.
+The input to both steps comes from the input provided to parent workflow B.
+Notice that neither step takes as input the output of the other step,
+which means that these steps are independent of one another.
+For job scheduling, this implies that tasks D and E will run concurrently.
+
+So when the engine runs the workflow represented by this graph, here's the sequence of events:  
+- Process workflow A (top-level workflow)
+  - Identify that the output of step B is the input of step C
+  - Wait to process step C until step B is finished running
+  - Process workflow B
+    - Dispatch tasks D and E to run concurrently
+    - Listen for D and E to finish
+    - Collect output from each step individually
+    - Merge all step output into a single workflow B output object  
+    - --- workflow B finishes ---
+  - Pass output from step B to step C
+  - Dispatch task C
+  - Listen for C to finish
+  - Collect output from C
+  - Merge step output into a workflow A output object
+  - --- workflow A finishes ---
+- Return final workflow A output
 
 ### What does it mean to "run a workflow"?
 
