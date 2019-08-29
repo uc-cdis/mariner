@@ -58,6 +58,11 @@ and run the computation in a container built from that image.
 
 [KidsFirst Workflows](https://github.com/kids-first?utf8=%E2%9C%93&q=workflow&type=&language=)  
 
+Test Workflow
+- [Workflow in CWL](https://github.com/uc-cdis/mariner/tree/feat/k8s/testdata/workflow/cwl)
+- [Workflow in "Packed" CWL (JSON)](https://github.com/uc-cdis/mariner/blob/feat/k8s/testdata/workflow/workflow.json)
+- [Input JSON](https://github.com/uc-cdis/mariner/blob/feat/k8s/testdata/workflow/inputs.json)
+
 ### Aren't there engines out there already that run workflows? Why did we write our own engine?
 
 There do exist other workflow engines. Examples include [Cromwell](https://cromwell.readthedocs.io/en/stable/) and [cwltool](https://github.com/common-workflow-language/cwltool).
@@ -207,7 +212,7 @@ Endpoints:
 
 ### auth
   - every call to the mariner API must include a token for auth
-  - mariner passes token from API request to arborist to check that user's privileges;
+  - mariner passes token from API request to [arborist](https://github.com/uc-cdis/arborist) to check that user's privileges;
   only upon arborist's okay does mariner perform the requested action
   
 ## System Components Diagram
@@ -218,10 +223,11 @@ Endpoints:
 Prerequisite: an API token
 
 To run a workflow, pass (workflow, inputs, token)
-as the JSON body of a POST request to the mariner API `/runs` endpoint.
+as the JSON body of a POST request to the mariner API `/runs` endpoint.  
+See: [example request body](https://github.com/uc-cdis/mariner/blob/feat/k8s/testdata/request_body.json)
 
 mariner will first check authorization for the user by passing the token
-to [arborist](https://github.com/uc-cdis/arborist). arborist will check workflow privileges for the user
+to arborist. arborist will check workflow privileges for the user
 and return either "okay" or "not okay" for this user to run a workflow.
 
 If the user is authorized to run workflows, then the mariner-server will dispatch
