@@ -411,3 +411,25 @@ optimization of workflows, debugging failed workflow runs, etc.
 
 5. What functionality/endpoints (in addition to the WES API) should the mariner API have?  
 
+## Examples of other workflow execution services and otherwise relevant resources
+
+[Toil](http://toil.ucsc-cgl.org/) is UCSC's pipeline management system.   
+
+[How IBM uses Toil](https://developer.ibm.com/storage/2017/05/04/cwl-workflow-lsf-toil/) to run CWL workflows on IBM Spectrum LSF cluster.
+
+[Rabix](https://rabix.io/) is an open source graphical editor which enables visual programming in CWL.
+
+[Dockstore](https://dockstore.org/) is an open platform used by the GA4GH for sharing Docker-based tools described with the Common Workflow Language (CWL), the Workflow Description Language (WDL), or Nextflow (NFL). 
+
+[Arvados](https://arvados.org/) is an open source platform for managing compute and storage for cloud and HPC clusters.
+You can [use the Arvados Workbench to run a workflow](https://doc.arvados.org/v1.4/user/tutorials/tutorial-workflow-workbench.html). 
+
+[Galaxy](https://usegalaxy.org/) is yet another open source platform for data intensive biomedical research,
+which has a library of tools and workflows that you can pick from to compose your own workflow in a visual workflow editor. 
+
+[Seven Bridges](https://www.sevenbridges.com/platform/) has a pretty fully formed workflow execution service. 
+See also: [Cavatica](http://docs.cavatica.org/docs/getting-started)  
+
+Seven Bridges also has a [library of CWL workflows and tools](https://igor.sbgenomics.com/public/apps/?__hstc=64521200.1c372e320068fc5c77fb422e9312dd18.1565808892437.1566507563181.1567095819982.4&__hssc=64521200.7.1567095819982&__hsfp=3244085210) that you can mix and match to create your own workflow.  
+  
+[Seven Bridges quickstart](https://docs.sevenbridges.com/docs/quickstart) for running a workflow on their platform.  
