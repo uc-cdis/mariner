@@ -262,7 +262,7 @@ In the first iteration, Matt and some of the bioinformaticians and developers wi
 
 Logs are written to workflowHistorydb incrementally to allow for retrieval of logs
 in the case where the workflow run fails at any point.
-In particular, this incremental logging method allows for debugging failed workflows.
+In particular, this incremental logging method allows for debugging a failed workflow run.
 
 A complete record for a workflow run could be a JSON identified with key `/userID/runID/` consisting of fields:
 - `status`
