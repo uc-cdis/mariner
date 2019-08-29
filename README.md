@@ -20,9 +20,8 @@ Gen3 needs the functionality to run these large scale workflows.
 
 #### Terminology Note 
 
-The terms "pipeline" and "workflow" are often used interchangeably.
-I am honestly unsure if there is any difference between them really,
-but to my knowledge in this moment it seems both terms refer to the same thing.
+In the context of bioinformatics, the terms "pipeline" and "workflow" refer to the same thing
+and are often used interchangeably.
 
 ### What does it mean to "run a workflow"?
 
@@ -455,3 +454,7 @@ See also: [Cavatica](http://docs.cavatica.org/docs/getting-started)
 Seven Bridges also has a [library of CWL workflows and tools](https://igor.sbgenomics.com/public/apps/?__hstc=64521200.1c372e320068fc5c77fb422e9312dd18.1565808892437.1566507563181.1567095819982.4&__hssc=64521200.7.1567095819982&__hsfp=3244085210) that you can mix and match to create your own workflow.  
   
 [Seven Bridges quickstart](https://docs.sevenbridges.com/docs/quickstart) for running a workflow on their platform.  
+
+["A Review of Bioinformatic Pipeline Frameworks"](https://academic.oup.com/bib/article/18/3/530/2562749)
+is a highly relevant journal article which provides additional context and helps
+elucidate the current state of affairs regarding workflow execution systems.
