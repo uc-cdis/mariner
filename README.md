@@ -16,7 +16,13 @@ then X and Y can run concurrently.
 
 Bioinformatics at scale necessitates running workflows over massive amounts of data.
 In order for Gen3 to be a more complete and useful cloud-based bioinformatics platform,
-Gen3 needs the functionality to run these large scale workflows.
+Gen3 needs the functionality to run these large scale workflows.  
+
+#### Terminology Note 
+
+The terms "pipeline" and "workflow" are often used interchangeably.
+I am honestly unsure if there is any difference between them really,
+but to my knowledge in this moment it seems both terms refer to the same thing.
 
 ### What does it mean to "run a workflow"?
 
@@ -43,6 +49,14 @@ including passing the output of one step to be the input of another step.
 In particular, your workflow might consist of several containerized bioinformatics processes.
 In this case, for a given containerized computation, the engine must pull the specified image
 and run the computation in a container built from that image.
+
+#### Examples of workflows written in CWL
+
+[CWL User Guide Examples](https://www.commonwl.org/user_guide/02-1st-example/index.html) - this collection of examples (with an accompanying explanation for each example) covers all the basic features and syntax of CWL and is a truly great resource for learning the basics of CWL in a relatively small amount of time.  
+
+[Genomel Workflows](https://github.com/uc-cdis/genomel_pipelines)  
+
+[KidsFirst Workflows](https://github.com/kids-first?utf8=%E2%9C%93&q=workflow&type=&language=)  
 
 ### Aren't there engines out there already that run workflows? Why did we write our own engine?
 
