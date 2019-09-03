@@ -11,8 +11,8 @@ while other computations may be independent of one another.
 The computations are partially ordered because
 if computation A takes as input the output of computation B,
 then B has to run, and finish running, before A runs.
-However, if computations X and Y are not related via input/output (i.e., they are independent),
-then X and Y can run concurrently.
+However, if computations A and B are not related via input/output (i.e., they are independent),
+then A and B can run concurrently.
 
 Bioinformatics at scale necessitates running workflows over massive amounts of data.
 In order for Gen3 to be a more complete and useful cloud-based bioinformatics platform,
