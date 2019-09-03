@@ -419,6 +419,51 @@ Per commons, there would be
 Input files could come from either the commons or staged (via the AWS CLI) to the user-data-space.
 Commons files are specified by GUIDs, while user files are specified by path relative to that user's prefix in user-data-space bucket.
 
+### What do we have right now?
+
+Right now we don't really have a workflow execution service per se, but we do have a prototype workflow engine.
+The engine was developed working with a [test workflow](https://github.com/uc-cdis/mariner/tree/feat/k8s/testdata/workflow/cwl) which is basic but does include step dependencies
+and the [scatter](https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep) CWL feature.  
+  
+So we have an engine which can run workflows written in CWL. Some non-basic features of CWL are currently
+not supported, such as the [schemaDef requirement](https://www.commonwl.org/v1.0/Workflow.html#SchemaDefRequirement)
+and [$import and $include](https://www.commonwl.org/v1.0/Workflow.html#Document_preprocessing) statements.  
+
+So job scheduling, concurrency, handling step dependencies, passing i/o between steps, parsing CWL,
+handling javascript in CWL, resolving the workflow graph, dispatching tasks, collecting output,
+having a server that listens for requests and dispatches engine jobs to run workflows which in turn
+dispatch task jobs to execute workflow tasks - we already have these things.
+Of course these things need to be tested against many different workflows of varying size and complexity,
+but the core of these things has already been implemented and will only need to be refined moving forward.
+
+### What are next steps?
+
+Here are important things that need to happen next:
+- Capture structured level logs for a workflow run
+- Implement workflowHistorydb
+- Use gen3-fuse to serve commons data as input to a workflow
+- Implement user-data-space (or at least a single bucket to serve this purpose in this first iteration)
+- Build out the complete WES API
+- Secure API via arborist
+
+#### Timeline?
+
+Unfortunately this is a very hard thing to reliably predict, but here's an attempt:
+- By the end of September:
+  - capture structured logs
+  - implement workflowHistorydb
+  - build out half of WES API
+- By the end of October: 
+  - build out second half of WES API
+  - secure API via arborist
+  - implement basic version of user-data-space
+- By the end of November:
+  - implement gen3-fuse to serve commons data to workflow run
+  - deploy mariner to some commons' test or staging environment for testing real workflows on real data  
+  
+Again, it's hard to tell how exactly these things will go, but there's my best guess in some kind of ideal world.
+
+
 ## Open Questions 
 
 1. What is the long-term solution for the engine workspace issue?  
