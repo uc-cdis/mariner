@@ -467,3 +467,9 @@ Seven Bridges also has a [library of CWL workflows and tools](https://igor.sbgen
 ["A Review of Bioinformatic Pipeline Frameworks"](https://academic.oup.com/bib/article/18/3/530/2562749)
 is a highly relevant journal article which provides additional context and helps
 elucidate the current state of affairs regarding workflow execution systems.
+
+A [long list of workflow systems](https://github.com/common-workflow-language/common-workflow-language/wiki/Existing-Workflow-systems)  
+
+
+
+
