@@ -409,7 +409,7 @@ The WES API will be completely implemented, and all of mariner's API will be sec
 
 There will be no UI yet - all steps of the workflow execution process happen via interacting with the mariner API.
 
-Workflows will only be run internally - that is, workflows will not a feature available for commons users to use.
+Workflows will only be run internally - that is, workflows will not be a feature available for commons users to use.
 
 Per commons, there would be
 - one bucket to serve as the engine workspace
