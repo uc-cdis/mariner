@@ -461,9 +461,6 @@ Unfortunately this is a very hard thing to reliably predict, but here's an attem
   - implement gen3-fuse to serve commons data to workflow run
   - deploy mariner to some commons' test or staging environment for testing real workflows on real data  
   
-Again, it's hard to tell how exactly these things will go, but there's my best guess in some kind of ideal world.
-
-
 ## Open Questions 
 
 1. What is the long-term solution for the engine workspace issue?  
