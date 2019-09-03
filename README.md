@@ -237,9 +237,7 @@ to track status, retrieve logs, and eventually retrieve output of that workflow 
 mariner-engine resolves the graph of the workflow and
 creates an input/output dependency map for all the steps of the workflow.
 The engine uses the dependency map to schedule all the tasks of the workflow as k8s jobs,
-where one task corresponds to one job.
-Independent steps run concurrently, while if step A takes as input the output of step B,
-then A does not get dispatched until B finishes running and the output of B has been collected.
+where one task corresponds to one job.  
 
 mariner-engine logs all events of the workflow run and incrementally writes these logs to workflowHistorydb.
 
