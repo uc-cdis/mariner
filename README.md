@@ -390,6 +390,35 @@ Present both of these entities as separate directories in one place
 so that a user could browse, upload, download, delete files from their `user-data-space`
 as well as browse and download files from their `engine-workspace`, all in one place.
 
+## Objectives for First Iteration
+
+At the end of this next stage of development, it will be possible to
+put this sequence of steps into a script:  
+ 
+1. Define a cohort via graphQL query
+2. Retrieve GUIDs for data files of cohort via graphQL query
+3. Create the inputs JSON map for a workflow using GUIDs to specify commons file inputs.
+4. POST (workflow, inputs, token) to mariner API `/runs` endpoint to run the workflow
+5. Listen to run status via `/runs/{runID}/status` endpoint
+6. When status is "complete" or 'failed', retrieve complete execution logs (including output JSON of a successfully completed run) via GET `/runs/{runID}`  
+
+Viewing and retrieving files from the engine workspace would be done "manually"
+via the AWS CLI until a solution for this situation is figured out.
+
+The WES API will be completely implemented, and all of mariner's API will be secured via arborist.
+
+There will be no UI yet - all steps of the workflow execution process happen via interacting with the mariner API.
+
+Workflows will only be run internally - that is, workflows will not a feature available for commons users to use.
+
+Per commons, there would be
+- one bucket to serve as the engine workspace
+- one bucket to serve as the user-data-space (interal users only)
+- one bucket to serve as the workflowHistorydb
+
+Input files could come from either the commons or staged (via the AWS CLI) to the user-data-space.
+Commons files are specified by GUIDs, while user files are specified by path relative to that user's prefix in user-data-space bucket.
+
 ## Open Questions 
 
 1. What is the long-term solution for the engine workspace issue?  
