@@ -137,7 +137,7 @@ So when mariner runs the workflow represented by this graph, here's the sequence
 - Handle workflow A
 - Resolve workflow A
   - Concurrently handle steps B and C
-  - Identify that the output of step B is the input of step C
+  - Identify that the input of step C is the output of step B
   - Wait to run step C until step B has finished running
   - Resolve workflow B
     - Concurrently handle steps D and E
