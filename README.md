@@ -471,6 +471,10 @@ Seven Bridges also has a [library of CWL workflows and tools](https://igor.sbgen
 is a highly relevant journal article which provides additional context and helps
 elucidate the current state of affairs regarding workflow execution systems.
 
+This [BioExcel article](https://bioexcel.eu/common-workflow-language/) contains information on
+CWL, background and motivation for the standards movement in bioinformatics workflows,
+and contains lots of links to other relevant resources.
+
 A [long list of workflow systems](https://github.com/common-workflow-language/common-workflow-language/wiki/Existing-Workflow-systems)  
 
 
