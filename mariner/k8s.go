@@ -44,8 +44,8 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 	// gets mounted as a volume in this way
 	configMap := &k8sv1.Volume{Name: "mariner-config"}
 	configMap.ConfigMap = new(k8sv1.ConfigMapVolumeSource)
-	configMap.ConfigMap.Name = "mariner-config"
-	configMap.ConfigMap.Items = []k8sv1.KeyToPath{{Key: "config", Path: "mariner-config.json"}}
+	configMap.ConfigMap.Name = "manifest-mariner"
+	configMap.ConfigMap.Items = []k8sv1.KeyToPath{{Key: "json", Path: "mariner-config.json"}}
 
 	volumes = []k8sv1.Volume{*workflowBucket, *configMap}
 	return volumes
