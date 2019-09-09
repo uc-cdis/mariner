@@ -60,7 +60,7 @@ func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container)
 }
 
 func getEngineContainer(S3Prefix string) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Config.Containers.Engine)
+	container = getBaseContainer(&Config.Containers.Engine)
 	container.Env = getEngineEnv(S3Prefix)
 	container.Args = getEngineArgs() // FIXME - TODO - put this in a bash script
 	return container
@@ -68,7 +68,7 @@ func getEngineContainer(S3Prefix string) (container *k8sv1.Container) {
 
 // for ENGINE job
 func getS3SidecarContainer(request WorkflowRequest, S3Prefix string) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
+	container = getBaseContainer(&Config.Containers.S3sidecar)
 	container.Env = getS3SidecarEnv(request, S3Prefix) // for ENGINE-sidecar
 	return container
 }
@@ -170,7 +170,7 @@ func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Co
 
 // for TASK job
 func (engine *K8sEngine) getS3SidecarContainer(proc *Process) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Config.Containers.S3sidecar)
+	container = getBaseContainer(&Config.Containers.S3sidecar)
 	container.Env = engine.getS3SidecarEnv(proc)
 	return container
 }
@@ -180,7 +180,7 @@ func (engine *K8sEngine) getS3SidecarContainer(proc *Process) (container *k8sv1.
 // additionally, add logic to check if the tool has specified each field
 // if a field is not specified, the spec should be filled out using values from the mariner-config
 func (proc *Process) getTaskContainer() (container *k8sv1.Container, err error) {
-	conf := Config.Config.Containers.Task
+	conf := Config.Containers.Task
 	container = new(k8sv1.Container)
 	container.Name = conf.Name
 	container.VolumeMounts = conf.getVolumeMounts()
@@ -281,6 +281,7 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 	return env
 }
 
+// for TASK job
 // replace disallowed job name characters
 // Q: is there a better job-naming scheme?
 // -- should every mariner task job have `mariner` as a prefix, for easy identification?
@@ -377,7 +378,7 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 	}
 
 	// start with default settings
-	resourceReqs := Config.Config.Containers.Task.getResourceRequirements()
+	resourceReqs := Config.Containers.Task.getResourceRequirements()
 
 	// only want to overwrite default limits if requirements specified in the CWL
 	if len(requests) > 0 {

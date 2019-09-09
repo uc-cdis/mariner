@@ -36,22 +36,18 @@ const (
 var awscreds = k8sv1.EnvVarSource{
 	SecretKeyRef: &k8sv1.SecretKeySelector{
 		LocalObjectReference: k8sv1.LocalObjectReference{
-			Name: Config.Config.Secrets.AWSUserCreds.Name,
+			Name: Config.Secrets.AWSUserCreds.Name,
 		},
-		Key: Config.Config.Secrets.AWSUserCreds.Key,
+		Key: Config.Secrets.AWSUserCreds.Key,
 	},
 }
 
-type FullMarinerConfig struct {
-	Config MarinerConfig `json:"mariner"`
-}
-
-func (config *FullMarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
+func (config *MarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
 	switch component {
 	case ENGINE:
-		jobConfig = config.Config.Jobs.Engine
+		jobConfig = config.Jobs.Engine
 	case TASK:
-		jobConfig = config.Config.Jobs.Task
+		jobConfig = config.Jobs.Task
 	}
 	return jobConfig
 }
@@ -197,14 +193,14 @@ type AWSUserCreds struct {
 // read `mariner-config.json` from configmap `mariner-config`
 // unmarshal into go config struct FullMarinerConfig
 // path is "/mariner-config/mariner-config.json"
-func loadConfig(path string) (marinerConfig *FullMarinerConfig) {
+func loadConfig(path string) (marinerConfig *MarinerConfig) {
 	config, err := ioutil.ReadFile(path)
 	if err != nil {
 		fmt.Printf("ERROR reading in config: %v", err)
 	}
 	err = json.Unmarshal(config, &marinerConfig)
 	if err != nil {
-		fmt.Printf("ERROR unmarshalling config into FullMarinerConfig struct: %v", err)
+		fmt.Printf("ERROR unmarshalling config into MarinerConfig struct: %v", err)
 	}
 	return marinerConfig
 }
