@@ -36,18 +36,9 @@ func getWorkflowJob(request WorkflowRequest) (workflowJob *batchv1.Job, err erro
 
 // returns volumes field for workflow/engine job spec
 func getEngineVolumes() (volumes []k8sv1.Volume) {
-	// the s3 bucket `workflow-engine-garvin` gets mounted in this volume
-	// which is why the volume is  initialized as an empty directory
-	workflowBucket := getWorkflowBucketVolume()
-
-	// `mariner-config.json` is a configmap object (named `mariner-config` with key `config`) in the cluster
-	// gets mounted as a volume in this way
-	configMap := &k8sv1.Volume{Name: "mariner-config"}
-	configMap.ConfigMap = new(k8sv1.ConfigMapVolumeSource)
-	configMap.ConfigMap.Name = "manifest-mariner"
-	configMap.ConfigMap.Items = []k8sv1.KeyToPath{{Key: "json", Path: "mariner-config.json"}}
-
-	volumes = []k8sv1.Volume{*workflowBucket, *configMap}
+	volumes = getWorkflowVolumes()
+	configMap := getConfigVolume()
+	volumes = append(volumes, *configMap)
 	return volumes
 }
 
@@ -60,7 +51,7 @@ func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container)
 }
 
 func getEngineContainer(S3Prefix string) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Containers.Engine)
+	container = getBaseContainer(&Config.Containers.Engine, ENGINE)
 	container.Env = getEngineEnv(S3Prefix)
 	container.Args = getEngineArgs() // FIXME - TODO - put this in a bash script
 	return container
@@ -68,7 +59,7 @@ func getEngineContainer(S3Prefix string) (container *k8sv1.Container) {
 
 // for ENGINE job
 func getS3SidecarContainer(request WorkflowRequest, S3Prefix string) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Containers.S3sidecar)
+	container = getBaseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
 	container.Env = getS3SidecarEnv(request, S3Prefix) // for ENGINE-sidecar
 	return container
 }
@@ -144,18 +135,12 @@ func (engine *K8sEngine) getTaskJob(proc *Process) (taskJob *batchv1.Job, err er
 	jobName := proc.makeJobName() // slightly modified Root.ID
 	proc.JobName = jobName
 	taskJob = getJobSpec(TASK, jobName)
-	taskJob.Spec.Template.Spec.Volumes = getTaskVolumes()
+	taskJob.Spec.Template.Spec.Volumes = getWorkflowVolumes()
 	taskJob.Spec.Template.Spec.Containers, err = engine.getTaskContainers(proc)
 	if err != nil {
 		return nil, err
 	}
 	return taskJob, nil
-}
-
-func getTaskVolumes() (volumes []k8sv1.Volume) {
-	workflowBucket := getWorkflowBucketVolume()
-	volumes = []k8sv1.Volume{*workflowBucket}
-	return volumes
 }
 
 func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Container, err error) {
@@ -170,7 +155,7 @@ func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Co
 
 // for TASK job
 func (engine *K8sEngine) getS3SidecarContainer(proc *Process) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Containers.S3sidecar)
+	container = getBaseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
 	container.Env = engine.getS3SidecarEnv(proc)
 	return container
 }
@@ -183,7 +168,7 @@ func (proc *Process) getTaskContainer() (container *k8sv1.Container, err error) 
 	conf := Config.Containers.Task
 	container = new(k8sv1.Container)
 	container.Name = conf.Name
-	container.VolumeMounts = conf.getVolumeMounts()
+	container.VolumeMounts = getVolumeMounts(TASK)
 	container.ImagePullPolicy = conf.getPullPolicy()
 
 	// if not specified use config
@@ -393,17 +378,30 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 /////// General purpose - for TASK & ENGINE -> ///////
 
 // for info, see: https://godoc.org/k8s.io/api/core/v1#Container
-func getBaseContainer(conf *Container) (container *k8sv1.Container) {
+func getBaseContainer(conf *Container, component string) (container *k8sv1.Container) {
 	container = &k8sv1.Container{
 		Name:            conf.Name,
 		Image:           conf.Image,
 		Command:         conf.Command,
 		ImagePullPolicy: conf.getPullPolicy(),
 		SecurityContext: conf.getSecurityContext(),
-		VolumeMounts:    conf.getVolumeMounts(),
+		VolumeMounts:    getVolumeMounts(component),
 		Resources:       conf.getResourceRequirements(),
 	}
 	return container
+}
+
+// get three volumes - one for each data source utilized by mariner
+// 1. engine workspace
+// 2. commons data
+// 3. user data
+func getWorkflowVolumes() []k8sv1.Volume {
+	vols := []k8sv1.Volume{}
+	for _, volName := range WORKFLOW_VOLUMES {
+		vol := getNamedVolume(volName)
+		vols = append(vols, *vol)
+	}
+	return vols
 }
 
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
@@ -421,9 +419,9 @@ func getJobSpec(component string, name string) (job *batchv1.Job) {
 	return job
 }
 
-func getWorkflowBucketVolume() (v *k8sv1.Volume) {
+func getNamedVolume(name string) (v *k8sv1.Volume) {
 	v = getEmptyVolume()
-	v.Name = "shared-data"
+	v.Name = name
 	return v
 }
 
