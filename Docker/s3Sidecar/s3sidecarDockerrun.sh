@@ -10,28 +10,28 @@ export AWS_ACCESS_KEY_ID=$(echo $AWSCREDS | jq .id | tr -d '"')
 export AWS_SECRET_ACCESS_KEY=$(echo $AWSCREDS | jq .secret | tr -d '"')
 
 # echo "mounting prefix $S3PREFIX"
-# goofys workflow-engine-garvin:$S3PREFIX /data
+# goofys workflow-engine-garvin:$S3PREFIX /engine-workspace
 # <- common to engine and task
 
 # conditional here
 if [ $MARINER_COMPONENT == "ENGINE" ]; then
   echo "setting up for the engine.."
   echo "mounting prefix $S3PREFIX"
-  goofys workflow-engine-garvin:$S3PREFIX /data
-  echo $WORKFLOW_REQUEST > /data/request.json
-  echo "successfully wrote workflow request to /data/request.json"
+  goofys workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
+  echo $WORKFLOW_REQUEST > /$ENGINE_WORKSPACE/request.json
+  echo "successfully wrote workflow request to /$ENGINE_WORKSPACE/request.json"
   echo "waiting for workflow to finish.."
   sleep 10
-  while [[ ! -f /data/done ]]; do
+  while [[ ! -f /$ENGINE_WORKSPACE/done ]]; do
     echo "not done"
   done
 else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
   echo "mounting prefix $S3PREFIX"
-  echo "here is /data:"
-  ls -R /data
+  echo "here is /$ENGINE_WORKSPACE:"
+  ls -R /$ENGINE_WORKSPACE
   echo "mounting bucket.."
-  goofys workflow-engine-garvin:$S3PREFIX /data
+  goofys workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
   echo "creating working dir for tool.."
   mkdir -p $S3PREFIX
   echo "writing command to workdir.."

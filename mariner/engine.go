@@ -45,7 +45,7 @@ type Process struct {
 // Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
 type Tool struct {
 	Outdir           string // Given by context - NOTE: not sure what this is for
-	WorkingDir       string // e.g., /data/taskID/
+	WorkingDir       string // e.g., /engine-workspace/taskID/
 	Root             *cwl.Root
 	Parameters       cwl.Parameters
 	Command          *exec.Cmd
@@ -102,11 +102,11 @@ func (task *Task) getTool() *Tool {
 // see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
 // "characters to avoid" for keys in s3 buckets
 // probably need to do some more filtering of other potentially problematic characters
-// NOTE: should make the mount point a go constant - i.e., const MountPoint = "/data/"
+// NOTE: should make the mount point a go constant - i.e., const MountPoint = "/engine-workspace/"
 // ----- could come up with a better/more uniform naming scheme
 func (task *Task) getWorkingDir() string {
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
-	dir := fmt.Sprintf("/data/%v", safeID)
+	dir := fmt.Sprintf("/%v/%v", ENGINE_WORKSPACE, safeID)
 	if task.ScatterIndex > 0 {
 		dir = fmt.Sprintf("%v-scatter-%v", dir, task.ScatterIndex)
 	}

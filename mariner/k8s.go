@@ -95,7 +95,7 @@ func getS3SidecarEnv(request WorkflowRequest, S3Prefix string) (env []k8sv1.EnvV
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "S3PREFIX",
-			Value: S3Prefix, // see last line of mariner-engine-sidecar dockerfile -> "RUN goofys workflow-engine-garvin:$S3PREFIX /data"
+			Value: S3Prefix, // see last line of mariner-engine-sidecar dockerfile -> "RUN goofys workflow-engine-garvin:$S3PREFIX /engine-workspace"
 		},
 		{
 			Name:      "AWSCREDS",
@@ -109,6 +109,10 @@ func getS3SidecarEnv(request WorkflowRequest, S3Prefix string) (env []k8sv1.EnvV
 			Name:  "WORKFLOW_REQUEST", // body of POST http request made to api
 			Value: string(requestJSON),
 		},
+		{
+			Name:  "ENGINE_WORKSPACE",
+			Value: ENGINE_WORKSPACE,
+		},
 	}
 	return env
 }
@@ -118,7 +122,7 @@ func getEngineArgs() []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
-    while [[ ! -f /data/request.json ]]; do
+    while [[ ! -f /engine-workspace/request.json ]]; do
       echo "Waiting for mariner-engine-sidecar to finish setting up..";
       sleep 1
     done
@@ -248,7 +252,7 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "S3PREFIX",
-			Value: engine.S3Prefix, // mounting whole user dir to /data -> not just the dir for the task
+			Value: engine.S3Prefix, // mounting whole user dir to /engine-workspace -> not just the dir for the task
 		},
 		{
 			Name:  "MARINER_COMPONENT", // flag to tell setup sidecar script this is a task, not an engine job
@@ -259,8 +263,12 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 			Value: strings.Join(proc.Tool.Command.Args, " "),
 		},
 		{
-			Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., /data/task_id
+			Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., /engine-workspace/task_id
 			Value: proc.Tool.WorkingDir,
+		},
+		{
+			Name:  "ENGINE_WORKSPACE",
+			Value: ENGINE_WORKSPACE,
 		},
 	}
 	return env
