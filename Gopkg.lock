@@ -61,14 +61,6 @@
   version = "v1.7.3"
 
 [[projects]]
-  digest = "1:3e260afa138eab6492b531a3b3d10ab4cb70512d423faa78b8949dec76e66a21"
-  name = "github.com/imdario/mergo"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "9316a62528ac99aaecb4e47eadd6dc8aa6533d58"
-  version = "v0.3.5"
-
-[[projects]]
   digest = "1:eaefc85d32c03e5f0c2b88ea2f79fce3d993e2c78316d21319575dd4ea9153ca"
   name = "github.com/json-iterator/go"
   packages = ["."]
@@ -124,20 +116,12 @@
   revision = "15f95af6e78dcd2030d8195a138bd88d4f403546"
 
 [[projects]]
-  digest = "1:9424f440bba8f7508b69414634aef3b2b3a877e522d8a4624692412805407bb7"
-  name = "github.com/spf13/pflag"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
-  version = "v1.0.1"
-
-[[projects]]
-  branch = "feat/jsVM"
+  branch = "master"
   digest = "1:e7d8bd124f35399dc04a0f3a82af91a4c6bc402432b09a85cf2fac178d051fe1"
   name = "github.com/uc-cdis/cwl.go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2db326cb799ec32c6419916961c9e236cf032ad4"
+  revision = "32a6cf8dd38f9ec792f93ff1abc5848bd6c906d1"
 
 [[projects]]
   digest = "1:b24d38b282bacf9791408a080f606370efa3d364e4b5fd9ba0f7b87786d3b679"
@@ -353,7 +337,7 @@
   revision = "1799e75a0719"
 
 [[projects]]
-  digest = "1:3620c1d82183765e30dd6d7190ed56fcb410a7e382c3e8410d7cf0cafa7dd9fd"
+  digest = "1:21b1fed79226c15e7d7666ca9bf914590daa86af9c6fcdc9dbec34ae6d54f2e6"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
@@ -402,18 +386,13 @@
     "plugin/pkg/client/auth/exec",
     "rest",
     "rest/watch",
-    "tools/auth",
-    "tools/clientcmd",
     "tools/clientcmd/api",
-    "tools/clientcmd/api/latest",
-    "tools/clientcmd/api/v1",
     "tools/metrics",
     "tools/reference",
     "transport",
     "util/cert",
     "util/connrotation",
     "util/flowcontrol",
-    "util/homedir",
     "util/keyutil",
   ]
   pruneopts = "UT"
@@ -457,7 +436,7 @@
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/typed/batch/v1",
-    "k8s.io/client-go/tools/clientcmd",
+    "k8s.io/client-go/rest",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

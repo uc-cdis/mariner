@@ -34,7 +34,7 @@
   name = "github.com/robertkrimen/otto"
 
 [[constraint]]
-  branch = "feat/jsVM"
+  branch = "master"
   name = "github.com/uc-cdis/cwl.go"
 
 [[constraint]]
