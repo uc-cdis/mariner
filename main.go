@@ -40,7 +40,7 @@ func main() {
 
 			// NOTE: this section should be encapsulated to a function and maybe put in another file
 			fmt.Println("running mariner-engine..")
-			requestF, err := os.Open("/data/request.json")
+			requestF, err := os.Open(fmt.Sprintf("/%v/request.json", mariner.ENGINE_WORKSPACE))
 			if err != nil {
 				return err
 			}
