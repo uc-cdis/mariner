@@ -430,7 +430,68 @@ Unfortunately this is a very hard thing to reliably predict, but here's an attem
   - implement basic version of user-data-space
 - By the end of November:
   - implement gen3-fuse to serve commons data to workflow run
-  - deploy mariner to some commons' test or staging environment for testing real workflows on real data  
+  - deploy mariner to some commons' test or staging environment for testing real workflows on real data
+  
+## An Actual Timeline
+
+Here is a three sprint plan starting today, Tuesday, 9/17,
+ending on Friday, 10/25, to get from prototype to first deployment to a staging environment.  
+
+```
+Sprint 1: M 9/16 - F 9/27
+  -> Implement gen3fuse
+  -> Create/implement user data bucket (will simplify testing)
+--- now can run workflows on real data, though logs and error/failure handling are not great ---
+Sprint 2: M 9/30 - F 10/11
+  -> Capture structured level logs
+  -> Implement essential endpoints of WES API
+  -> Implement workflowHistorydb
+--- now the bare bones of the service all exist, and the API is functional but not auth'd or publicly exposed ---
+Sprint 3: M 10/14 - F 10/25
+  -> Auth the mariner API via arborist
+  -> Publicly expose the mariner service (still only "admin" users authorized)
+  -> Deploy to some staging environment for testing
+--- now the service is publicly exposed in some staging environment for further testing
+of running real workflows on real data --
+
+Another important feature implemented sometime before 10/25:
+  - insulate workflow processes from the rest of Gen3 services/processes in the cluster:
+    - create an autoscaling group for nodes dedicated exclusively to running workflow processes
+    - update job/pod specs so that workflow pods are only scheduled to nodes in that autoscaling group
+
+An important feature not implemented by 10/25:
+  - "self-healing" workflows, retry logic
+```
+
+### Notes on fuse technology and mariner
+
+After reading more about fuse mount technology
+as well as learning more about the scale of the data transfer and processing
+necessary to run these big workflows,
+I've come to the conclusion that
+reading and writing files directly from buckets via some fuse mount
+is probably not going to work for this application.
+
+The fuse mount approach still needs to be tested with real workflows processing real genomic data
+but I'm fairly confident that approach will fail.
+
+One solution is the following:
+
+use EBS volumes as storage for workflow tasks. (1 EBS volume <-> 1 task)
+
+before a task runs, use the AWS SDK data transfer tool (supposed to be quite fast)
+to copy the input files from S3 (user data, engine workspace, or commons data) to the EBS volume.
+
+as the task runs it reads directly from the EBS volume,
+and the files generated are written directly to the same EBS volume.
+as the task runs, there is a process running in the background
+which concurrently sync-uploads output files from the EBS volume
+to the engine workspace bucket (an S3 bucket)
+
+the EBS volume is killed after the task using it finishes running.
+
+so long as our EC2/EBS and S3 resources are located in the same region
+this design should be robust, scalable (horizontally and vertically), and fast.
   
 ## Open Questions 
 
