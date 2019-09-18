@@ -46,7 +46,8 @@ func getEngineContainers(request WorkflowRequest) (containers []k8sv1.Container)
 	S3Prefix := getS3Prefix(request)
 	engine := getEngineContainer(S3Prefix)
 	s3sidecar := getS3SidecarContainer(request, S3Prefix)
-	containers = []k8sv1.Container{*engine, *s3sidecar}
+	gen3fuse := getGen3fuseContainer()
+	containers = []k8sv1.Container{*engine, *s3sidecar, *gen3fuse}
 	return containers
 }
 
@@ -62,6 +63,12 @@ func getS3SidecarContainer(request WorkflowRequest, S3Prefix string) (container 
 	container = getBaseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
 	container.Env = getS3SidecarEnv(request, S3Prefix) // for ENGINE-sidecar
 	return container
+}
+
+func getGen3fuseContainer() (container *k8sv1.Container) {
+	container = getBaseContainer(&Config.Containers.Gen3fuse, GEN3FUSE)
+	// container.Env = getGen3fuseEnv() // to write
+	return
 }
 
 // NOTE: probably can come up with a better ID for a workflow, but for now this will work
