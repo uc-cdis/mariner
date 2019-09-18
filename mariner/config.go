@@ -149,14 +149,15 @@ func getVolumeMounts(component string) (v []k8sv1.VolumeMount) {
 }
 
 func getSidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
+	engineWorkspace := getVolumeMount(ENGINE_WORKSPACE, component)
+	v = []k8sv1.VolumeMount{*engineWorkspace}
 	switch component {
 	case GEN3FUSE:
 		commonsData := getVolumeMount(COMMONS_DATA, component)
-		v = []k8sv1.VolumeMount{*commonsData}
+		v = append(v, *commonsData)
 	case S3SIDECAR:
-		engineWorkspace := getVolumeMount(ENGINE_WORKSPACE, component)
 		userData := getVolumeMount(USER_DATA, component)
-		v = []k8sv1.VolumeMount{*engineWorkspace, *userData}
+		v = append(v, *userData)
 	}
 	return v
 }
