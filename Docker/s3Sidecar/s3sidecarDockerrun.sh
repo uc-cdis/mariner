@@ -45,6 +45,9 @@ else # $MARINER_COMPONENT is "TASK"
   done
 fi
 
+# unmount
+fusermount -u /$ENGINE_WORKSPACE
+
 # while true; do
 #   echo "staying alive"
 #   sleep 10
