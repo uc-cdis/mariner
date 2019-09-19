@@ -26,3 +26,8 @@ func GetLastInPath(s string) (localID string) {
 	tmp := strings.Split(s, "/")
 	return tmp[len(tmp)-1]
 }
+
+func struct2String(i interface{}) (s string) {
+	j, _ := json.Marshal(i)
+	return string(j)
+}

@@ -52,6 +52,19 @@ var awscreds = k8sv1.EnvVarSource{
 	},
 }
 
+var	envVar_HOSTNAME = k8sv1.EnvVar{
+	Name: "HOSTNAME",
+	ValueFrom: &k8sv1.EnvVarSource{
+		ConfigMapKeyRef: &k8sv1.ConfigMapKeySelector{
+			LocalObjectReference: k8sv1.LocalObjectReference{
+				Name: "global",
+			},
+			Key: "hostname",
+			Optional: &falseVal,
+		},
+	},
+}
+
 func (config *MarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
 	switch component {
 	case ENGINE:

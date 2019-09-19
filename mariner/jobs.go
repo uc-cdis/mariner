@@ -24,12 +24,12 @@ type JobInfo struct {
 
 // DispatchWorkflowJob runs a workflow provided in mariner api request
 // TODO - decide on an approach to error handling, and apply it uniformly
-func DispatchWorkflowJob(content WorkflowRequest) error {
+func DispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 	// get connection to cluster in order to dispatch jobs
 	jobsClient := getJobClient()
 
 	// create the workflow job spec (i.e., mariner-engine job spec)
-	workflowJobSpec, err := getWorkflowJob(content)
+	workflowJobSpec, err := getWorkflowJob(workflowRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow job spec: %v", err)
 	}

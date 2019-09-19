@@ -18,11 +18,19 @@ import (
 // Workflow is the packed CWL workflow JSON (i.e., all the CWL files packed into a JSON - ii.ee., the result of cwltool --pack)
 // Input is the JSON specifying values for the input parameters to the workflow (refer to files using GUIDs)
 // ID is the userID
+// HERE - TODO - eventually replace "ID" field with "token"
+// ---> then need to retrieve user ID by trade token with Fence
 type WorkflowRequest struct {
 	Workflow json.RawMessage `json:"workflow"`
 	Input    json.RawMessage `json:"input"`
-	ID       string          `json:"id"`
+	ID       string          `json:"id"` // after token flow implemented, remove this field
+	Token		 string 				 `json:"token"` // flow not yet implemented, but field defined here
+	Manifest Manifest				 `json:"manifest"`
 }
+
+// HERE - TODO - move to config.go
+type Manifest []ManifestEntry
+type ManifestEntry struct{GUID string `json:"object_id"`}
 
 // RunHandler handles `/run` endpoint
 // handles a POST request to run a workflow by dispatching the workflow job
@@ -36,11 +44,11 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		fmt.Print(err)
-		http.Error(w, "Please provide workflow and inputs json", 400)
+		http.Error(w, "failed to read in workflow request", 400)
 		return
 	}
-	var content WorkflowRequest
-	err = json.Unmarshal(body, &content)
+	var workflowRequest *WorkflowRequest
+	err = json.Unmarshal(body, workflowRequest)
 	if err != nil {
 		fmt.Printf("fail to parse json %v\n", err)
 		http.Error(w, err.Error(), 400)
@@ -49,8 +57,8 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 	// dispatch job to k8s to run workflow
 	// -> `mariner run $S3PREFIX`, where
 	// S3PREFIX is the working directory for this workflow in the workflow bucket
-	fmt.Printf("running workflow for user %v\n", content.ID)
-	err = DispatchWorkflowJob(content)
+	fmt.Printf("running workflow for user %v\n", workflowRequest.ID)
+	err = DispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
