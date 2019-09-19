@@ -47,8 +47,8 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to read in workflow request", 400)
 		return
 	}
-	var workflowRequest *WorkflowRequest
-	err = json.Unmarshal(body, workflowRequest)
+	var workflowRequest WorkflowRequest
+	err = json.Unmarshal(body, &workflowRequest)
 	if err != nil {
 		fmt.Printf("fail to parse json %v\n", err)
 		http.Error(w, err.Error(), 400)
@@ -58,7 +58,7 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 	// -> `mariner run $S3PREFIX`, where
 	// S3PREFIX is the working directory for this workflow in the workflow bucket
 	fmt.Printf("running workflow for user %v\n", workflowRequest.ID)
-	err = DispatchWorkflowJob(workflowRequest)
+	err = DispatchWorkflowJob(&workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
