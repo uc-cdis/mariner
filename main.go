@@ -62,7 +62,7 @@ func main() {
 			engine.FinishedProcs = make(map[string]*mariner.Process)
 			engine.UnfinishedProcs = make(map[string]*mariner.Process)
 
-			engine.Manifest = wfRequest.Manifest
+			engine.Manifest = &wfRequest.Manifest
 
 			// collect S3 prefix to mount from user bucket
 			engine.S3Prefix = c.Args().Get(1)
