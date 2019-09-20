@@ -472,6 +472,13 @@ func getJobSpec(component string, name string) (job *batchv1.Job) {
 	if component == ENGINE {
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
+
+	// HERE - TODO - get username from token, make this annotation on the pods for this workflow
+	// so that workspace-token-service works
+	// wts depends on this particular annotation
+	job.Spec.Template.Annotations = make(map[string]string)
+	job.Spec.Template.Annotations["gen3username"] = GEN3USERNAME
+
 	return job
 }
 

@@ -47,8 +47,6 @@ func DispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 	return nil
 }
 
-// RunK8sJob runs the CommandLineTool in a container as a k8s job with a sidecar container to write command to run.sh, install s3fs/goofys and mount bucket
-// HERE - MONDAY
 func (engine K8sEngine) DispatchTaskJob(proc *Process) error {
 	fmt.Println("\tCreating k8s job spec..")
 	batchJob, nil := engine.getTaskJob(proc)

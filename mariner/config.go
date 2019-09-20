@@ -40,6 +40,10 @@ const (
 	COMMONS_DATA     = "commons-data"
 	USER_DATA        = "user-data"
 	CONFIG           = "mariner-config"
+
+	// for pod annotation so that WTS works
+	// only here for testing, of course
+	GEN3USERNAME = "mgarvin3@uchicago.edu"
 )
 
 // for mounting aws-user-creds secret to s3sidecar
@@ -52,14 +56,14 @@ var awscreds = k8sv1.EnvVarSource{
 	},
 }
 
-var	envVar_HOSTNAME = k8sv1.EnvVar{
+var envVar_HOSTNAME = k8sv1.EnvVar{
 	Name: "HOSTNAME",
 	ValueFrom: &k8sv1.EnvVarSource{
 		ConfigMapKeyRef: &k8sv1.ConfigMapKeySelector{
 			LocalObjectReference: k8sv1.LocalObjectReference{
 				Name: "global",
 			},
-			Key: "hostname",
+			Key:      "hostname",
 			Optional: &falseVal,
 		},
 	},
