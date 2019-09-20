@@ -192,7 +192,15 @@ func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Co
 		return nil, err
 	}
 	s3sidecar := engine.getS3SidecarContainer(proc)
+
 	gen3fuse := getGen3fuseContainer(engine.Manifest, TASK)
+	// organize this better
+	workingDir := k8sv1.EnvVar{
+		Name:  "TOOL_WORKING_DIR",
+		Value: proc.Tool.WorkingDir,
+	}
+	gen3fuse.Env = append(gen3fuse.Env, workingDir)
+
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
 	return containers, nil
 }
