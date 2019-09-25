@@ -46,6 +46,12 @@ fi
 
 # unmount
 echo "done, unmounting goofys"
+echo "here is pwd"
+pwd
+echo "changing dirs"
+cd /
+pwd
+echo "unmounting.."
 
 fusermount -u /$ENGINE_WORKSPACE
 
