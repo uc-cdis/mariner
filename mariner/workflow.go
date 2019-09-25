@@ -3,9 +3,7 @@ package mariner
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -138,16 +136,6 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 	fmt.Println("Here's the output:")
 	PrintJSON(mainTask.Outputs)
 
-	fmt.Println("Here is the current working directory of the engine:")
-	wd, _ := os.Getwd()
-	fmt.Println(wd)
-	fmt.Println("Switching dirs..")
-	os.Chdir("/")
-	fmt.Println("New working dir")
-	wd, _ = os.Getwd()
-	fmt.Println(wd)
-	fmt.Println("sleeping for 1000 seconds..")
-	time.Sleep(1000 * time.Second)
 	return nil
 }
 
