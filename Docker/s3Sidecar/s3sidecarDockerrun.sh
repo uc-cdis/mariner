@@ -28,10 +28,9 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
 else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
   echo "mounting prefix $S3PREFIX"
+  goofys workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
   echo "here is /$ENGINE_WORKSPACE:"
   ls -R /$ENGINE_WORKSPACE
-  echo "mounting bucket.."
-  goofys workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
   echo "creating working dir for tool.."
   mkdir -p $S3PREFIX
   echo "writing command to workdir.."
