@@ -3,6 +3,7 @@ package mariner
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -135,6 +136,13 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
 	PrintJSON(mainTask.Outputs)
+
+	fmt.Println("Here is the current working directory of the engine:")
+	fmt.Println(os.Getwd())
+	fmt.Println("Switching dirs..")
+	os.Chdir("/")
+	fmt.Println("New working dir")
+	fmt.Println(os.Getwd())
 	return nil
 }
 
