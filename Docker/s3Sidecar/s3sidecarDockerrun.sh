@@ -45,7 +45,11 @@ else # $MARINER_COMPONENT is "TASK"
 fi
 
 # unmount
+echo "done, unmounting goofys"
+
 fusermount -u /$ENGINE_WORKSPACE
+
+echo "goofys exited successfully"
 
 # while true; do
 #   echo "staying alive"
