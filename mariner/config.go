@@ -211,7 +211,7 @@ func getVolumeMount(name string, component string) *k8sv1.VolumeMount {
 	switch component {
 	case TASK, ENGINE:
 		volMnt.MountPropagation = &MountPropagationHostToContainer
-	case S3SIDECAR:
+	case S3SIDECAR, GEN3FUSE:
 		volMnt.MountPropagation = &MountPropagationBidirectional
 	}
 	// all vols are readOnly except the engine workspace
