@@ -1,0 +1,6 @@
+{
+    "input_bam": {
+        "class": "File",
+        "location": "NIST7035.1.chrM.bam"
+    }
+}
