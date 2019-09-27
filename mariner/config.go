@@ -3,7 +3,6 @@ package mariner
 import (
 	"encoding/json"
 	"fmt"
-
 	// "fmt"
 	"io/ioutil"
 	// "os"
@@ -40,6 +39,13 @@ const (
 	COMMONS_DATA     = "commons-data"
 	USER_DATA        = "user-data"
 	CONFIG           = "mariner-config"
+
+	// file path prefixes - used to differentiate COMMONS vs USER vs ENGINE WORKSPACE file
+	// user specifies commons datafile by "COMMONS/<GUID>"
+	// user specifies user datafile by "USER/<path>"
+	COMMONS_PREFIX       = "COMMONS/"
+	USER_PREFIX          = "USER/"
+	PATH_TO_COMMONS_DATA = "/commons-data/by-guid/"
 
 	// for pod annotation so that WTS works
 	// only here for testing, of course

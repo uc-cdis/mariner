@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/robertkrimen/otto"
+
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -154,6 +155,17 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		path, err := GetPath(out)
 		if err != nil {
 			return nil, err
+		}
+
+		// HERE -> handle the filepath prefix issue
+		//
+		// Mapping:
+		// ---- COMMONS/<guid> -> /commons-data/by-guid/<guid>
+		// ---- USER/<path> -> /user-data/<path> // not implemented yet
+		// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
+		strings.HasPrefix(path, COMMONS_PREFIX) {
+			GUID := strings.TrimPrefix(path, COMMONS_PREFIX)
+			path = strings.Join(string[]{PATH_TO_COMMONS_DATA, GUID}
 		}
 		out = getFileObj(path)
 	} else {
