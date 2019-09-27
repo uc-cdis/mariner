@@ -163,9 +163,9 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// ---- COMMONS/<guid> -> /commons-data/by-guid/<guid>
 		// ---- USER/<path> -> /user-data/<path> // not implemented yet
 		// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
-		strings.HasPrefix(path, COMMONS_PREFIX) {
+		if strings.HasPrefix(path, COMMONS_PREFIX) {
 			GUID := strings.TrimPrefix(path, COMMONS_PREFIX)
-			path = strings.Join(string[]{PATH_TO_COMMONS_DATA, GUID}
+			path = strings.Join([]string{PATH_TO_COMMONS_DATA, GUID}, "")
 		}
 		out = getFileObj(path)
 	} else {
