@@ -540,7 +540,3 @@ and contains lots of links to other relevant resources.
 "What's a [research object](http://www.researchobject.org/)?"  
   
 A [long list of workflow systems](https://github.com/common-workflow-language/common-workflow-language/wiki/Existing-Workflow-systems)  
-
-
-
-
