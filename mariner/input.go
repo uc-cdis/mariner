@@ -92,6 +92,9 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
 		var ok bool
+		fmt.Println("in transform input..")
+		PrintJSON(tool)
+		PrintJSON(tool.Parameters)
 		if out, ok = tool.Parameters[input.ID]; !ok {
 			return nil, fmt.Errorf("input not found in tool's parameters")
 		}
