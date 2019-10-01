@@ -10,7 +10,7 @@ requirements:
   - class: InitialWorkDirRequirement
     listing:
       - entryname: 'touchFiles.sh'
-      - entry: >-
+        entry: |
           #!/bin/sh
           cat $(inputs.commons_file_1.location) > processed_file_1.txt
           echo 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt
@@ -37,5 +37,4 @@ baseCommand: ['/bin/sh']
 
 arguments:
   - position: 1
-    valueFrom: >-
-      touchFiles.sh
+    valueFrom: 'touchFiles.sh'

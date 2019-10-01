@@ -10,7 +10,7 @@ requirements:
   - class: InitialWorkDirRequirement
     listing:
       - entryname: 'touchFiles.sh'
-      - entry: >-
+        entry: |
           #!/bin/sh
           cat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt
           cat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt
@@ -40,5 +40,4 @@ baseCommand: ['/bin/sh']
 
 arguments:
   - position: 1
-    valueFrom: >-
-      touchFiles.sh
+    valueFrom: 'touchFiles.sh'
