@@ -1,190 +1,190 @@
 {
   "input": {
     "commons_file_1": {
-      "class": "File", 
-      "location": "COMMONS/1f8a359a-5421-4c4d-9934-62ee0b77545c"
-    }, 
+      "class": "File",
+      "location": "COMMONS/8bc9f306-5b5d-4b6b-b34e-f90680824b17"
+    },
     "commons_file_2": {
-      "class": "File", 
-      "location": "COMMONS/580c5abd-f5a5-4b2a-903f-9d32953b9fc4"
+      "class": "File",
+      "location": "COMMONS/bd7edb54-2029-4ac5-874a-da8daeb250db"
     }
-  }, 
+  },
   "manifest": [
     {
-      "object_id": "1f8a359a-5421-4c4d-9934-62ee0b77545c"
-    }, 
+      "object_id": "8bc9f306-5b5d-4b6b-b34e-f90680824b17"
+    },
     {
-      "object_id": "580c5abd-f5a5-4b2a-903f-9d32953b9fc4"
+      "object_id": "bd7edb54-2029-4ac5-874a-da8daeb250db"
     }
-  ], 
-  "id": "user-test", 
+  ],
+  "id": "user-test",
   "workflow": {
-    "cwlVersion": "v1.0", 
+    "cwlVersion": "v1.0",
     "$graph": [
       {
         "inputs": [
           {
-            "type": "File", 
+            "type": "File",
             "id": "#main/commons_file_1"
-          }, 
+          },
           {
-            "type": "File", 
+            "type": "File",
             "id": "#main/commons_file_2"
           }
-        ], 
+        ],
         "requirements": [
           {
             "class": "InlineJavascriptRequirement"
           }
-        ], 
+        ],
         "outputs": [
           {
             "type": {
-              "items": "File", 
+              "items": "File",
               "type": "array"
-            }, 
-            "outputSource": "#main/read_from_engine_workspace_and_commons/output_files", 
+            },
+            "outputSource": "#main/read_from_engine_workspace_and_commons/output_files",
             "id": "#main/output_files"
           }
-        ], 
-        "class": "Workflow", 
+        ],
+        "class": "Workflow",
         "steps": [
           {
             "in": [
               {
-                "source": "#main/commons_file_1", 
+                "source": "#main/commons_file_1",
                 "id": "#main/read_from_commons/commons_file_1"
-              }, 
+              },
               {
-                "source": "#main/commons_file_2", 
+                "source": "#main/commons_file_2",
                 "id": "#main/read_from_commons/commons_file_2"
               }
-            ], 
-            "run": "#read_from_commons.cwl", 
-            "id": "#main/read_from_commons", 
+            ],
+            "run": "#read_from_commons.cwl",
+            "id": "#main/read_from_commons",
             "out": [
-              "#main/read_from_commons/processed_file_1", 
+              "#main/read_from_commons/processed_file_1",
               "#main/read_from_commons/processed_file_2"
             ]
-          }, 
+          },
           {
             "in": [
               {
-                "source": "#main/read_from_commons/processed_file_1", 
+                "source": "#main/read_from_commons/processed_file_1",
                 "id": "#main/read_from_engine_workspace_and_commons/processed_file_1"
-              }, 
+              },
               {
-                "source": "#main/read_from_commons/processed_file_2", 
+                "source": "#main/read_from_commons/processed_file_2",
                 "id": "#main/read_from_engine_workspace_and_commons/processed_file_2"
-              }, 
+              },
               {
-                "source": "#main/commons_file_1", 
+                "source": "#main/commons_file_1",
                 "id": "#main/read_from_engine_workspace_and_commons/unprocessed_file_1"
-              }, 
+              },
               {
-                "source": "#main/commons_file_2", 
+                "source": "#main/commons_file_2",
                 "id": "#main/read_from_engine_workspace_and_commons/unprocessed_file_2"
               }
-            ], 
-            "run": "#read_from_engine_workspace_and_commons.cwl", 
-            "id": "#main/read_from_engine_workspace_and_commons", 
+            ],
+            "run": "#read_from_engine_workspace_and_commons.cwl",
+            "id": "#main/read_from_engine_workspace_and_commons",
             "out": [
               "#main/read_from_engine_workspace_and_commons/output_files"
             ]
           }
-        ], 
+        ],
         "id": "#main"
-      }, 
+      },
       {
         "inputs": [
           {
-            "type": "File", 
+            "type": "File",
             "id": "#read_from_commons.cwl/commons_file_1"
-          }, 
+          },
           {
-            "type": "File", 
+            "type": "File",
             "id": "#read_from_commons.cwl/commons_file_2"
           }
-        ], 
+        ],
         "requirements": [
           {
             "class": "InlineJavascriptRequirement"
-          }, 
+          },
           {
             "class": "ShellCommandRequirement"
           }
-        ], 
+        ],
         "outputs": {
           "processed_file_1": {
             "outputBinding": {
               "glob": "processed_file_1"
-            }, 
+            },
             "type": "File"
-          }, 
+          },
           "processed_file_2": {
             "outputBinding": {
               "glob": "processed_file_2"
-            }, 
+            },
             "type": "File"
           }
-        }, 
-        "baseCommand": [], 
-        "class": "CommandLineTool", 
+        },
+        "baseCommand": [],
+        "class": "CommandLineTool",
         "arguments": [
           {
-            "position": 0, 
+            "position": 0,
             "valueFrom": "cat $(inputs.commons_file_1.location) > processed_file_1.txt \\ echo 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt \\ cat $(inputs.commons_file_2.location) > processed_file_2.txt \\ echo 'NOTE this commons_file_2 was processed in step 1' >> processed_file_2.txt"
           }
-        ], 
+        ],
         "id": "#read_from_commons.cwl"
-      }, 
+      },
       {
         "inputs": [
           {
-            "type": "File", 
+            "type": "File",
             "id": "#read_from_engine_workspace_and_commons.cwl/processed_file_1"
-          }, 
+          },
           {
-            "type": "File", 
+            "type": "File",
             "id": "#read_from_engine_workspace_and_commons.cwl/processed_file_2"
-          }, 
+          },
           {
-            "type": "File", 
+            "type": "File",
             "id": "#read_from_engine_workspace_and_commons.cwl/unprocessed_file_1"
-          }, 
+          },
           {
-            "type": "File", 
+            "type": "File",
             "id": "#read_from_engine_workspace_and_commons.cwl/unprocessed_file_2"
           }
-        ], 
+        ],
         "requirements": [
           {
             "class": "InlineJavascriptRequirement"
-          }, 
+          },
           {
             "class": "ShellCommandRequirement"
           }
-        ], 
+        ],
         "outputs": {
           "output_files": {
             "outputBinding": {
               "glob": [
-                "final_processed", 
+                "final_processed",
                 "unprocessed"
-              ], 
+              ],
               "loadContents": true
-            }, 
+            },
             "type": "File[]"
           }
-        }, 
-        "baseCommand": [], 
-        "class": "CommandLineTool", 
+        },
+        "baseCommand": [],
+        "class": "CommandLineTool",
         "arguments": [
           {
-            "position": 0, 
+            "position": 0,
             "valueFrom": "cat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt \\ cat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt \\ cat $(inputs.processed_file_1.location) > final_processed_file_1.txt \\ echo 'NOTE this commons_file_1 was processed in step 2' >> final_processed_file_1.txt \\ cat $(inputs.processed_file_2.location) > final_processed_file_2.txt \\ echo 'NOTE this commons_file_2 was processed in step 2' >> final_processed_file_2.txt"
           }
-        ], 
+        ],
         "id": "#read_from_engine_workspace_and_commons.cwl"
       }
     ]
