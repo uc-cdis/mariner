@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // this file contains some methods/functions for setting up and working with *Tools (i.e., commandlinetools and expressiontools)
@@ -22,35 +21,27 @@ func (tool *Tool) initWorkDir() (err error) {
 				// handling the case where `entry` is content (expression or string) to be written to a file
 				// and `entryname` is the name of the file to be created
 				var contents interface{}
-				if strings.HasPrefix(listing.Entry, "$") {
-					// `entry` is an expression which may return a string, File or `dirent`
-					// NOTE: presently NOT supporting the File or dirent case
-					// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
-					result, err = tool.resolveExpressions(listing.Entry)
-					if err != nil {
-						return err
-					}
-					contents = result
-				} else {
-					contents = listing.Entry
+				// `entry` is an expression which may return a string, File or `dirent`
+				// NOTE: presently NOT supporting the File or dirent case
+				// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
+				result, err = tool.resolveExpressions(listing.Entry)
+				if err != nil {
+					return err
 				}
+				contents = result
 				// PrintJSON(contents)
 
 				// `entryName` for sure is a string literal or an expression which evaluates to a string
 				// `entryName` is the name of the file to be created
 				var entryName string
-				if strings.HasPrefix(listing.EntryName, "$") {
-					result, err = tool.resolveExpressions(listing.EntryName)
-					if err != nil {
-						return err
-					}
-					var ok bool
-					entryName, ok = result.(string)
-					if !ok {
-						return fmt.Errorf("entryname expression did not return a string")
-					}
-				} else {
-					entryName = listing.EntryName
+				result, err = tool.resolveExpressions(listing.EntryName)
+				if err != nil {
+					return err
+				}
+				var ok bool
+				entryName, ok = result.(string)
+				if !ok {
+					return fmt.Errorf("entryname expression did not return a string")
 				}
 
 				/*
