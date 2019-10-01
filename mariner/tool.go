@@ -26,7 +26,7 @@ func (tool *Tool) initWorkDir() (err error) {
 					// `entry` is an expression which may return a string, File or `dirent`
 					// NOTE: presently NOT supporting the File or dirent case
 					// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
-					result, err = EvalExpression(listing.Entry, tool.Root.InputsVM)
+					result, err = tool.resolveExpressions(listing.Entry)
 					if err != nil {
 						return err
 					}
@@ -40,7 +40,7 @@ func (tool *Tool) initWorkDir() (err error) {
 				// `entryName` is the name of the file to be created
 				var entryName string
 				if strings.HasPrefix(listing.EntryName, "$") {
-					result, err = EvalExpression(listing.EntryName, tool.Root.InputsVM)
+					result, err = tool.resolveExpressions(listing.EntryName)
 					if err != nil {
 						return err
 					}
