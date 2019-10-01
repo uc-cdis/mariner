@@ -39,17 +39,23 @@
         ],
         "outputs": [
           {
+            "outputSource": "#main/read_from_engine_workspace_and_commons/output_files",
             "type": {
               "items": "File",
               "type": "array"
             },
-            "outputSource": "#main/read_from_engine_workspace_and_commons/output_files",
             "id": "#main/output_files"
           }
         ],
         "class": "Workflow",
         "steps": [
           {
+            "out": [
+              "#main/read_from_commons/processed_file_1",
+              "#main/read_from_commons/processed_file_2"
+            ],
+            "run": "#read_from_commons.cwl",
+            "id": "#main/read_from_commons",
             "in": [
               {
                 "source": "#main/commons_file_1",
@@ -59,15 +65,14 @@
                 "source": "#main/commons_file_2",
                 "id": "#main/read_from_commons/commons_file_2"
               }
-            ],
-            "run": "#read_from_commons.cwl",
-            "id": "#main/read_from_commons",
-            "out": [
-              "#main/read_from_commons/processed_file_1",
-              "#main/read_from_commons/processed_file_2"
             ]
           },
           {
+            "out": [
+              "#main/read_from_engine_workspace_and_commons/output_files"
+            ],
+            "run": "#read_from_engine_workspace_and_commons.cwl",
+            "id": "#main/read_from_engine_workspace_and_commons",
             "in": [
               {
                 "source": "#main/read_from_commons/processed_file_1",
@@ -85,11 +90,6 @@
                 "source": "#main/commons_file_2",
                 "id": "#main/read_from_engine_workspace_and_commons/unprocessed_file_2"
               }
-            ],
-            "run": "#read_from_engine_workspace_and_commons.cwl",
-            "id": "#main/read_from_engine_workspace_and_commons",
-            "out": [
-              "#main/read_from_engine_workspace_and_commons/output_files"
             ]
           }
         ],
@@ -112,6 +112,17 @@
           },
           {
             "class": "ShellCommandRequirement"
+          },
+          {
+            "class": "InitialWorkDirRequirement",
+            "listing": [
+              {
+                "entryname": "touchFiles.sh"
+              },
+              {
+                "entry": "#!/bin/sh cat $(inputs.commons_file_1.location) > processed_file_1.txt echo 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt cat $(inputs.commons_file_2.location) > processed_file_2.txt echo 'NOTE this commons_file_2 was processed in step 1' >> processed_file_2.txt"
+              }
+            ]
           }
         ],
         "outputs": {
@@ -128,15 +139,17 @@
             "type": "File"
           }
         },
-        "baseCommand": [],
-        "class": "CommandLineTool",
+        "baseCommand": [
+          "/bin/sh"
+        ],
+        "id": "#read_from_commons.cwl",
         "arguments": [
           {
-            "position": 0,
-            "valueFrom": "cat $(inputs.commons_file_1.location) > processed_file_1.txt \\ echo 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt \\ cat $(inputs.commons_file_2.location) > processed_file_2.txt \\ echo 'NOTE this commons_file_2 was processed in step 1' >> processed_file_2.txt"
+            "position": 1,
+            "valueFrom": "touchFiles.sh"
           }
         ],
-        "id": "#read_from_commons.cwl"
+        "class": "CommandLineTool"
       },
       {
         "inputs": [
@@ -163,6 +176,17 @@
           },
           {
             "class": "ShellCommandRequirement"
+          },
+          {
+            "class": "InitialWorkDirRequirement",
+            "listing": [
+              {
+                "entryname": "touchFiles.sh"
+              },
+              {
+                "entry": "#!/bin/sh cat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt cat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt cat $(inputs.processed_file_1.location) > final_processed_file_1.txt echo 'NOTE this commons_file_1 was processed in step 2' >> final_processed_file_1.txt cat $(inputs.processed_file_2.location) > final_processed_file_2.txt echo 'NOTE this commons_file_2 was processed in step 2' >> final_processed_file_2.txt"
+              }
+            ]
           }
         ],
         "outputs": {
@@ -177,15 +201,17 @@
             "type": "File[]"
           }
         },
-        "baseCommand": [],
-        "class": "CommandLineTool",
+        "baseCommand": [
+          "/bin/sh"
+        ],
+        "id": "#read_from_engine_workspace_and_commons.cwl",
         "arguments": [
           {
-            "position": 0,
-            "valueFrom": "cat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt \\ cat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt \\ cat $(inputs.processed_file_1.location) > final_processed_file_1.txt \\ echo 'NOTE this commons_file_1 was processed in step 2' >> final_processed_file_1.txt \\ cat $(inputs.processed_file_2.location) > final_processed_file_2.txt \\ echo 'NOTE this commons_file_2 was processed in step 2' >> final_processed_file_2.txt"
+            "position": 1,
+            "valueFrom": "touchFiles.sh"
           }
         ],
-        "id": "#read_from_engine_workspace_and_commons.cwl"
+        "class": "CommandLineTool"
       }
     ]
   }

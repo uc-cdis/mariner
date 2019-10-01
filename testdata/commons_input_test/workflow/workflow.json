@@ -92,6 +92,17 @@
                 },
                 {
                     "class": "ShellCommandRequirement"
+                },
+                {
+                    "class": "InitialWorkDirRequirement",
+                    "listing": [
+                        {
+                            "entryname": "touchFiles.sh"
+                        },
+                        {
+                            "entry": "#!/bin/sh cat $(inputs.commons_file_1.location) > processed_file_1.txt echo 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt cat $(inputs.commons_file_2.location) > processed_file_2.txt echo 'NOTE this commons_file_2 was processed in step 1' >> processed_file_2.txt"
+                        }
+                    ]
                 }
             ],
             "outputs": {
@@ -108,12 +119,14 @@
                     "type": "File"
                 }
             },
-            "baseCommand": [],
+            "baseCommand": [
+                "/bin/sh"
+            ],
             "id": "#read_from_commons.cwl",
             "arguments": [
                 {
-                    "position": 0,
-                    "valueFrom": "cat $(inputs.commons_file_1.location) > processed_file_1.txt \\ echo 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt \\ cat $(inputs.commons_file_2.location) > processed_file_2.txt \\ echo 'NOTE this commons_file_2 was processed in step 1' >> processed_file_2.txt"
+                    "position": 1,
+                    "valueFrom": "touchFiles.sh"
                 }
             ],
             "class": "CommandLineTool"
@@ -143,6 +156,17 @@
                 },
                 {
                     "class": "ShellCommandRequirement"
+                },
+                {
+                    "class": "InitialWorkDirRequirement",
+                    "listing": [
+                        {
+                            "entryname": "touchFiles.sh"
+                        },
+                        {
+                            "entry": "#!/bin/sh cat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt cat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt cat $(inputs.processed_file_1.location) > final_processed_file_1.txt echo 'NOTE this commons_file_1 was processed in step 2' >> final_processed_file_1.txt cat $(inputs.processed_file_2.location) > final_processed_file_2.txt echo 'NOTE this commons_file_2 was processed in step 2' >> final_processed_file_2.txt"
+                        }
+                    ]
                 }
             ],
             "outputs": {
@@ -157,12 +181,14 @@
                     "type": "File[]"
                 }
             },
-            "baseCommand": [],
+            "baseCommand": [
+                "/bin/sh"
+            ],
             "id": "#read_from_engine_workspace_and_commons.cwl",
             "arguments": [
                 {
-                    "position": 0,
-                    "valueFrom": "cat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt \\ cat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt \\ cat $(inputs.processed_file_1.location) > final_processed_file_1.txt \\ echo 'NOTE this commons_file_1 was processed in step 2' >> final_processed_file_1.txt \\ cat $(inputs.processed_file_2.location) > final_processed_file_2.txt \\ echo 'NOTE this commons_file_2 was processed in step 2' >> final_processed_file_2.txt"
+                    "position": 1,
+                    "valueFrom": "touchFiles.sh"
                 }
             ],
             "class": "CommandLineTool"
