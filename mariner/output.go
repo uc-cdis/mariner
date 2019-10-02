@@ -70,10 +70,15 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		//// Begin 4 step pipeline for collecting/handling CommandLineTool output files ////
 		var results []*File
 
+		fmt.Println("step 1 - glob")
+
 		// 1. Glob - prefixissue
 		if len(output.Binding.Glob) > 0 {
+			fmt.Println("globbing with this pattern:")
+			PrintJSON(output.Binding.Glob)
 			results, err = proc.Glob(&output)
 			if err != nil {
+				fmt.Printf("error globbing: %v", err)
 				return err
 			}
 		}
@@ -82,10 +87,15 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
 
+		fmt.Println("step 2 - load contents")
+
 		// uncomment to test LoadContents functionality:
 		// output.Binding.LoadContents = true
 		if output.Binding.LoadContents {
+			fmt.Println("load contents is true")
 			for _, fileObj := range results {
+				fmt.Println("loading contents for this file")
+				PrintJSON(fileObj)
 				err = fileObj.loadContents()
 				if err != nil {
 					fmt.Printf("error loading contents: %v\n", err)
@@ -164,9 +174,17 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
+		fmt.Println("done with glob and load contents")
+		fmt.Println("at end of function here")
+
+		fmt.Println("here are results:")
+		PrintJSON(results)
+
 		// at this point we have file results captured in `results`
 		// output should be a "File" or "array of Files"
 		if output.Types[0].Type == "File" {
+			fmt.Println("output type is file")
+
 			// TODO: add error handling for cases len(results) != 1
 			proc.Task.Outputs[output.ID] = results[0]
 		} else {
