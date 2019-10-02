@@ -12,10 +12,9 @@ requirements:
       - entryname: 'touchFiles.sh'
         entry: |
           #!/bin/sh
-          cat $(inputs.commons_file_1.location) > processed_file_1.txt
-          echo 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt
-          cat $(inputs.commons_file_2.location) > processed_file_2.txt
-          echo 'NOTE this commons_file_2 was processed in step 1' >> processed_file_2.txt
+          echo 'NOTE this commons_file_1 was processed in step 1' | cat $(inputs.commons_file_1.location) - > processed_file_1.txt
+          echo 'NOTE this commons_file_2 was processed in step 1' | cat $(inputs.commons_file_2.location) - > processed_file_2.txt
+          
 
 inputs:
   commons_file_1:

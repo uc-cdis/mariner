@@ -97,7 +97,7 @@
                     "class": "InitialWorkDirRequirement",
                     "listing": [
                         {
-                            "entry": "#!/bin/sh\ncat $(inputs.commons_file_1.location) > processed_file_1.txt\necho 'NOTE this commons_file_1 was processed in step 1' >> processed_file_1.txt\ncat $(inputs.commons_file_2.location) > processed_file_2.txt\necho 'NOTE this commons_file_2 was processed in step 1' >> processed_file_2.txt\n",
+                            "entry": "#!/bin/sh\necho 'NOTE this commons_file_1 was processed in step 1' | cat $(inputs.commons_file_1.location) - > processed_file_1.txt\necho 'NOTE this commons_file_2 was processed in step 1' | cat $(inputs.commons_file_2.location) - > processed_file_2.txt\n",
                             "entryname": "touchFiles.sh"
                         }
                     ]
@@ -159,7 +159,7 @@
                     "class": "InitialWorkDirRequirement",
                     "listing": [
                         {
-                            "entry": "#!/bin/sh\ncat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt\ncat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt\ncat $(inputs.processed_file_1.location) > final_processed_file_1.txt\necho 'NOTE this commons_file_1 was processed in step 2' >> final_processed_file_1.txt\ncat $(inputs.processed_file_2.location) > final_processed_file_2.txt\necho 'NOTE this commons_file_2 was processed in step 2' >> final_processed_file_2.txt\n",
+                            "entry": "#!/bin/sh\ncat $(inputs.unprocessed_file_1.location) > unprocessed_file_1.txt\ncat $(inputs.unprocessed_file_2.location) > unprocessed_file_2.txt\necho 'NOTE this commons_file_1 was processed in step 2' | cat $(inputs.processed_file_1.location) - > final_processed_file_1.txt\necho 'NOTE this commons_file_1 was processed in step 2' | cat $(inputs.processed_file_2.location) - > final_processed_file_2.txt\n",
                             "entryname": "touchFiles.sh"
                         }
                     ]
