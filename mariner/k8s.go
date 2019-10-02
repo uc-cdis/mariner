@@ -249,19 +249,37 @@ func (proc *Process) getTaskContainer() (container *k8sv1.Container, err error) 
 // TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
 // HERE - how to handle case of different possible bash, depending on CLT image specified in CWL?
 func (proc *Process) getCLToolArgs() []string {
+	/*
+		// Uncomment after debugging
+			args := []string{
+				"-c",
+				fmt.Sprintf(`
+		    while [[ ! -f %vrun.sh ]]; do
+		      echo "Waiting for sidecar to finish setting up..";
+		      sleep 5
+		    done
+				echo "Sidecar setup complete! Running command script now.."
+				cd %v
+				echo "running command $(cat %vrun.sh)"
+				%v %vrun.sh
+				echo "commandlinetool has finished running" > %vdone
+				`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir, proc.Tool.WorkingDir),
+			}
+	*/
+
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
-    while [[ ! -f %vrun.sh ]]; do
-      echo "Waiting for sidecar to finish setting up..";
-      sleep 5
-    done
-		echo "Sidecar setup complete! Running command script now.."
-		cd %v
-		echo "running command $(cat %vrun.sh)"
-		%v %vrun.sh
-		echo "commandlinetool has finished running" > %vdone
-		`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir, proc.Tool.WorkingDir),
+		while [[ ! -f %vrun.sh ]]; do
+		      echo "Waiting for sidecar to finish setting up..";
+		      sleep 5
+		done
+		echo "side done setting up"
+		echo "staying alive"
+		while true; do 
+			:
+		done
+		`, proc.Tool.WorkingDir),
 	}
 	return args
 }
