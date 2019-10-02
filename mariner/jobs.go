@@ -34,7 +34,7 @@ func DispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 		return fmt.Errorf("failed to create workflow job spec: %v", err)
 	}
 
-	PrintJSON(workflwoJobSpec)
+	PrintJSON(workflowJobSpec)
 
 	// tell k8s to run this job
 	workflowJob, err := jobsClient.Create(workflowJobSpec)
