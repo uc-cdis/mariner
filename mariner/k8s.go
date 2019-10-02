@@ -462,6 +462,8 @@ func getBaseContainer(conf *Container, component string) (container *k8sv1.Conta
 		VolumeMounts:    getVolumeMounts(component),
 		Resources:       conf.getResourceRequirements(),
 	}
+	fmt.Printf("here is a base container of component %v", component)
+	PrintJSON(container)
 	return container
 }
 
