@@ -200,11 +200,20 @@ func (proc *Process) HandleCLTOutput() (err error) {
 // returns an array of files
 func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	var pattern string
+	fmt.Println("in proc glob method")
 	for _, glob := range output.Binding.Glob {
 		pattern, err = proc.getPattern(glob)
 		if err != nil {
 			return results, err
 		}
+
+		fmt.Println("this pattern")
+		fmt.Println(pattern)
+		fmt.Println("here is working dir")
+		fmt.Println(proc.Tool.WorkingDir)
+
+		fmt.Println("globbing here")
+		fmt.Println(proc.Tool.WorkingDir + pattern)
 
 		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
 		if err != nil {
