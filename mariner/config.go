@@ -212,7 +212,7 @@ func getVolumeMount(name string, component string) *k8sv1.VolumeMount {
 	volMnt := &k8sv1.VolumeMount{
 		Name:      name,
 		MountPath: fmt.Sprintf("/%v", name),
-		ReadOnly:  trueVal,
+		// ReadOnly:  trueVal,
 	}
 	switch component {
 	case TASK, ENGINE:
