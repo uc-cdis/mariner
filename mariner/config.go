@@ -45,7 +45,7 @@ const (
 	// user specifies user datafile by "USER/<path>"
 	COMMONS_PREFIX       = "COMMONS/"
 	USER_PREFIX          = "USER/"
-	PATH_TO_COMMONS_DATA = "/commons-data/by-guid/"
+	PATH_TO_COMMONS_DATA = "/commons-data/data/by-guid/"
 
 	// for pod annotation so that WTS works
 	// only here for testing, of course
