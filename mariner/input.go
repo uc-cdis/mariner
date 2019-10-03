@@ -48,6 +48,8 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	// so that would be specified in a cwl workflow file like Workflow.cwl
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
 	// so that information would be specified in a cwl  *tool file like CommandLineTool.cwl or ExpressionTool.cwl
+	fmt.Println("transforming input")
+	PrintJSON(input)
 	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	} else {
@@ -91,8 +93,10 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
+		fmt.Println("no value from to handle")
 		var ok bool
 		if out, ok = tool.Parameters[input.ID]; !ok {
+			fmt.Println("error: input not found in tool's parameters")
 			return nil, fmt.Errorf("input not found in tool's parameters")
 		}
 	} else {
@@ -146,12 +150,12 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		}
 	}
 
-	// fmt.Println("before creating file object:")
-	// PrintJSON(out)
+	fmt.Println("before creating file object:")
+	PrintJSON(out)
 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	if isFile(out) {
-		// fmt.Println("is a file object")
+		fmt.Println("is a file object")
 		path, err := GetPath(out)
 		if err != nil {
 			return nil, err
@@ -169,11 +173,11 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		}
 		out = getFileObj(path)
 	} else {
-		// fmt.Println("is not a file object")
+		fmt.Println("is not a file object")
 	}
 
-	// fmt.Println("after creating file object:")
-	// PrintJSON(out)
+	fmt.Println("after creating file object:")
+	PrintJSON(out)
 
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
 	// so `out` will be what we work with in this next block as an initial value
@@ -205,8 +209,8 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		}
 	}
 
-	// fmt.Println("Here's tranformed input:")
-	// PrintJSON(out)
+	fmt.Println("Here's tranformed input:")
+	PrintJSON(out)
 	return out, nil
 }
 
