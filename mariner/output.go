@@ -2,9 +2,11 @@ package mariner
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -202,9 +204,31 @@ func (proc *Process) HandleCLTOutput() (err error) {
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
 func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
-	var pattern string
 	fmt.Println("in proc glob method")
+
+	fmt.Println("changing to root dir..")
 	os.Chdir("/") // always glob from root (?)
+
+	fmt.Println("reading tool working dir before sleep..")
+	files, err := ioutil.ReadDir(proc.Tool.WorkingDir)
+	if err != nil {
+		fmt.Printf("error reading dir: %v", err)
+	}
+	fmt.Println("found these files:")
+	PrintJSON(files)
+
+	fmt.Println("sleeping 10 seconds to test if latency issue")
+	time.Sleep(10 * time.Second)
+
+	fmt.Println("reading tool working dir after sleep..")
+	files, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		fmt.Printf("error reading dir: %v", err)
+	}
+	fmt.Println("found these files:")
+	PrintJSON(files)
+
+	var pattern string
 	for _, glob := range output.Binding.Glob {
 		pattern, err = proc.getPattern(glob)
 		if err != nil {
