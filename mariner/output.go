@@ -216,11 +216,17 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		fmt.Println(proc.Tool.WorkingDir + pattern)
 
 		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
+		fmt.Println("here are the resulting paths")
+		fmt.Println(paths)
 		if err != nil {
+			fmt.Printf("error globbing: %v", err)
 			return results, err
 		}
 		for _, path := range paths {
+			fmt.Println("creating file object for path ", path)
 			fileObj := getFileObj(path) // these are full paths, so no need to add working dir to path
+			fmt.Println("here is the resulting file object")
+			PrintJSON(fileObj)
 			results = append(results, fileObj)
 		}
 	}
