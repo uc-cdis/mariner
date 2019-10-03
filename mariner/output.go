@@ -221,7 +221,7 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	time.Sleep(10 * time.Second)
 
 	fmt.Println("reading tool working dir after sleep..")
-	files, err := ioutil.ReadDir(dirname)
+	files, err = ioutil.ReadDir(proc.Tool.WorkingDir)
 	if err != nil {
 		fmt.Printf("error reading dir: %v", err)
 	}
