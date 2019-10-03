@@ -215,7 +215,8 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		fmt.Printf("error reading dir: %v", err)
 	}
 	fmt.Println("found these files:")
-	PrintJSON(files)
+	fmt.Println(files[0].Name())
+	fmt.Println(files[1].Name())
 
 	fmt.Println("changing to working dir..")
 	os.Chdir(proc.Tool.WorkingDir)
@@ -225,7 +226,8 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		fmt.Printf("error reading dir: %v", err)
 	}
 	fmt.Println("found these files:")
-	PrintJSON(files)
+	fmt.Println(files[0].Name())
+	fmt.Println(files[1].Name())
 
 	fmt.Println("sleeping 10 seconds to test if latency issue")
 	time.Sleep(10 * time.Second)
@@ -236,7 +238,8 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		fmt.Printf("error reading dir: %v", err)
 	}
 	fmt.Println("found these files:")
-	PrintJSON(files)
+	fmt.Println(files[0].Name())
+	fmt.Println(files[1].Name())
 
 	fmt.Println("changing to root dir..")
 	os.Chdir("/")
@@ -247,7 +250,8 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		fmt.Printf("error reading dir: %v", err)
 	}
 	fmt.Println("found these files:")
-	PrintJSON(files)
+	fmt.Println(files[0].Name())
+	fmt.Println(files[1].Name())
 
 	fmt.Println("sleeping for 10 minutes for debugging")
 	time.Sleep(10 * time.Minute)
