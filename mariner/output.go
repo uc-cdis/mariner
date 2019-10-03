@@ -201,6 +201,20 @@ func (proc *Process) HandleCLTOutput() (err error) {
 	return nil
 }
 
+func readDir(pwd, dir string) {
+	os.Chdir(pwd)
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Printf("error reading dir: %v", err)
+	}
+
+	fmt.Println("reading ", dir, " from dir ", pwd)
+	fmt.Println("found these files:")
+	for _, f := range files {
+		fmt.Println(f.Name())
+	}
+}
+
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
 func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
@@ -209,49 +223,14 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	fmt.Println("changing to root dir..")
 	os.Chdir("/") // always glob from root (?)
 
-	fmt.Println("reading tool working dir from root dir before sleep..")
-	files, err := ioutil.ReadDir(proc.Tool.WorkingDir)
-	if err != nil {
-		fmt.Printf("error reading dir: %v", err)
-	}
-	fmt.Println("found these files:")
-	fmt.Println(files[0].Name())
-	fmt.Println(files[1].Name())
-
-	fmt.Println("changing to working dir..")
-	os.Chdir(proc.Tool.WorkingDir)
-	fmt.Println("now reading from current dir..")
-	files, err = ioutil.ReadDir(".")
-	if err != nil {
-		fmt.Printf("error reading dir: %v", err)
-	}
-	fmt.Println("found these files:")
-	fmt.Println(files[0].Name())
-	fmt.Println(files[1].Name())
+	readDir("/", proc.Tool.WorkingDir)
+	readDir(proc.Tool.WorkingDir, ".")
 
 	fmt.Println("sleeping 10 seconds to test if latency issue")
 	time.Sleep(10 * time.Second)
 
-	fmt.Println("reading tool working dir after sleep from working dir..")
-	files, err = ioutil.ReadDir(".")
-	if err != nil {
-		fmt.Printf("error reading dir: %v", err)
-	}
-	fmt.Println("found these files:")
-	fmt.Println(files[0].Name())
-	fmt.Println(files[1].Name())
-
-	fmt.Println("changing to root dir..")
-	os.Chdir("/")
-
-	fmt.Println("reading tool working dir from root dir after sleep..")
-	files, err = ioutil.ReadDir(proc.Tool.WorkingDir)
-	if err != nil {
-		fmt.Printf("error reading dir: %v", err)
-	}
-	fmt.Println("found these files:")
-	fmt.Println(files[0].Name())
-	fmt.Println(files[1].Name())
+	readDir("/", proc.Tool.WorkingDir)
+	readDir(proc.Tool.WorkingDir, ".")
 
 	fmt.Println("sleeping for 10 minutes for debugging")
 	time.Sleep(10 * time.Minute)
