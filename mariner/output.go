@@ -228,6 +228,9 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	fmt.Println("found these files:")
 	PrintJSON(files)
 
+	fmt.Println("sleeping for 10 minutes for debugging")
+	time.Sleep(10 * time.Minute)
+
 	var pattern string
 	for _, glob := range output.Binding.Glob {
 		pattern, err = proc.getPattern(glob)
