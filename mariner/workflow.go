@@ -86,6 +86,7 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the POST request body
 	if err != nil {
 		fmt.Println("failed to unmarshal workflow")
+		PrintJSON(workflow)
 		return err
 	}
 
