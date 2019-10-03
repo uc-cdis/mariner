@@ -209,8 +209,18 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	fmt.Println("changing to root dir..")
 	os.Chdir("/") // always glob from root (?)
 
-	fmt.Println("reading tool working dir before sleep..")
+	fmt.Println("reading tool working dir from root dir before sleep..")
 	files, err := ioutil.ReadDir(proc.Tool.WorkingDir)
+	if err != nil {
+		fmt.Printf("error reading dir: %v", err)
+	}
+	fmt.Println("found these files:")
+	PrintJSON(files)
+
+	fmt.Println("changing to working dir..")
+	os.Chdir(proc.Tool.WorkingDir)
+	fmt.Println("now reading from current dir..")
+	files, err = ioutil.ReadDir(".")
 	if err != nil {
 		fmt.Printf("error reading dir: %v", err)
 	}
@@ -220,7 +230,18 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	fmt.Println("sleeping 10 seconds to test if latency issue")
 	time.Sleep(10 * time.Second)
 
-	fmt.Println("reading tool working dir after sleep..")
+	fmt.Println("reading tool working dir after sleep from working dir..")
+	files, err = ioutil.ReadDir(".")
+	if err != nil {
+		fmt.Printf("error reading dir: %v", err)
+	}
+	fmt.Println("found these files:")
+	PrintJSON(files)
+
+	fmt.Println("changing to root dir..")
+	os.Chdir("/")
+
+	fmt.Println("reading tool working dir from root dir after sleep..")
 	files, err = ioutil.ReadDir(proc.Tool.WorkingDir)
 	if err != nil {
 		fmt.Printf("error reading dir: %v", err)
