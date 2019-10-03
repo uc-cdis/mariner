@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -203,6 +204,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	var pattern string
 	fmt.Println("in proc glob method")
+	os.Chdir("/") // always glob from root (?)
 	for _, glob := range output.Binding.Glob {
 		pattern, err = proc.getPattern(glob)
 		if err != nil {
@@ -218,6 +220,7 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		fmt.Println(proc.Tool.WorkingDir + pattern)
 
 		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
+
 		fmt.Println("here are the resulting paths")
 		fmt.Println(paths)
 		if err != nil {
@@ -232,6 +235,7 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			results = append(results, fileObj)
 		}
 	}
+	os.Chdir(proc.Tool.WorkingDir)
 	return results, nil
 }
 
