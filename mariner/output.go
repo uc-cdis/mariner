@@ -55,6 +55,8 @@ func (proc *Process) CollectOutput() (err error) {
 // for now, no binding -> output won't be collected
 func (proc *Process) HandleCLTOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
+		fmt.Println("handling CLT output for output")
+		PrintJSON(output)
 		if output.Binding == nil {
 			return fmt.Errorf("output parameter missing binding: %v", output.ID)
 		}
