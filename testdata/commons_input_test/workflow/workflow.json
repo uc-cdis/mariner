@@ -106,13 +106,13 @@
             "outputs": {
                 "processed_file_1": {
                     "outputBinding": {
-                        "glob": "processed_file_1"
+                        "glob": "processed_file_1*"
                     },
                     "type": "File"
                 },
                 "processed_file_2": {
                     "outputBinding": {
-                        "glob": "processed_file_2"
+                        "glob": "processed_file_2*"
                     },
                     "type": "File"
                 }
@@ -169,8 +169,8 @@
                 "output_files": {
                     "outputBinding": {
                         "glob": [
-                            "final_processed",
-                            "unprocessed"
+                            "final_processed*",
+                            "unprocessed*"
                         ],
                         "loadContents": true
                     },

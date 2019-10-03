@@ -29,8 +29,8 @@ outputs:
     outputBinding:
       loadContents: true
       glob:
-        - 'final_processed'
-        - 'unprocessed'
+        - 'final_processed*'
+        - 'unprocessed*'
 
 baseCommand: ['/bin/sh']
 

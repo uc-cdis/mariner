@@ -26,11 +26,11 @@ outputs:
   processed_file_1:
     type: File
     outputBinding:
-      glob: 'processed_file_1'
+      glob: 'processed_file_1*'
   processed_file_2:
     type: File
     outputBinding:
-      glob: 'processed_file_2'
+      glob: 'processed_file_2*'
 
 baseCommand: ['/bin/sh']
 
