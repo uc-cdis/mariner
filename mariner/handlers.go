@@ -23,14 +23,16 @@ import (
 type WorkflowRequest struct {
 	Workflow json.RawMessage `json:"workflow"`
 	Input    json.RawMessage `json:"input"`
-	ID       string          `json:"id"` // after token flow implemented, remove this field
-	Token		 string 				 `json:"token"` // flow not yet implemented, but field defined here
-	Manifest Manifest				 `json:"manifest"`
+	ID       string          `json:"id"`    // after token flow implemented, remove this field
+	Token    string          `json:"token"` // flow not yet implemented, but field defined here
+	Manifest Manifest        `json:"manifest"`
 }
 
 // HERE - TODO - move to config.go
 type Manifest []ManifestEntry
-type ManifestEntry struct{GUID string `json:"object_id"`}
+type ManifestEntry struct {
+	GUID string `json:"object_id"`
+}
 
 // RunHandler handles `/run` endpoint
 // handles a POST request to run a workflow by dispatching the workflow job
@@ -58,6 +60,7 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 	// -> `mariner run $S3PREFIX`, where
 	// S3PREFIX is the working directory for this workflow in the workflow bucket
 	fmt.Printf("running workflow for user %v\n", workflowRequest.ID)
+	PrintJSON(workflowRequest)
 	err = DispatchWorkflowJob(&workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)

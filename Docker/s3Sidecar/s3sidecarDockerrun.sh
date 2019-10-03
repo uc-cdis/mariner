@@ -20,6 +20,8 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
   goofys workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
   echo $WORKFLOW_REQUEST > /$ENGINE_WORKSPACE/request.json
   echo "successfully wrote workflow request to /$ENGINE_WORKSPACE/request.json"
+  echo "here is the workflow:"
+  echo $WORKFLOW_REQUEST | jq 
   echo "waiting for workflow to finish.."
   sleep 10
   while [[ ! -f /$ENGINE_WORKSPACE/done ]]; do
