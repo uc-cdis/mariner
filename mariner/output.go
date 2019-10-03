@@ -232,8 +232,11 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	readDir("/", proc.Tool.WorkingDir)
 	readDir(proc.Tool.WorkingDir, ".")
 
-	fmt.Println("sleeping for 10 minutes for debugging")
-	time.Sleep(10 * time.Minute)
+	// fmt.Println("sleeping for 10 minutes for debugging")
+	// time.Sleep(10 * time.Minute)
+
+	fmt.Println("globbing from root")
+	os.Chdir("/")
 
 	var pattern string
 	for _, glob := range output.Binding.Glob {
