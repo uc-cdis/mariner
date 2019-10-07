@@ -27,8 +27,10 @@ steps:
     read_from_engine_workspace_and_commons:
         run: ./read_from_engine_workspace_and_commons.cwl
         in:
-            processed_file_1: read_from_commons/processed_file_1
-            processed_file_2: read_from_commons/processed_file_2
+            processed_file_1: 
+                source: read_from_commons/processed_file_1
+            processed_file_2: 
+                source: read_from_commons/processed_file_2
             unprocessed_file_1: commons_file_1
             unprocessed_file_2: commons_file_2
         out: [ output_files ]
