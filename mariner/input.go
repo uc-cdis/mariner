@@ -35,6 +35,7 @@ func (tool *Tool) loadInputs() (err error) {
 }
 
 // used in loadInput() to handle case of workflow step input valueFrom case
+// FIXME - this function is busted - something to do with the pointer I'm sure
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
 	fmt.Println("buidling step input map")
