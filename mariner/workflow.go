@@ -50,6 +50,7 @@ type Task struct {
 	Children      map[string]*Task  // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
 	outputIDMap   map[string]string // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	originalStep  cwl.Step          // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
+	Done          *bool             // false until all output for this task has been collected, then true
 }
 
 // recursively populates `mainTask` (the task object for the top level workflow with all downstream task objects)
@@ -197,7 +198,7 @@ func (task *Task) runStep(curStepID string, parentTask *Task) {
 			depTask := parentTask.Children[depStepID]
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 			fmt.Println("\tWaiting for dependency task to finish running..")
-			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
+			for dependencyDone := &falseVal; !*dependencyDone; dependencyDone = task.Done {
 				if len(depTask.Outputs) > 0 {
 					fmt.Println("\tDependency task complete!")
 					task.Parameters[taskInput] = depTask.Outputs[outputID]

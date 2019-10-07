@@ -47,6 +47,7 @@ func (proc *Process) CollectOutput() (err error) {
 		return fmt.Errorf("unexpected class: %v", class)
 	}
 	// PrintJSON(proc.Task.Outputs)
+
 	return nil
 }
 

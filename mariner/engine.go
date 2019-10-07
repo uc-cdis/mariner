@@ -180,6 +180,7 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
+	proc.Task.Done = &trueVal
 	return nil
 }
 
