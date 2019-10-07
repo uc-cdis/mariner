@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -226,11 +225,13 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 	readDir("/", proc.Tool.WorkingDir)
 	readDir(proc.Tool.WorkingDir, ".")
 
-	fmt.Println("sleeping 30 seconds to test if latency issue")
-	time.Sleep(30 * time.Second)
+	/*
+		fmt.Println("sleeping 30 seconds to test if latency issue")
+		time.Sleep(30 * time.Second)
 
-	readDir("/", proc.Tool.WorkingDir)
-	readDir(proc.Tool.WorkingDir, ".")
+		readDir("/", proc.Tool.WorkingDir)
+		readDir(proc.Tool.WorkingDir, ".")
+	*/
 
 	fmt.Println("globbing from root")
 	os.Chdir("/")
@@ -267,8 +268,10 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		}
 	}
 	os.Chdir(proc.Tool.WorkingDir)
-	fmt.Println("sleeping for 10 minutes for debugging")
-	time.Sleep(10 * time.Minute)
+	/*
+		fmt.Println("sleeping for 10 minutes for debugging")
+		time.Sleep(10 * time.Minute)
+	*/
 	return results, nil
 }
 
