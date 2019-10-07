@@ -22,6 +22,8 @@ func (tool *Tool) loadInputs() (err error) {
 	sort.Sort(tool.Root.Inputs)
 	fmt.Println("building step input map..")
 	tool.buildStepInputMap()
+	fmt.Println("here is the input map:")
+	PrintJSON(tool.StepInputMap)
 	for _, in := range tool.Root.Inputs {
 		fmt.Printf("loading input %v..\n", in.ID)
 		err = tool.loadInput(in)
@@ -95,6 +97,11 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// no processing needs to happen if the valueFrom field is empty
 		fmt.Println("no value from to handle")
 		var ok bool
+		fmt.Println("here are parameters:")
+		PrintJSON(tool.Parameters)
+		fmt.Println("here is the input")
+		PrintJSON(input)
+		// DEBUG - ok ends up being true, but out is nil - what gives?
 		if out, ok = tool.Parameters[input.ID]; !ok {
 			fmt.Println("error: input not found in tool's parameters")
 			return nil, fmt.Errorf("input not found in tool's parameters")
