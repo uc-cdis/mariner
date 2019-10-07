@@ -37,6 +37,9 @@ func (tool *Tool) loadInputs() (err error) {
 // used in loadInput() to handle case of workflow step input valueFrom case
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
+	fmt.Println("buidling step input map")
+	fmt.Println("here is the original step input:")
+	PrintJSON(tool.OriginalStep.In)
 	for _, in := range tool.OriginalStep.In {
 		localID := GetLastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
