@@ -103,20 +103,22 @@
                     ]
                 }
             ],
-            "outputs": {
-                "processed_file_1": {
+            "outputs": [
+                {
                     "outputBinding": {
                         "glob": "processed_file_1*"
                     },
-                    "type": "File"
+                    "type": "File",
+                    "id": "#read_from_commons.cwl/processed_file_1"
                 },
-                "processed_file_2": {
+                {
                     "outputBinding": {
                         "glob": "processed_file_2*"
                     },
-                    "type": "File"
+                    "type": "File",
+                    "id": "#read_from_commons.cwl/processed_file_2"
                 }
-            },
+            ],
             "baseCommand": [
                 "/bin/sh"
             ],
@@ -165,8 +167,8 @@
                     ]
                 }
             ],
-            "outputs": {
-                "output_files": {
+            "outputs": [
+                {
                     "outputBinding": {
                         "glob": [
                             "final_processed*",
@@ -174,9 +176,10 @@
                         ],
                         "loadContents": true
                     },
-                    "type": "File[]"
+                    "type": "File[]",
+                    "id": "#read_from_engine_workspace_and_commons.cwl/output_files"
                 }
-            },
+            ],
             "baseCommand": [
                 "/bin/sh"
             ],

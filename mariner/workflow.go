@@ -202,14 +202,10 @@ func (task *Task) runStep(curStepID string, parentTask *Task) {
 		if depStepID, ok := parentTask.outputIDMap[source]; ok {
 			// wait until all dependency step output has been collected
 			// and then assign output parameter of dependency step (which has just finished running) to input parameter of this step
-			fmt.Println("depStepID: ", depStepID)
 			depTask := parentTask.Children[depStepID]
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
-			fmt.Println("source: ", source)
-			fmt.Println("outputID: ", outputID)
+
 			fmt.Println("\tWaiting for dependency task to finish running..")
-			fmt.Println("depTask outputs:")
-			PrintJSON(depTask.Outputs)
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
 				if *depTask.Done {
 					fmt.Println("\tDependency task complete!")
