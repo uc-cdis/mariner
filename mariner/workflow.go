@@ -72,6 +72,7 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 				Root:         subworkflow,
 				Parameters:   make(cwl.Parameters),
 				originalStep: step,
+				Done:         &falseVal,
 			}
 			resolveGraph(rootMap, newTask)
 			// what to use as id? value or step.id - using step.ID for now, seems to work okay
