@@ -97,6 +97,11 @@ func (task *Task) getTool() *Tool {
 		OriginalStep: task.originalStep,
 		WorkingDir:   task.getWorkingDir(),
 	}
+	fmt.Println("task ", task.Root.ID)
+	fmt.Println("parameters:")
+	PrintJSON(task.Parameters)
+	fmt.Println("original step:")
+	PrintJSON(task.originalStep)
 	return tool
 }
 
