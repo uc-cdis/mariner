@@ -22,8 +22,6 @@ func (tool *Tool) loadInputs() (err error) {
 	sort.Sort(tool.Root.Inputs)
 	fmt.Println("building step input map..")
 	tool.buildStepInputMap()
-	fmt.Println("here is the input map:")
-	PrintJSON(tool.StepInputMap)
 	for _, in := range tool.Root.Inputs {
 		fmt.Printf("loading input %v..\n", in.ID)
 		err = tool.loadInput(in)
@@ -38,9 +36,6 @@ func (tool *Tool) loadInputs() (err error) {
 // FIXME - this function is busted - something to do with the pointer I'm sure
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
-	fmt.Println("buidling step input map")
-	fmt.Println("here is the original step input:")
-	PrintJSON(tool.OriginalStep.In)
 	for _, in := range tool.OriginalStep.In {
 		localID := GetLastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
@@ -54,8 +49,6 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	// so that would be specified in a cwl workflow file like Workflow.cwl
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
 	// so that information would be specified in a cwl  *tool file like CommandLineTool.cwl or ExpressionTool.cwl
-	fmt.Println("transforming input")
-	PrintJSON(input)
 	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	} else {
