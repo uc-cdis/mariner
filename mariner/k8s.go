@@ -138,11 +138,11 @@ func getS3SidecarEnv(r *WorkflowRequest, S3Prefix string) (env []k8sv1.EnvVar) {
 			ValueFrom: &awscreds,
 		},
 		{
-			Name: "USER_ID",
+			Name:  "USER_ID",
 			Value: r.ID,
 		},
 		{
-			Name: "USER_DATA_DIR",
+			Name:  "USER_DATA_DIR",
 			Value: USER_DATA,
 		},
 		{
@@ -336,9 +336,9 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 			Value: engine.UserID,
 		},
 		{
-			Name: "USER_DATA_DIR",
+			Name:  "USER_DATA_DIR",
 			Value: USER_DATA,
-		}
+		},
 		{
 			Name:  "MARINER_COMPONENT", // flag to tell setup sidecar script this is a task, not an engine job
 			Value: TASK,
