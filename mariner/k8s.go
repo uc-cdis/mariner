@@ -42,6 +42,7 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 }
 
 func getEngineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
+	// don't need to pass workflowRequest here necessarily, since UserID in engine now
 	S3Prefix := getS3Prefix(workflowRequest)
 	engine := getEngineContainer(S3Prefix)
 	s3sidecar := getS3SidecarContainer(workflowRequest, S3Prefix)
@@ -135,6 +136,14 @@ func getS3SidecarEnv(r *WorkflowRequest, S3Prefix string) (env []k8sv1.EnvVar) {
 		{
 			Name:      "AWSCREDS",
 			ValueFrom: &awscreds,
+		},
+		{
+			Name: "USER_ID",
+			Value: r.ID,
+		},
+		{
+			Name: "USER_DATA_DIR",
+			Value: USER_DATA,
 		},
 		{
 			Name:  "MARINER_COMPONENT",
@@ -322,6 +331,14 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 			Name:  "S3PREFIX",
 			Value: engine.S3Prefix, // mounting whole user dir to /engine-workspace -> not just the dir for the task
 		},
+		{
+			Name:  "USER_ID",
+			Value: engine.UserID,
+		},
+		{
+			Name: "USER_DATA_DIR",
+			Value: USER_DATA,
+		}
 		{
 			Name:  "MARINER_COMPONENT", // flag to tell setup sidecar script this is a task, not an engine job
 			Value: TASK,

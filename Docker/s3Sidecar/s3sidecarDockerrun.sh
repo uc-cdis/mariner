@@ -13,6 +13,12 @@ export AWS_SECRET_ACCESS_KEY=$(echo $AWSCREDS | jq .secret | tr -d '"')
 # goofys workflow-engine-garvin:$S3PREFIX /engine-workspace
 # <- common to engine and task
 
+# HERE FIXME - make bucket names configurable in manifest/config - i.e., don't hardcode 'workflow-user-data' and 'workflow-engine-garvin' duh
+
+echo "mounting user-data at userID prefix.."
+# TODO - pass USER_ID and USER_DATA_DIR from go code
+goofys --stat-cache-ttl 0 --type-cache-ttl 0 workflow-user-data:$USER_ID /$USER_DATA_DIR
+
 # conditional here
 if [ $MARINER_COMPONENT == "ENGINE" ]; then
   echo "setting up for the engine.."

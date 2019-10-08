@@ -166,9 +166,40 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// ---- COMMONS/<guid> -> /commons-data/by-guid/<guid>
 		// ---- USER/<path> -> /user-data/<path> // not implemented yet
 		// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
-		if strings.HasPrefix(path, COMMONS_PREFIX) {
+		switch {
+		case strings.HasPrefix(path, COMMONS_PREFIX):
+			/*
+				~ Path represenations/handling for commons-data ~
+
+				inputs.json: 				"COMMONS/<guid>"
+				mariner: "/commons-data/data/by-guid/<guid>"
+
+				gen3-fuse mounts those objects whose GUIDs appear in the manifest
+				gen3-fuse mounts to /commons-data/data/
+				and mounts the directories "by-guid/", "by-filepath/", and "by-filename/"
+
+				commons files can be accessed via the full path "/commons-data/data/by-guid/<guid>"
+
+				so the mapping that happens in this path processing step is this:
+				"COMMONS/<guid>" -> "/commons-data/data/by-guid/<guid>"
+			*/
 			GUID := strings.TrimPrefix(path, COMMONS_PREFIX)
 			path = strings.Join([]string{PATH_TO_COMMONS_DATA, GUID}, "")
+		case strings.HasPrefix(path, USER_PREFIX):
+			/*
+				~ Path representations/handling for user-data ~
+
+				s3: 			   "/userID/path/to/file"
+				inputs.json: 	      "USER/path/to/file"
+				mariner: 		"/user-data/path/to/file"
+
+				user-data bucket gets mounted at the 'userID' prefix
+
+				so the mapping that happens in this path processing step is this:
+				"USER/path/to/file" -> "/user-data/path/to/file"
+			*/
+			subpath := strings.TrimPrefix(path, USER_PREFIX)
+			path = strings.Join([]string{PATH_TO_USER_DATA, subpath}, "")
 		}
 		out = getFileObj(path)
 	} else {

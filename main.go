@@ -7,9 +7,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/uc-cdis/mariner/mariner"
-
 	"github.com/urfave/cli"
+
+	"github.com/uc-cdis/mariner/mariner"
 )
 
 /*
@@ -63,6 +63,7 @@ func main() {
 			engine.UnfinishedProcs = make(map[string]*mariner.Process)
 
 			engine.Manifest = &wfRequest.Manifest
+			engine.UserID = wfRequest.ID
 
 			// collect S3 prefix to mount from user bucket
 			engine.S3Prefix = c.Args().Get(1)
