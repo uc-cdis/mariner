@@ -79,6 +79,7 @@ func (task *Task) gatherScatterOutputs() (err error) {
 		wg.Add(1)
 		go func(scatterTask *Task, totalOutput []cwl.Parameters) {
 			defer wg.Done()
+			// HERE FIXME - use task 'Done' flag, not length of outputs, as condition
 			for len(scatterTask.Outputs) == 0 {
 				// wait for scattered task to finish
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)

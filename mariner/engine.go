@@ -97,11 +97,6 @@ func (task *Task) getTool() *Tool {
 		OriginalStep: task.originalStep,
 		WorkingDir:   task.getWorkingDir(),
 	}
-	fmt.Println("task ", task.Root.ID)
-	fmt.Println("parameters:")
-	PrintJSON(task.Parameters)
-	fmt.Println("original step:")
-	PrintJSON(task.originalStep)
 	return tool
 }
 
@@ -122,13 +117,11 @@ func (task *Task) getWorkingDir() string {
 
 // create working directory for this *Tool
 func (tool *Tool) makeWorkingDir() error {
-	// fmt.Printf("making working directory %v\n\n", tool.WorkingDir)
 	err := os.MkdirAll(tool.WorkingDir, 0777)
 	if err != nil {
 		fmt.Printf("error while making directory: %v\n", err)
 		return err
 	}
-	// fmt.Printf("successfully created working directory %v\n\n", tool.WorkingDir)
 	return nil
 }
 

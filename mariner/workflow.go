@@ -192,11 +192,14 @@ func (task *Task) runStep(curStepID string, parentTask *Task) {
 
 		// I/O DEPENDENCY HANDLING
 
-		fmt.Printf("\n------\n")
-		fmt.Println("entering i/o parameter passing")
-		fmt.Println("stepInput: ", input.ID)
-		fmt.Println("taskInput: ", taskInput)
-		fmt.Printf("\n------\n")
+		/*
+			// DEBUG
+				fmt.Printf("\n------\n")
+				fmt.Println("entering i/o parameter passing")
+				fmt.Println("stepInput: ", input.ID)
+				fmt.Println("taskInput: ", taskInput)
+				fmt.Printf("\n------\n")
+		*/
 
 		// if this input's source is the ID of an output parameter of another step
 		if depStepID, ok := parentTask.outputIDMap[source]; ok {

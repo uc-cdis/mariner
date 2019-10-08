@@ -32,17 +32,17 @@ func (proc *Process) CollectOutput() (err error) {
 	fmt.Println("collecting output..")
 	switch class := proc.Tool.Root.Class; class {
 	case "CommandLineTool":
-		fmt.Println("Handling CLT output..")
+		// fmt.Println("Handling CLT output..")
 		if err = proc.HandleCLTOutput(); err != nil {
 			fmt.Printf("Error handling CLT output: %v\n", err)
 			return err
 		}
-		fmt.Println("CLT outputs:")
+		// fmt.Println("CLT outputs:")
 	case "ExpressionTool":
 		if err = proc.HandleETOutput(); err != nil {
 			return err
 		}
-		fmt.Println("ExpressionTool outputs:")
+		// fmt.Println("ExpressionTool outputs:")
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
@@ -58,8 +58,6 @@ func (proc *Process) CollectOutput() (err error) {
 // for now, no binding -> output won't be collected
 func (proc *Process) HandleCLTOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
-		fmt.Println("handling CLT output for output")
-		PrintJSON(output)
 		if output.Binding == nil {
 			return fmt.Errorf("output parameter missing binding: %v", output.ID)
 		}
@@ -79,8 +77,6 @@ func (proc *Process) HandleCLTOutput() (err error) {
 
 		// 1. Glob - prefixissue
 		if len(output.Binding.Glob) > 0 {
-			fmt.Println("globbing with this pattern:")
-			PrintJSON(output.Binding.Glob)
 			results, err = proc.Glob(&output)
 			if err != nil {
 				fmt.Printf("error globbing: %v", err)
@@ -92,15 +88,9 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
 
-		fmt.Println("step 2 - load contents")
-
-		// uncomment to test LoadContents functionality:
-		// output.Binding.LoadContents = true
 		if output.Binding.LoadContents {
 			fmt.Println("load contents is true")
 			for _, fileObj := range results {
-				fmt.Println("loading contents for this file")
-				PrintJSON(fileObj)
 				err = fileObj.loadContents()
 				if err != nil {
 					fmt.Printf("error loading contents: %v\n", err)
@@ -179,18 +169,19 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
-		fmt.Println("done with glob and load contents")
-		fmt.Println("at end of function here")
-
-		fmt.Println("here are results:")
-		PrintJSON(results)
+		/*
+			fmt.Println("done with glob and load contents")
+			fmt.Println("at end of function here")
+			fmt.Println("here are results:")
+			PrintJSON(results)
+		*/
 
 		// at this point we have file results captured in `results`
 		// output should be a "File" or "array of Files"
 		if output.Types[0].Type == "File" {
 			fmt.Println("output type is file")
 
-			// TODO: add error handling for cases len(results) != 1
+			// FIXME - TODO: add error handling for cases len(results) != 1
 			proc.Task.Outputs[output.ID] = results[0]
 		} else {
 			// output should be an array of File objects
@@ -218,24 +209,19 @@ func readDir(pwd, dir string) {
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
 func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
-	fmt.Println("in proc glob method")
-
-	fmt.Println("changing to root dir..")
-	os.Chdir("/") // always glob from root (?)
-
-	readDir("/", proc.Tool.WorkingDir)
-	readDir(proc.Tool.WorkingDir, ".")
-
 	/*
-		fmt.Println("sleeping 30 seconds to test if latency issue")
-		time.Sleep(30 * time.Second)
-
 		readDir("/", proc.Tool.WorkingDir)
 		readDir(proc.Tool.WorkingDir, ".")
+
+			fmt.Println("sleeping 30 seconds to test if latency issue")
+			time.Sleep(30 * time.Second)
+
+			readDir("/", proc.Tool.WorkingDir)
+			readDir(proc.Tool.WorkingDir, ".")
 	*/
 
 	fmt.Println("globbing from root")
-	os.Chdir("/")
+	os.Chdir("/") // always glob from root (?)
 
 	var pattern string
 	for _, glob := range output.Binding.Glob {
@@ -244,31 +230,30 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			return results, err
 		}
 
-		fmt.Println("this pattern")
-		fmt.Println(pattern)
-		fmt.Println("here is working dir")
-		fmt.Println(proc.Tool.WorkingDir)
-
-		fmt.Println("globbing here")
-		fmt.Println(proc.Tool.WorkingDir + pattern)
+		/*
+			fmt.Println("this pattern")
+			fmt.Println(pattern)
+			fmt.Println("here is working dir")
+			fmt.Println(proc.Tool.WorkingDir)
+			fmt.Println("globbing here")
+			fmt.Println(proc.Tool.WorkingDir + pattern)
+		*/
 
 		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
 
-		fmt.Println("here are the resulting paths")
-		fmt.Println(paths)
+		// fmt.Println("here are the resulting paths")
+		// fmt.Println(paths)
+
 		if err != nil {
 			fmt.Printf("error globbing: %v", err)
 			return results, err
 		}
 		for _, path := range paths {
-			fmt.Println("creating file object for path ", path)
 			fileObj := getFileObj(path) // these are full paths, so no need to add working dir to path
-			fmt.Println("here is the resulting file object")
-			PrintJSON(fileObj)
 			results = append(results, fileObj)
 		}
 	}
-	os.Chdir(proc.Tool.WorkingDir)
+	os.Chdir(proc.Tool.WorkingDir) // move back to working dir
 	/*
 		fmt.Println("sleeping for 10 minutes for debugging")
 		time.Sleep(10 * time.Minute)

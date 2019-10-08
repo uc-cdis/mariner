@@ -101,11 +101,6 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// no processing needs to happen if the valueFrom field is empty
 		fmt.Println("no value from to handle")
 		var ok bool
-		fmt.Println("here are parameters:")
-		PrintJSON(tool.Parameters)
-		fmt.Println("here is the input")
-		PrintJSON(input)
-		// DEBUG - ok ends up being true, but out is nil - what gives?
 		if out, ok = tool.Parameters[input.ID]; !ok {
 			fmt.Println("error: input not found in tool's parameters")
 			return nil, fmt.Errorf("input not found in tool's parameters")
@@ -161,12 +156,12 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		}
 	}
 
-	fmt.Println("before creating file object:")
-	PrintJSON(out)
+	// fmt.Println("before creating file object:")
+	// PrintJSON(out)
 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	if isFile(out) {
-		fmt.Println("is a file object")
+		// fmt.Println("is a file object")
 		path, err := GetPath(out)
 		if err != nil {
 			return nil, err
@@ -187,8 +182,8 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		fmt.Println("is not a file object")
 	}
 
-	fmt.Println("after creating file object:")
-	PrintJSON(out)
+	// fmt.Println("after creating file object:")
+	// PrintJSON(out)
 
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
 	// so `out` will be what we work with in this next block as an initial value
@@ -220,8 +215,8 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		}
 	}
 
-	fmt.Println("Here's tranformed input:")
-	PrintJSON(out)
+	// fmt.Println("Here's tranformed input:")
+	// PrintJSON(out)
 	return out, nil
 }
 
