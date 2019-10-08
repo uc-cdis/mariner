@@ -3,6 +3,7 @@ package mariner
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"strings"
@@ -128,7 +129,7 @@ func (fileObj *File) loadContents() (err error) {
 	// 1 KiB is 1024 bytes -> 64 KiB is 65536 bytes
 	contents := make([]byte, 65536, 65536)
 	_, err = r.Read(contents)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		fmt.Printf("error reading file contents: %v", err)
 		return err
 	}
