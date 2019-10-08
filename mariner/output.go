@@ -73,8 +73,6 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		//// Begin 4 step pipeline for collecting/handling CommandLineTool output files ////
 		var results []*File
 
-		fmt.Println("step 1 - glob")
-
 		// 1. Glob - prefixissue
 		if len(output.Binding.Glob) > 0 {
 			results, err = proc.Glob(&output)
@@ -179,7 +177,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		// at this point we have file results captured in `results`
 		// output should be a "File" or "array of Files"
 		if output.Types[0].Type == "File" {
-			fmt.Println("output type is file")
+			// fmt.Println("output type is file")
 
 			// FIXME - TODO: add error handling for cases len(results) != 1
 			proc.Task.Outputs[output.ID] = results[0]
