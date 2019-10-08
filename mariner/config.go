@@ -45,8 +45,8 @@ const (
 	// user specifies user datafile by "USER/<path>"
 	COMMONS_PREFIX       = "COMMONS/"
 	USER_PREFIX          = "USER/"
-	PATH_TO_COMMONS_DATA = fmt.Sprintf("/%v/data/by-guid/", COMMONS_DATA)
-	PATH_TO_USER_DATA    = fmt.Sprintf("/%v/", USER_DATA)
+	PATH_TO_COMMONS_DATA = "/commons-data/data/by-guid/"
+	PATH_TO_USER_DATA    = "/user-data/"
 
 	// for pod annotation so that WTS works
 	// only here for testing, of course
