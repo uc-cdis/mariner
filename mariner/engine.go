@@ -117,13 +117,11 @@ func (task *Task) getWorkingDir() string {
 
 // create working directory for this *Tool
 func (tool *Tool) makeWorkingDir() error {
-	// fmt.Printf("making working directory %v\n\n", tool.WorkingDir)
 	err := os.MkdirAll(tool.WorkingDir, 0777)
 	if err != nil {
 		fmt.Printf("error while making directory: %v\n", err)
 		return err
 	}
-	// fmt.Printf("successfully created working directory %v\n\n", tool.WorkingDir)
 	return nil
 }
 
@@ -180,6 +178,7 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
+	proc.Task.Done = &trueVal
 	return nil
 }
 

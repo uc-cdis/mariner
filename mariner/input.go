@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/robertkrimen/otto"
+
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -32,6 +33,7 @@ func (tool *Tool) loadInputs() (err error) {
 }
 
 // used in loadInput() to handle case of workflow step input valueFrom case
+// FIXME - this function is busted - something to do with the pointer I'm sure
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
 	for _, in := range tool.OriginalStep.In {
@@ -90,8 +92,10 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
+		fmt.Println("no value from to handle")
 		var ok bool
 		if out, ok = tool.Parameters[input.ID]; !ok {
+			fmt.Println("error: input not found in tool's parameters")
 			return nil, fmt.Errorf("input not found in tool's parameters")
 		}
 	} else {
@@ -155,9 +159,20 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		if err != nil {
 			return nil, err
 		}
+
+		// HERE -> handle the filepath prefix issue
+		//
+		// Mapping:
+		// ---- COMMONS/<guid> -> /commons-data/by-guid/<guid>
+		// ---- USER/<path> -> /user-data/<path> // not implemented yet
+		// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
+		if strings.HasPrefix(path, COMMONS_PREFIX) {
+			GUID := strings.TrimPrefix(path, COMMONS_PREFIX)
+			path = strings.Join([]string{PATH_TO_COMMONS_DATA, GUID}, "")
+		}
 		out = getFileObj(path)
 	} else {
-		// fmt.Println("is not a file object")
+		fmt.Println("is not a file object")
 	}
 
 	// fmt.Println("after creating file object:")

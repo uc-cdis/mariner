@@ -50,6 +50,7 @@ type Task struct {
 	Children      map[string]*Task  // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
 	outputIDMap   map[string]string // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	originalStep  cwl.Step          // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
+	Done          *bool             // false until all output for this task has been collected, then true
 }
 
 // recursively populates `mainTask` (the task object for the top level workflow with all downstream task objects)
@@ -71,6 +72,7 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 				Root:         subworkflow,
 				Parameters:   make(cwl.Parameters),
 				originalStep: step,
+				Done:         &falseVal,
 			}
 			resolveGraph(rootMap, newTask)
 			// what to use as id? value or step.id - using step.ID for now, seems to work okay
@@ -86,6 +88,7 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the POST request body
 	if err != nil {
 		fmt.Println("failed to unmarshal workflow")
+		PrintJSON(workflow)
 		return err
 	}
 
@@ -189,15 +192,25 @@ func (task *Task) runStep(curStepID string, parentTask *Task) {
 
 		// I/O DEPENDENCY HANDLING
 
+		/*
+			// DEBUG
+				fmt.Printf("\n------\n")
+				fmt.Println("entering i/o parameter passing")
+				fmt.Println("stepInput: ", input.ID)
+				fmt.Println("taskInput: ", taskInput)
+				fmt.Printf("\n------\n")
+		*/
+
 		// if this input's source is the ID of an output parameter of another step
 		if depStepID, ok := parentTask.outputIDMap[source]; ok {
-			// wait until dependency step output is there
+			// wait until all dependency step output has been collected
 			// and then assign output parameter of dependency step (which has just finished running) to input parameter of this step
 			depTask := parentTask.Children[depStepID]
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
+
 			fmt.Println("\tWaiting for dependency task to finish running..")
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
-				if len(depTask.Outputs) > 0 {
+				if *depTask.Done {
 					fmt.Println("\tDependency task complete!")
 					task.Parameters[taskInput] = depTask.Outputs[outputID]
 					fmt.Println("\tSuccessfully collected output from dependency task.")

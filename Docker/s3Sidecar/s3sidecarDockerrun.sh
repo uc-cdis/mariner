@@ -17,9 +17,11 @@ export AWS_SECRET_ACCESS_KEY=$(echo $AWSCREDS | jq .secret | tr -d '"')
 if [ $MARINER_COMPONENT == "ENGINE" ]; then
   echo "setting up for the engine.."
   echo "mounting prefix $S3PREFIX"
-  goofys workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
+  goofys --stat-cache-ttl 0 --type-cache-ttl 0 workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
   echo $WORKFLOW_REQUEST > /$ENGINE_WORKSPACE/request.json
   echo "successfully wrote workflow request to /$ENGINE_WORKSPACE/request.json"
+  echo "here is the workflow:"
+  echo $WORKFLOW_REQUEST | jq 
   echo "waiting for workflow to finish.."
   sleep 10
   while [[ ! -f /$ENGINE_WORKSPACE/done ]]; do
@@ -28,7 +30,7 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
 else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
   echo "mounting prefix $S3PREFIX"
-  goofys workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
+  goofys --stat-cache-ttl 0 --type-cache-ttl 0 workflow-engine-garvin:$S3PREFIX /$ENGINE_WORKSPACE
   echo "here is /$ENGINE_WORKSPACE:"
   ls -R /$ENGINE_WORKSPACE
   echo "creating working dir for tool.."

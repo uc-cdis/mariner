@@ -1,11 +1,9 @@
 package mariner
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // this file contains some methods/functions for setting up and working with *Tools (i.e., commandlinetools and expressiontools)
@@ -22,35 +20,27 @@ func (tool *Tool) initWorkDir() (err error) {
 				// handling the case where `entry` is content (expression or string) to be written to a file
 				// and `entryname` is the name of the file to be created
 				var contents interface{}
-				if strings.HasPrefix(listing.Entry, "$") {
-					// `entry` is an expression which may return a string, File or `dirent`
-					// NOTE: presently NOT supporting the File or dirent case
-					// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
-					result, err = EvalExpression(listing.Entry, tool.Root.InputsVM)
-					if err != nil {
-						return err
-					}
-					contents = result
-				} else {
-					contents = listing.Entry
+				// `entry` is an expression which may return a string, File or `dirent`
+				// NOTE: presently NOT supporting the File or dirent case
+				// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
+				result, err = tool.resolveExpressions(listing.Entry)
+				if err != nil {
+					return err
 				}
+				contents = result
 				// PrintJSON(contents)
 
 				// `entryName` for sure is a string literal or an expression which evaluates to a string
 				// `entryName` is the name of the file to be created
 				var entryName string
-				if strings.HasPrefix(listing.EntryName, "$") {
-					result, err = EvalExpression(listing.EntryName, tool.Root.InputsVM)
-					if err != nil {
-						return err
-					}
-					var ok bool
-					entryName, ok = result.(string)
-					if !ok {
-						return fmt.Errorf("entryname expression did not return a string")
-					}
-				} else {
-					entryName = listing.EntryName
+				result, err = tool.resolveExpressions(listing.EntryName)
+				if err != nil {
+					return err
+				}
+				var ok bool
+				entryName, ok = result.(string)
+				if !ok {
+					return fmt.Errorf("entryname expression did not return a string")
 				}
 
 				/*
@@ -67,10 +57,14 @@ func (tool *Tool) initWorkDir() (err error) {
 					// presently not supporting this case - will implement this feature once I find an example to work with
 					panic("feature not supported: entry expression returned a file object")
 				} else {
-					jContents, err := json.Marshal(contents)
-					if err != nil {
-						return err
-					}
+					/*
+						// not sure why marshalling to json here?
+							jContents, err := json.Marshal(contents)
+							if err != nil {
+								return err
+							}
+					*/
+
 					// create tool working dir if it doesn't already exist
 					// might be unnecessary to put here if dir already created earlier in processing this tool - need to check
 					os.MkdirAll(tool.WorkingDir, os.ModePerm)
@@ -79,7 +73,11 @@ func (tool *Tool) initWorkDir() (err error) {
 						fmt.Println("failed to create file in initworkdir req")
 						return err
 					}
-					f.Write(jContents)
+					// f.Write(jContents)
+
+					// HERE - TODO - probably need case handling here
+					b := []byte(contents.(string))
+					f.Write(b)
 					f.Close()
 				}
 			}

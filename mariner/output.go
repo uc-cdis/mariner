@@ -2,6 +2,8 @@ package mariner
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -30,21 +32,22 @@ func (proc *Process) CollectOutput() (err error) {
 	fmt.Println("collecting output..")
 	switch class := proc.Tool.Root.Class; class {
 	case "CommandLineTool":
-		fmt.Println("Handling CLT output..")
+		// fmt.Println("Handling CLT output..")
 		if err = proc.HandleCLTOutput(); err != nil {
 			fmt.Printf("Error handling CLT output: %v\n", err)
 			return err
 		}
-		fmt.Println("CLT outputs:")
+		// fmt.Println("CLT outputs:")
 	case "ExpressionTool":
 		if err = proc.HandleETOutput(); err != nil {
 			return err
 		}
-		fmt.Println("ExpressionTool outputs:")
+		// fmt.Println("ExpressionTool outputs:")
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
 	// PrintJSON(proc.Task.Outputs)
+
 	return nil
 }
 
@@ -74,6 +77,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		if len(output.Binding.Glob) > 0 {
 			results, err = proc.Glob(&output)
 			if err != nil {
+				fmt.Printf("error globbing: %v", err)
 				return err
 			}
 		}
@@ -82,9 +86,8 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
 
-		// uncomment to test LoadContents functionality:
-		// output.Binding.LoadContents = true
 		if output.Binding.LoadContents {
+			fmt.Println("load contents is true")
 			for _, fileObj := range results {
 				err = fileObj.loadContents()
 				if err != nil {
@@ -164,10 +167,19 @@ func (proc *Process) HandleCLTOutput() (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
+		/*
+			fmt.Println("done with glob and load contents")
+			fmt.Println("at end of function here")
+			fmt.Println("here are results:")
+			PrintJSON(results)
+		*/
+
 		// at this point we have file results captured in `results`
 		// output should be a "File" or "array of Files"
 		if output.Types[0].Type == "File" {
-			// TODO: add error handling for cases len(results) != 1
+			// fmt.Println("output type is file")
+
+			// FIXME - TODO: add error handling for cases len(results) != 1
 			proc.Task.Outputs[output.ID] = results[0]
 		} else {
 			// output should be an array of File objects
@@ -178,9 +190,37 @@ func (proc *Process) HandleCLTOutput() (err error) {
 	return nil
 }
 
+func readDir(pwd, dir string) {
+	os.Chdir(pwd)
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Printf("error reading dir: %v", err)
+	}
+
+	fmt.Println("reading ", dir, " from dir ", pwd)
+	fmt.Println("found these files:")
+	for _, f := range files {
+		fmt.Println(f.Name())
+	}
+}
+
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
 func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
+	/*
+		readDir("/", proc.Tool.WorkingDir)
+		readDir(proc.Tool.WorkingDir, ".")
+
+			fmt.Println("sleeping 30 seconds to test if latency issue")
+			time.Sleep(30 * time.Second)
+
+			readDir("/", proc.Tool.WorkingDir)
+			readDir(proc.Tool.WorkingDir, ".")
+	*/
+
+	fmt.Println("globbing from root")
+	os.Chdir("/") // always glob from root (?)
+
 	var pattern string
 	for _, glob := range output.Binding.Glob {
 		pattern, err = proc.getPattern(glob)
@@ -188,8 +228,22 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			return results, err
 		}
 
+		/*
+			fmt.Println("this pattern")
+			fmt.Println(pattern)
+			fmt.Println("here is working dir")
+			fmt.Println(proc.Tool.WorkingDir)
+			fmt.Println("globbing here")
+			fmt.Println(proc.Tool.WorkingDir + pattern)
+		*/
+
 		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
+
+		// fmt.Println("here are the resulting paths")
+		// fmt.Println(paths)
+
 		if err != nil {
+			fmt.Printf("error globbing: %v", err)
 			return results, err
 		}
 		for _, path := range paths {
@@ -197,6 +251,11 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			results = append(results, fileObj)
 		}
 	}
+	os.Chdir(proc.Tool.WorkingDir) // move back to working dir
+	/*
+		fmt.Println("sleeping for 10 minutes for debugging")
+		time.Sleep(10 * time.Minute)
+	*/
 	return results, nil
 }
 
