@@ -115,15 +115,15 @@
         "inputs": [
           {
             "type": "File",
-            "id": "#main/commons_file_1"
+            "id": "#read_from_commons_and_user.cwl/commons_file_1"
           },
           {
             "type": "File",
-            "id": "#main/commons_file_2"
+            "id": "#read_from_commons_and_user.cwl/commons_file_2"
           },
           {
             "type": "File",
-            "id": "#main/user_file"
+            "id": "#read_from_commons_and_user.cwl/user_file"
           }
         ],
         "outputs": [
