@@ -44,17 +44,17 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 func getEngineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
 	// don't need to pass workflowRequest here necessarily, since UserID in engine now
 	S3Prefix, runID := getS3Prefix(workflowRequest)
-	engine := getEngineContainer(S3Prefix)
+	engine := getEngineContainer(S3Prefix, runID)
 	s3sidecar := getS3SidecarContainer(workflowRequest, S3Prefix, runID)
 	gen3fuse := getGen3fuseContainer(&workflowRequest.Manifest, ENGINE)
 	containers = []k8sv1.Container{*engine, *s3sidecar, *gen3fuse}
 	return containers
 }
 
-func getEngineContainer(S3Prefix string) (container *k8sv1.Container) {
+func getEngineContainer(S3Prefix, runID string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Containers.Engine, ENGINE)
 	container.Env = getEngineEnv(S3Prefix)
-	container.Args = getEngineArgs() // FIXME - TODO - put this in a bash script
+	container.Args = getEngineArgs(runID) // FIXME - TODO - put this in a bash script
 	return container
 }
 
@@ -166,17 +166,17 @@ func getS3SidecarEnv(r *WorkflowRequest, S3Prefix string, runID string) (env []k
 // seems like I can just pass the request directly to the engine
 // and just write some empty "done" flag in the engine workspace
 // ---> to indicate the sidecar is done setting up and the engine container can run
-func getEngineArgs() []string {
+func getEngineArgs(runID string) []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
-    while [[ ! -f /engine-workspace/request.json ]]; do
+    while [[ ! -f /%v/workflowRuns/%v/request.json ]]; do
       echo "Waiting for mariner-engine-sidecar to finish setting up..";
       sleep 1
     done
 		echo "Sidecar setup complete! Running mariner-engine now.."
 		/mariner run $S3PREFIX $RUN_ID
-		`),
+		`, ENGINE_WORKSPACE, runID),
 	}
 	return args
 }
