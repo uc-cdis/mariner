@@ -32,8 +32,8 @@ else # $MARINER_COMPONENT is "TASK"
   echo "setting up for a task.."
   echo "mounting prefix $USER_ID"
   goofys --stat-cache-ttl 0 --type-cache-ttl 0 workflow-engine-garvin:$USER_ID /$ENGINE_WORKSPACE
-  echo "here is /$ENGINE_WORKSPACE:"
-  ls -R /$ENGINE_WORKSPACE
+  echo "here is /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID:"
+  ls -R /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID
   echo "creating working dir for tool.."
   # fix - working dir is userID/workflowRuns/runID/taskID
   mkdir -p $TOOL_WORKING_DIR
