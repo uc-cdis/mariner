@@ -18,6 +18,7 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
   echo "mounting prefix $USER_ID"
   goofys --stat-cache-ttl 0 --type-cache-ttl 0 workflow-engine-garvin:$USER_ID /$ENGINE_WORKSPACE
   # make this path handling cleaner -> put 'workflowRuns/' in the envVar
+  mkdir -p  /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID
   echo $WORKFLOW_REQUEST > /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/request.json
   echo "successfully wrote workflow request to /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/request.json"
   echo "here is the workflow:"
