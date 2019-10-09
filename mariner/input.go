@@ -199,7 +199,8 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				"USER/path/to/file" -> "/engine-workspace/path/to/file"
 			*/
 			trimmedPath := strings.TrimPrefix(path, USER_PREFIX)
-			path = strings.Join([]string{ENGINE_WORKSPACE, trimmedPath}, "/")
+			// FIXME make this path joining cleaner - ideally uniform  with the other path join in the above case
+			path = strings.Join([]string{"/", ENGINE_WORKSPACE, "/", trimmedPath}, "")
 		}
 		out = getFileObj(path)
 	} else {
