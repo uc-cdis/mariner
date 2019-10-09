@@ -128,21 +128,21 @@
         ],
         "outputs": [
           {
-            "id": "processed_file_1",
+            "id": "#read_from_commons_and_user.cwl/processed_file_1",
             "type": "File",
             "outputBinding": {
               "glob": "processed_file_1*"
             }
           },
           {
-            "id": "processed_file_2",
+            "id": "#read_from_commons_and_user.cwl/processed_file_2",
             "type": "File",
             "outputBinding": {
               "glob": "processed_file_2*"
             }
           },
           {
-            "id": "processed_file_3",
+            "id": "#read_from_commons_and_user.cwl/processed_file_3",
             "type": "File",
             "outputBinding": {
               "glob": "processed_file_3*"
