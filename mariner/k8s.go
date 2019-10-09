@@ -53,7 +53,7 @@ func getEngineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.C
 
 func getEngineContainer(S3Prefix, runID string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Containers.Engine, ENGINE)
-	container.Env = getEngineEnv(S3Prefix)
+	container.Env = getEngineEnv(S3Prefix, runID)
 	container.Args = getEngineArgs(runID) // FIXME - TODO - put this in a bash script
 	return container
 }
@@ -111,7 +111,7 @@ func getGen3fuseEnv(m *Manifest, component string) (env []k8sv1.EnvVar) {
 }
 
 // k8s namespace in which to dispatch jobs
-func getEngineEnv(S3Prefix string) (env []k8sv1.EnvVar) {
+func getEngineEnv(S3Prefix, runID string) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "GEN3_NAMESPACE",
@@ -120,6 +120,14 @@ func getEngineEnv(S3Prefix string) (env []k8sv1.EnvVar) {
 		{
 			Name:  "S3PREFIX",
 			Value: S3Prefix,
+		},
+		{
+			Name:  "ENGINE_WORKSPACE",
+			Value: ENGINE_WORKSPACE,
+		},
+		{
+			Name:  "RUN_ID",
+			Value: runID,
 		},
 	}
 	return env
@@ -170,13 +178,13 @@ func getEngineArgs(runID string) []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
-    while [[ ! -f /%v/workflowRuns/%v/request.json ]]; do
+    while [[ ! -f /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/request.json ]]; do
       echo "Waiting for mariner-engine-sidecar to finish setting up..";
       sleep 1
     done
 		echo "Sidecar setup complete! Running mariner-engine now.."
 		/mariner run $S3PREFIX $RUN_ID
-		`, ENGINE_WORKSPACE, runID),
+		`),
 	}
 	return args
 }
