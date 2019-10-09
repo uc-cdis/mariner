@@ -492,10 +492,9 @@ func getBaseContainer(conf *Container, component string) (container *k8sv1.Conta
 	return container
 }
 
-// get three volumes - one for each data source utilized by mariner
+// two volumes:
 // 1. engine workspace
 // 2. commons data
-// 3. user data
 func getWorkflowVolumes() []k8sv1.Volume {
 	vols := []k8sv1.Volume{}
 	for _, volName := range WORKFLOW_VOLUMES {

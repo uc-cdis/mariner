@@ -24,7 +24,7 @@ var (
 	MountPropagationHostToContainer = k8sv1.MountPropagationHostToContainer
 	MountPropagationBidirectional   = k8sv1.MountPropagationBidirectional
 	// S3SIDECARARGS                   = []string{"./s3sidecarDockerrun.sh"}
-	WORKFLOW_VOLUMES = []string{ENGINE_WORKSPACE, COMMONS_DATA, USER_DATA}
+	WORKFLOW_VOLUMES = []string{ENGINE_WORKSPACE, COMMONS_DATA}
 )
 
 const (
@@ -37,7 +37,6 @@ const (
 	// volume names
 	ENGINE_WORKSPACE = "engine-workspace"
 	COMMONS_DATA     = "commons-data"
-	USER_DATA        = "user-data"
 	CONFIG           = "mariner-config"
 
 	// file path prefixes - used to differentiate COMMONS vs USER vs ENGINE WORKSPACE file
@@ -46,7 +45,6 @@ const (
 	COMMONS_PREFIX       = "COMMONS/"
 	USER_PREFIX          = "USER/"
 	PATH_TO_COMMONS_DATA = "/commons-data/data/by-guid/"
-	PATH_TO_USER_DATA    = "/user-data/"
 
 	// for pod annotation so that WTS works
 	// only here for testing, of course
@@ -175,13 +173,9 @@ func getVolumeMounts(component string) (v []k8sv1.VolumeMount) {
 func getSidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
 	engineWorkspace := getVolumeMount(ENGINE_WORKSPACE, component)
 	v = []k8sv1.VolumeMount{*engineWorkspace}
-	switch component {
-	case GEN3FUSE:
+	if component == GEN3FUSE {
 		commonsData := getVolumeMount(COMMONS_DATA, component)
 		v = append(v, *commonsData)
-	case S3SIDECAR:
-		userData := getVolumeMount(USER_DATA, component)
-		v = append(v, *userData)
 	}
 	return v
 }
