@@ -191,15 +191,15 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 
 				s3: 			   "/userID/path/to/file"
 				inputs.json: 	      "USER/path/to/file"
-				mariner: 		"/user-data/path/to/file"
+				mariner: 		"/engine-workspace/path/to/file"
 
-				user-data bucket gets mounted at the 'userID' prefix
+				user-data bucket gets mounted at the 'userID' prefix to dir /engine-workspace/
 
 				so the mapping that happens in this path processing step is this:
-				"USER/path/to/file" -> "/user-data/path/to/file"
+				"USER/path/to/file" -> "/engine-workspace/path/to/file"
 			*/
-			subpath := strings.TrimPrefix(path, USER_PREFIX)
-			path = strings.Join([]string{PATH_TO_USER_DATA, subpath}, "")
+			trimmedPath := strings.TrimPrefix(path, USER_PREFIX)
+			path = strings.Join([]string{ENGINE_WORKSPACE, trimmedPath}, "")
 		}
 		out = getFileObj(path)
 	} else {

@@ -25,6 +25,7 @@ type K8sEngine struct {
 	FinishedProcs   map[string]*Process // engine's stack of completed processes; (task.Root.ID, Process) pairs
 	S3Prefix        string              // the /userID/workflow-timestamp/ prefix to pass to task sidecar to mount correct prefix from user bucket -> s3://workflow-engine-garvin/user/wf-timestamp/
 	UserID          string              // the userID for the user who requested the workflow run
+	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
 }
 
@@ -58,7 +59,7 @@ type Tool struct {
 
 // DispatchTask does some setup for and dispatches workflow *Tools
 func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
-	tool := task.getTool()
+	tool := task.getTool(engine.RunID)
 	err = tool.setupTool()
 	if err != nil {
 		fmt.Printf("ERROR setting up tool: %v\n", err)
@@ -91,12 +92,12 @@ func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
 // GetTool returns a Tool object
 // The Tool represents a workflow *Tool and so is either a CommandLineTool or an ExpressionTool
 // NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
-func (task *Task) getTool() *Tool {
+func (task *Task) getTool(runID string) *Tool {
 	tool := &Tool{
 		Root:         task.Root,
 		Parameters:   task.Parameters,
 		OriginalStep: task.originalStep,
-		WorkingDir:   task.getWorkingDir(),
+		WorkingDir:   task.getWorkingDir(runID),
 	}
 	return tool
 }
@@ -106,9 +107,9 @@ func (task *Task) getTool() *Tool {
 // probably need to do some more filtering of other potentially problematic characters
 // NOTE: should make the mount point a go constant - i.e., const MountPoint = "/engine-workspace/"
 // ----- could come up with a better/more uniform naming scheme
-func (task *Task) getWorkingDir() string {
+func (task *Task) getWorkingDir(runID string) string {
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
-	dir := fmt.Sprintf("/%v/%v", ENGINE_WORKSPACE, safeID)
+	dir := fmt.Sprintf("/%v/workflowRuns/%v/%v", ENGINE_WORKSPACE, runID, safeID)
 	if task.ScatterIndex > 0 {
 		dir = fmt.Sprintf("%v-scatter-%v", dir, task.ScatterIndex)
 	}
@@ -161,7 +162,7 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 			return err
 		}
 
-		proc.CollectOutput()
+		proc.CollectOutput() // FIXME - put this at the end of this function, outside the switch, before the done flag
 
 		// JS gets evaluated in-line, so the process is complete when the engine method RunExpressionTool() returns
 		delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
@@ -215,6 +216,12 @@ func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 	}
 	fmt.Println("\tK8s job complete. Collecting output..")
 
+	// could move this outside this function
+	// function ListenForDone should only listen for done, not collect output
+	// make the code as simple and modular as possible
+	// each function should do exactly one thing, and do it perfectly and completely
+	// and not do anything else - if something else needs to happen, write another function
+	// function as an indivisible unit
 	proc.CollectOutput()
 
 	fmt.Println("\tFinished collecting output.")

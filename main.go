@@ -38,9 +38,11 @@ func main() {
 			// `bucket/userID/workflow/` has been mounted to `/data/`
 			// `/data/request.json` contains the workflow, input, and id
 
+			runID := c.Args().Get(2) // this is a timestamp
+
 			// NOTE: this section should be encapsulated to a function and maybe put in another file
 			fmt.Println("running mariner-engine..")
-			requestF, err := os.Open(fmt.Sprintf("/%v/request.json", mariner.ENGINE_WORKSPACE))
+			requestF, err := os.Open(fmt.Sprintf("/%v/workflowRuns/%v/request.json", mariner.ENGINE_WORKSPACE, runID))
 			if err != nil {
 				return err
 			}
@@ -67,6 +69,7 @@ func main() {
 
 			// collect S3 prefix to mount from user bucket
 			engine.S3Prefix = c.Args().Get(1)
+			engine.RunID = runID
 			if engine.S3Prefix == "" {
 				return fmt.Errorf("missing /userID/workflow-run-timestamp/ S3 prefix")
 			}
@@ -75,7 +78,7 @@ func main() {
 			mariner.RunWorkflow(wfRequest.ID, wfRequest.Workflow, wfRequest.Input, engine)
 
 			// tell sidecar that the workflow is done running so that container can terminate and the job can finish
-			_, err = os.Create(fmt.Sprintf("/%v/done", mariner.ENGINE_WORKSPACE))
+			_, err = os.Create(fmt.Sprintf("/%v/workflowRuns/%v/done", mariner.ENGINE_WORKSPACE, runID))
 			if err != nil {
 				fmt.Println("error writing workflow-done flag")
 				return err
