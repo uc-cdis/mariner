@@ -46,7 +46,7 @@ func getEngineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.C
 	S3Prefix, runID := getS3Prefix(workflowRequest)
 	engine := getEngineContainer(S3Prefix, runID)
 	s3sidecar := getS3SidecarContainer(workflowRequest, S3Prefix, runID)
-	gen3fuse := getGen3fuseContainer(&workflowRequest.Manifest, ENGINE)
+	gen3fuse := getGen3fuseContainer(&workflowRequest.Manifest, ENGINE, runID)
 	containers = []k8sv1.Container{*engine, *s3sidecar, *gen3fuse}
 	return containers
 }
@@ -66,9 +66,9 @@ func getS3SidecarContainer(request *WorkflowRequest, S3Prefix string, runID stri
 }
 
 // given a manifest, returns the complete gen3fuse container spec for k8s podSpec
-func getGen3fuseContainer(manifest *Manifest, component string) (container *k8sv1.Container) {
+func getGen3fuseContainer(manifest *Manifest, component string, runID string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Containers.Gen3fuse, GEN3FUSE)
-	container.Env = getGen3fuseEnv(manifest, component)
+	container.Env = getGen3fuseEnv(manifest, component, runID)
 	return container
 }
 
@@ -82,7 +82,7 @@ func getS3Prefix(request *WorkflowRequest) (prefix, runID string) {
 	return prefix, timeStamp
 }
 
-func getGen3fuseEnv(m *Manifest, component string) (env []k8sv1.EnvVar) {
+func getGen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVar) {
 	manifest := struct2String(m)
 	env = []k8sv1.EnvVar{
 		{
@@ -92,6 +92,10 @@ func getGen3fuseEnv(m *Manifest, component string) (env []k8sv1.EnvVar) {
 		{
 			Name:  "ENGINE_WORKSPACE",
 			Value: ENGINE_WORKSPACE,
+		},
+		{
+			Name:  "RUN_ID",
+			Value: runID,
 		},
 		{
 			Name:  "COMMONS_DATA",
@@ -210,7 +214,7 @@ func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Co
 	}
 	s3sidecar := engine.getS3SidecarContainer(proc)
 
-	gen3fuse := getGen3fuseContainer(engine.Manifest, TASK)
+	gen3fuse := getGen3fuseContainer(engine.Manifest, TASK, engine.RunID)
 	// organize this better
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
