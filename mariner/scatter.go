@@ -174,7 +174,6 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	_, inputLength := uniformLength(scatterParams)
 	for i := 0; i < inputLength; i++ {
 		subtask := &Task{
-			JobID:        task.JobID,
 			Engine:       task.Engine,
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
@@ -207,7 +206,6 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 	scatterIndex := 1
 	for ix := make([]int, len(inputArrays)); ix[0] < lens(0); nextIndex(ix, lens) {
 		subtask := &Task{
-			JobID:        task.JobID,
 			Engine:       task.Engine,
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
