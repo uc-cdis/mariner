@@ -29,25 +29,19 @@ import (
 // ----- no binding provided -> output won't be collected
 func (proc *Process) CollectOutput() (err error) {
 	proc.Task.Outputs = make(map[string]cwl.Parameter)
-	fmt.Println("collecting output..")
 	switch class := proc.Tool.Root.Class; class {
 	case "CommandLineTool":
-		// fmt.Println("Handling CLT output..")
 		if err = proc.HandleCLTOutput(); err != nil {
 			fmt.Printf("Error handling CLT output: %v\n", err)
 			return err
 		}
-		// fmt.Println("CLT outputs:")
 	case "ExpressionTool":
 		if err = proc.HandleETOutput(); err != nil {
 			return err
 		}
-		// fmt.Println("ExpressionTool outputs:")
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
-	// PrintJSON(proc.Task.Outputs)
-
 	return nil
 }
 

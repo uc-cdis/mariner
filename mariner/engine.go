@@ -127,20 +127,23 @@ func (engine K8sEngine) DispatchTask(task *Task) (err error) {
 		Task: task,
 	}
 
-	// fmt.Println("\n\t\tThis task has been dispatched and should get its own directory!")
-	// fmt.Printf("\t\tHere is the task.Root.ID and scatter index: %v : %v\n\n", task.Root.ID, task.ScatterIndex)
-
 	// {Q: when should the process get pushed onto the stack?}
 	// push newly started process onto the engine's stack of running processes
 	engine.UnfinishedProcs[tool.Root.ID] = proc
-
-	// engine runs the tool either as a CommandLineTool or ExpressionTool
-	err = engine.runTool(proc)
-	if err != nil {
+	if err = engine.runTool(proc); err != nil {
 		fmt.Printf("\tError running tool: %v\n", err)
 		return err
 	}
+	if err = engine.collectOutput(); err != nil {
+		return err
+	}
+	engine.updateStack(proc)
 	return nil
+}
+
+func (engine *K8sEngine) collectOutput(proc Process) (err error) {
+	err = proc.CollectOutput()
+	return err
 }
 
 // GetTool returns a Tool object
@@ -211,31 +214,27 @@ func (tool *Tool) setupTool() (err error) {
 func (engine *K8sEngine) runTool(proc *Process) (err error) {
 	switch class := proc.Tool.Root.Class; class {
 	case "ExpressionTool":
-		err = engine.runExpressionTool(proc)
-		if err != nil {
+		if err = engine.runExpressionTool(proc); err != nil {
 			return err
 		}
-
-		proc.CollectOutput() // FIXME - put this at the end of this function, outside the switch, before the done flag
-
-		// JS gets evaluated in-line, so the process is complete when the engine method RunExpressionTool() returns
-		delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
-		engine.FinishedProcs[proc.Tool.Root.ID] = proc
-
 	case "CommandLineTool":
-		err = engine.runCommandLineTool(proc)
-		if err != nil {
+		if err = engine.runCommandLineTool(proc); err != nil {
 			return err
 		}
-		err = engine.ListenForDone(proc) // tells engine to listen to k8s to check for this process to finish running
-		if err != nil {
+		if err = engine.ListenForDone(proc); err != nil {
 			return fmt.Errorf("error listening for done: %v", err)
 		}
 	default:
 		return fmt.Errorf("unexpected class: %v", class)
 	}
-	proc.Task.Done = &trueVal
 	return nil
+}
+
+// move proc from unfinished to finished stack
+func (engine *K8sEngine) updateStack(proc Process) {
+	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
+	engine.FinishedProcs[proc.Tool.Root.ID] = proc
+	proc.Task.Done = &trueVal
 }
 
 // runCommandLineTool..
@@ -268,22 +267,6 @@ func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 		}
 		status = jobInfo.Status
 	}
-	fmt.Println("\tK8s job complete. Collecting output..")
-
-	// could move this outside this function
-	// function ListenForDone should only listen for done, not collect output
-	// make the code as simple and modular as possible
-	// each function should do exactly one thing, and do it perfectly and completely
-	// and not do anything else - if something else needs to happen, write another function
-	// function as an indivisible unit
-	proc.CollectOutput()
-
-	fmt.Println("\tFinished collecting output.")
-	PrintJSON(proc.Task.Outputs)
-
-	fmt.Println("\tUpdating engine process stack..")
-	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
-	engine.FinishedProcs[proc.Tool.Root.ID] = proc
 	return nil
 }
 
