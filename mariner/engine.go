@@ -134,15 +134,22 @@ func (engine K8sEngine) DispatchTask(task *Task) (err error) {
 		fmt.Printf("\tError running tool: %v\n", err)
 		return err
 	}
-	if err = engine.collectOutput(); err != nil {
+	if err = engine.collectOutput(proc); err != nil {
 		return err
 	}
 	engine.updateStack(proc)
 	return nil
 }
 
-func (engine *K8sEngine) collectOutput(proc Process) (err error) {
-	err = proc.CollectOutput()
+// move proc from unfinished to finished stack
+func (engine *K8sEngine) updateStack(proc *Process) {
+	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
+	engine.FinishedProcs[proc.Tool.Root.ID] = proc
+	proc.Task.Done = &trueVal
+}
+
+func (engine *K8sEngine) collectOutput(proc *Process) error {
+	err := proc.CollectOutput()
 	return err
 }
 
@@ -228,13 +235,6 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 		return fmt.Errorf("unexpected class: %v", class)
 	}
 	return nil
-}
-
-// move proc from unfinished to finished stack
-func (engine *K8sEngine) updateStack(proc Process) {
-	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
-	engine.FinishedProcs[proc.Tool.Root.ID] = proc
-	proc.Task.Done = &trueVal
 }
 
 // runCommandLineTool..
