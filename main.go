@@ -17,7 +17,7 @@ mariner needs to be able to:
 
 usage:
  - to setup the mariner server: `mariner listen`
- - to run a workflow: `mariner run $S3PREFIX $RUN_ID`
+ - to run a workflow: `mariner run $RUN_ID`
  	 (runs workflow in /engine-workspace/workflowRuns/{runID}/request.json, which is s3://workflow-engine-garvin/userID/workflow-run-timestamp/request.json)
 */
 
@@ -25,17 +25,17 @@ func main() {
 	switch os.Args[1] {
 	case "listen":
 		// mariner running in mariner-server container
-		fmt.Println("setting up mariner-server..")
+		fmt.Println("running mariner-server..")
 		mariner.Server()
 	case "run":
 		// mariner running in mariner-engine container
-		// `bucket/userID/workflow/` has been mounted to `/data/`
-		// `/data/request.json` contains the workflow, input, and id
+		fmt.Println("running mariner-engine..")
 
-		runID := os.Args[3] // this is a timestamp
+		runID := os.Args[2] // this is a timestamp
+
+		// mariner.Engine(runID)
 
 		// NOTE: this section should be encapsulated to a function and maybe put in another file
-		fmt.Println("running mariner-engine..")
 		requestF, err := os.Open(fmt.Sprintf("/%v/workflowRuns/%v/request.json", mariner.ENGINE_WORKSPACE, runID))
 		if err != nil {
 			log.Fatal(err)
@@ -60,13 +60,8 @@ func main() {
 
 		engine.Manifest = &wfRequest.Manifest
 		engine.UserID = wfRequest.ID
-
-		// collect S3 prefix to mount from user bucket
-		engine.S3Prefix = os.Args[2]
 		engine.RunID = runID
-		if engine.S3Prefix == "" {
-			log.Fatal("missing /userID/workflow-run-timestamp/ S3 prefix")
-		}
+		// error handling here
 
 		// NOTE: the ID is not used in this processing pipeline - could remove that parameter, or keep it in case it may be needed later
 		mariner.RunWorkflow(wfRequest.ID, wfRequest.Workflow, wfRequest.Input, engine)

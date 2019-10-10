@@ -24,7 +24,7 @@ import (
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func getWorkflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, err error) {
 	// get job spec all populated except for pod volumes and containers
-	workflowJob = getJobSpec(ENGINE, "test-workflow") // FIXME - define jobname for a workflow - same as S3Prefix, or - timestamp, or
+	workflowJob = getJobSpec(ENGINE, "test-workflow") // FIXME - define jobname for a workflow - timestamp, or
 
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = getEngineVolumes()
@@ -43,25 +43,26 @@ func getEngineVolumes() (volumes []k8sv1.Volume) {
 
 func getEngineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
 	// don't need to pass workflowRequest here necessarily, since UserID in engine now
-	S3Prefix, runID := getS3Prefix(workflowRequest)
-	engine := getEngineContainer(S3Prefix, runID)
-	s3sidecar := getS3SidecarContainer(workflowRequest, S3Prefix, runID)
+	// recall "Getters and Setters" - fix these function names
+	runID := getTimestamp()
+	engine := getEngineContainer(runID)
+	s3sidecar := getS3SidecarContainer(workflowRequest, runID)
 	gen3fuse := getGen3fuseContainer(&workflowRequest.Manifest, ENGINE, runID)
 	containers = []k8sv1.Container{*engine, *s3sidecar, *gen3fuse}
 	return containers
 }
 
-func getEngineContainer(S3Prefix, runID string) (container *k8sv1.Container) {
+func getEngineContainer(runID string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Containers.Engine, ENGINE)
-	container.Env = getEngineEnv(S3Prefix, runID)
+	container.Env = getEngineEnv(runID)
 	container.Args = getEngineArgs(runID) // FIXME - TODO - put this in a bash script
 	return container
 }
 
 // for ENGINE job
-func getS3SidecarContainer(request *WorkflowRequest, S3Prefix string, runID string) (container *k8sv1.Container) {
+func getS3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv1.Container) {
 	container = getBaseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
-	container.Env = getS3SidecarEnv(request, S3Prefix, runID) // for ENGINE-sidecar
+	container.Env = getS3SidecarEnv(request, runID) // for ENGINE-sidecar
 	return container
 }
 
@@ -75,11 +76,10 @@ func getGen3fuseContainer(manifest *Manifest, component string, runID string) (c
 // NOTE: probably can come up with a better ID for a workflow, but for now this will work
 // can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
 // so not exactly sure how to label the workflow runs besides a timestamp
-func getS3Prefix(request *WorkflowRequest) (prefix, runID string) {
+func getTimestamp() (timeStamp string) {
 	now := time.Now()
-	timeStamp := fmt.Sprintf("%v-%v-%v_%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
-	prefix = fmt.Sprintf("/%v/%v/", request.ID, timeStamp)
-	return prefix, timeStamp
+	timeStamp = fmt.Sprintf("%v-%v-%v_%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
+	return timeStamp
 }
 
 func getGen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVar) {
@@ -115,15 +115,11 @@ func getGen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.En
 }
 
 // k8s namespace in which to dispatch jobs
-func getEngineEnv(S3Prefix, runID string) (env []k8sv1.EnvVar) {
+func getEngineEnv(runID string) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "GEN3_NAMESPACE",
 			Value: os.Getenv("GEN3_NAMESPACE"),
-		},
-		{
-			Name:  "S3PREFIX",
-			Value: S3Prefix,
 		},
 		{
 			Name:  "ENGINE_WORKSPACE",
@@ -138,13 +134,9 @@ func getEngineEnv(S3Prefix, runID string) (env []k8sv1.EnvVar) {
 }
 
 // for ENGINE job
-func getS3SidecarEnv(r *WorkflowRequest, S3Prefix string, runID string) (env []k8sv1.EnvVar) {
+func getS3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 	workflowRequest := struct2String(r)
 	env = []k8sv1.EnvVar{
-		{
-			Name:  "S3PREFIX",
-			Value: S3Prefix, // see last line of mariner-engine-sidecar dockerfile -> "RUN goofys workflow-engine-garvin:$S3PREFIX /engine-workspace"
-		},
 		{
 			Name:      "AWSCREDS",
 			ValueFrom: &awscreds,
@@ -187,7 +179,7 @@ func getEngineArgs(runID string) []string {
       sleep 1
     done
 		echo "Sidecar setup complete! Running mariner-engine now.."
-		/mariner run $S3PREFIX $RUN_ID
+		/mariner run $RUN_ID
 		`),
 	}
 	return args
@@ -338,10 +330,6 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 		{
 			Name:      "AWSCREDS",
 			ValueFrom: &awscreds,
-		},
-		{
-			Name:  "S3PREFIX",
-			Value: engine.S3Prefix, // mounting whole user dir to /engine-workspace -> not just the dir for the task
 		},
 		{
 			Name:  "USER_ID",

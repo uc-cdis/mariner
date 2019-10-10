@@ -23,7 +23,6 @@ type K8sEngine struct {
 	Commands        map[string][]string // also for testing purposes
 	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   map[string]*Process // engine's stack of completed processes; (task.Root.ID, Process) pairs
-	S3Prefix        string              // the /userID/workflow-timestamp/ prefix to pass to task sidecar to mount correct prefix from user bucket -> s3://workflow-engine-garvin/user/wf-timestamp/
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
@@ -56,6 +55,12 @@ type Tool struct {
 	StepInputMap     map[string]*cwl.StepInput // see: transformInput()
 	ExpressionResult map[string]interface{}    // storing the result of an expression tool here for now - maybe there's a better way to do this
 }
+
+/*
+func Engine() {
+
+}
+*/
 
 // DispatchTask does some setup for and dispatches workflow *Tools
 func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
