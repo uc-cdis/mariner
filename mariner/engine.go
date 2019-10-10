@@ -105,10 +105,10 @@ func engine(request WorkflowRequest, runID string) *K8sEngine {
 
 // tell sidecar containers the workflow is done running so the engine job can finish
 func done(runID string) error {
-	_, err = os.Create(fmt.Sprintf("/%v/workflowRuns/%v/done", ENGINE_WORKSPACE, runID))
-	if err != nil {
+	if _, err = os.Create(fmt.Sprintf("/%v/workflowRuns/%v/done", ENGINE_WORKSPACE, runID)); err != nil {
 		return err
 	}
+	return nil
 }
 
 // DispatchTask does some setup for and dispatches workflow *Tools
