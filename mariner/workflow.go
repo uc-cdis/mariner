@@ -39,7 +39,6 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 */
 type Task struct {
 	Engine        *K8sEngine        // the workflow engine - all tasks in a workflow job share the same engine
-	JobID         string            // pretty sure (?) this is the workflow k8s job ID - need to double check
 	Parameters    cwl.Parameters    // input parameters of this task
 	Root          *cwl.Root         // "root" of the "namespace" of the cwl file for this task
 	Outputs       cwl.Parameters    // output parameters of this task
@@ -67,7 +66,6 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 				panic(fmt.Sprintf("can't find workflow %v", step.Run.Value))
 			}
 			newTask := &Task{
-				JobID:        curTask.JobID,
 				Engine:       curTask.Engine,
 				Root:         subworkflow,
 				Parameters:   make(cwl.Parameters),
@@ -83,7 +81,7 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 }
 
 // RunWorkflow parses a workflow and inputs and run it
-func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine) error {
+func RunWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 	var root cwl.Root
 	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the POST request body
 	if err != nil {
@@ -122,7 +120,7 @@ func RunWorkflow(jobID string, workflow []byte, inputs []byte, engine *K8sEngine
 		// once we encounter the top level workflow (which always has ID "#main")
 		if process.ID == "#main" {
 			// construct `mainTask` - the task object for the top level workflow
-			mainTask = &Task{JobID: jobID, Root: process, Parameters: params, Engine: engine}
+			mainTask = &Task{Root: process, Parameters: params, Engine: engine}
 		}
 	}
 	if mainTask == nil {
@@ -170,7 +168,7 @@ func (task *Task) Run() error {
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
-		task.Engine.DispatchTask(task.JobID, task) // this line looks weird - task on left and right
+		task.Engine.DispatchTask(task) // this line looks weird - task on left and right
 	}
 	return nil
 }

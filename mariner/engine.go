@@ -1,7 +1,9 @@
 package mariner
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -56,14 +58,61 @@ type Tool struct {
 	ExpressionResult map[string]interface{}    // storing the result of an expression tool here for now - maybe there's a better way to do this
 }
 
-/*
-func Engine() {
-
+// Engine runs an instance of the mariner engine job
+func Engine(runID string) error {
+	request, err := request(runID)
+	if err != nil {
+		return err
+	}
+	engine := engine(request, runID)
+	RunWorkflow(request.Workflow, request.Input, engine)
+	if err = done(runID); err != nil {
+		return err
+	}
+	return nil
 }
-*/
+
+// get WorkflowRequest object
+func request(runID string) (WorkflowRequest, error) {
+	var request WorkflowRequest
+	f, err := os.Open(fmt.Sprintf("/%v/workflowRuns/%v/request.json", ENGINE_WORKSPACE, runID))
+	if err != nil {
+		return request, err
+	}
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return request, err
+	}
+	err = json.Unmarshal(b, &request)
+	if err != nil {
+		return request, err
+	}
+	return request, nil
+}
+
+// instantiate a K8sEngine object
+func engine(request WorkflowRequest, runID string) *K8sEngine {
+	e := &K8sEngine{
+		Commands:        make(map[string][]string),
+		FinishedProcs:   make(map[string]*Process),
+		UnfinishedProcs: make(map[string]*Process),
+		Manifest:        &request.Manifest,
+		UserID:          request.ID,
+		RunID:           runID,
+	}
+	return e
+}
+
+// tell sidecar containers the workflow is done running so the engine job can finish
+func done(runID string) error {
+	_, err = os.Create(fmt.Sprintf("/%v/workflowRuns/%v/done", ENGINE_WORKSPACE, runID))
+	if err != nil {
+		return err
+	}
+}
 
 // DispatchTask does some setup for and dispatches workflow *Tools
-func (engine K8sEngine) DispatchTask(jobID string, task *Task) (err error) {
+func (engine K8sEngine) DispatchTask(task *Task) (err error) {
 	tool := task.getTool(engine.RunID)
 	err = tool.setupTool()
 	if err != nil {
