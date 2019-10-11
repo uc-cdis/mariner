@@ -33,7 +33,7 @@ func getJS(s string) (js string, fn bool, err error) {
 // the exp is passed before being stripped of any $(...) or ${...} wrapper
 // the vm must be loaded with all necessary context for eval
 // EvalExpression handles parameter references and expressions $(...), as well as functions ${...}
-func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
+func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 	// strip the $() (or if ${} just trim leading $), which appears in the cwl as a wrapper for js expressions
 	var output otto.Value
 	js, fn, _ := getJS(exp)
@@ -102,7 +102,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 			expression = c1 + c2 + expression
 
 			// eval that thing
-			result, err := EvalExpression(expression, tool.Root.InputsVM)
+			result, err := evalExpression(expression, tool.Root.InputsVM)
 			if err != nil {
 				return "", err
 			}
@@ -162,7 +162,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 // ----- this means we can use the cwl fields as json aliases for any struct type's fields
 // ----- and then using this function to preprocess the struct/array, all the keys/data will get loaded in properly
 // ----- which saves us from having to handle special cases
-func PreProcessContext(in interface{}) (out interface{}, err error) {
+func preProcessContext(in interface{}) (out interface{}, err error) {
 	j, err := json.Marshal(in)
 	if err != nil {
 		return nil, err

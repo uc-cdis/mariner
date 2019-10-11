@@ -40,7 +40,7 @@ type ManifestEntry struct {
 // also see above description of the fields of the WorkflowRequest struct
 // since those are the same fields as the request body
 // NOTE: come up with uniform, sensible names for handler functions
-func RunHandler(w http.ResponseWriter, r *http.Request) {
+func runHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("handling root mariner request..")
 	fmt.Println(r.URL)
 	body, err := ioutil.ReadAll(r.Body)
@@ -60,8 +60,8 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 	// -> `mariner run $S3PREFIX`, where
 	// S3PREFIX is the working directory for this workflow in the workflow bucket
 	fmt.Printf("running workflow for user %v\n", workflowRequest.ID)
-	PrintJSON(workflowRequest)
-	err = DispatchWorkflowJob(&workflowRequest)
+	printJSON(workflowRequest)
+	err = dispatchWorkflowJob(&workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -69,7 +69,7 @@ func RunHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleHealthcheck registers root endpoint
-func HandleHealthcheck(w http.ResponseWriter, r *http.Request) {
+func handleHealthcheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL)
 	return
 }

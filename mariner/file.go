@@ -50,7 +50,7 @@ func getFileObj(path string) (fileObj *File) {
 // see: https://www.commonwl.org/v1.0/Workflow.html#File
 // the description of nameroot and nameext
 func getFileFields(path string) (base string, root string, ext string) {
-	base = GetLastInPath(path)
+	base = getLastInPath(path)
 	baseNoLeadingPeriods, nPeriods := trimLeading(base, ".")
 	tmp := strings.Split(baseNoLeadingPeriods, ".")
 	if len(tmp) == 1 {
@@ -176,7 +176,7 @@ func exists(path string) (bool, error) {
 
 // get path from a file object which is not of type File
 // NOTE: maybe shouldn't be an error if no path but the contents field is populated
-func GetPath(i interface{}) (path string, err error) {
+func getPath(i interface{}) (path string, err error) {
 	iter := reflect.ValueOf(i).MapRange()
 	for iter.Next() {
 		key, val := iter.Key().String(), iter.Value()

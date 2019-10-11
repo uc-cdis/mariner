@@ -122,7 +122,7 @@ func (engine *K8sEngine) runScatterTasks(task *Task) (err error) {
 		wg.Add(1)
 		go func(scattertask *Task) {
 			defer wg.Done()
-			engine.Run(scattertask)
+			engine.run(scattertask)
 		}(scattertask)
 	}
 	wg.Wait()

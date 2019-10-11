@@ -65,7 +65,7 @@ func Engine(runID string) error {
 		return err
 	}
 	engine := engine(request, runID)
-	RunWorkflow(request.Workflow, request.Input, engine)
+	runWorkflow(request.Workflow, request.Input, engine)
 	if err = done(runID); err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func done(runID string) error {
 }
 
 // DispatchTask does some setup for and dispatches workflow *Tools
-func (engine K8sEngine) DispatchTask(task *Task) (err error) {
+func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 	tool := task.getTool(engine.RunID)
 	err = tool.setupTool()
 	if err != nil {
@@ -152,7 +152,7 @@ func (engine *K8sEngine) updateStack(proc *Process) {
 }
 
 func (engine *K8sEngine) collectOutput(proc *Process) error {
-	err := proc.CollectOutput()
+	err := proc.collectOutput()
 	return err
 }
 
@@ -231,7 +231,7 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 		if err = engine.runCommandLineTool(proc); err != nil {
 			return err
 		}
-		if err = engine.ListenForDone(proc); err != nil {
+		if err = engine.listenForDone(proc); err != nil {
 			return fmt.Errorf("error listening for done: %v", err)
 		}
 	default:
@@ -245,11 +245,11 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 // 2. makes call to RunK8sJob to dispatch job to run the commandline tool
 func (engine K8sEngine) runCommandLineTool(proc *Process) (err error) {
 	fmt.Println("\tRunning CommandLineTool")
-	err = proc.Tool.GenerateCommand()
+	err = proc.Tool.generateCommand()
 	if err != nil {
 		return err
 	}
-	err = engine.DispatchTaskJob(proc)
+	err = engine.dispatchTaskJob(proc)
 	if err != nil {
 		return err
 	}
@@ -260,11 +260,11 @@ func (engine K8sEngine) runCommandLineTool(proc *Process) (err error) {
 // once that happens, calls a function to collect output and update engine's proc stacks
 // TODO: implement error handling, listen for errors and failures, retries as well
 // ----- handle the cases where the job status is not "Completed" or "Running"
-func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
+func (engine *K8sEngine) listenForDone(proc *Process) (err error) {
 	fmt.Println("\tListening for job to finish..")
 	status := ""
 	for status != "Completed" {
-		jobInfo, err := GetJobStatusByID(proc.JobID)
+		jobInfo, err := getJobStatusByID(proc.JobID)
 		if err != nil {
 			return err
 		}
@@ -278,7 +278,7 @@ func (engine *K8sEngine) runExpressionTool(proc *Process) (err error) {
 	if err = os.Chdir(proc.Tool.WorkingDir); err != nil {
 		return err
 	}
-	result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
+	result, err := evalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
 	if err != nil {
 		return err
 	}

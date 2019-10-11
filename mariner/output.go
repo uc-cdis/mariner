@@ -2,7 +2,6 @@ package mariner
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,16 +26,16 @@ import (
 // ---
 // NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
 // ----- no binding provided -> output won't be collected
-func (proc *Process) CollectOutput() (err error) {
+func (proc *Process) collectOutput() (err error) {
 	proc.Task.Outputs = make(map[string]cwl.Parameter)
 	switch class := proc.Tool.Root.Class; class {
 	case "CommandLineTool":
-		if err = proc.HandleCLTOutput(); err != nil {
+		if err = proc.handleCLTOutput(); err != nil {
 			fmt.Printf("Error handling CLT output: %v\n", err)
 			return err
 		}
 	case "ExpressionTool":
-		if err = proc.HandleETOutput(); err != nil {
+		if err = proc.handleETOutput(); err != nil {
 			return err
 		}
 	default:
@@ -50,7 +49,7 @@ func (proc *Process) CollectOutput() (err error) {
 // From my CWL reading.. each output parameter SHOULD have a binding
 // if no binding, not sure what the procedure is
 // for now, no binding -> output won't be collected
-func (proc *Process) HandleCLTOutput() (err error) {
+func (proc *Process) handleCLTOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
 		if output.Binding == nil {
 			return fmt.Errorf("output parameter missing binding: %v", output.ID)
@@ -69,7 +68,7 @@ func (proc *Process) HandleCLTOutput() (err error) {
 
 		// 1. Glob - prefixissue
 		if len(output.Binding.Glob) > 0 {
-			results, err = proc.Glob(&output)
+			results, err = proc.glob(&output)
 			if err != nil {
 				fmt.Printf("error globbing: %v", err)
 				return err
@@ -122,14 +121,14 @@ func (proc *Process) HandleCLTOutput() (err error) {
 						*/
 
 						// preprocess output file object
-						self, err = PreProcessContext(fileObj)
+						self, err = preProcessContext(fileObj)
 
 						// set `self` variable name
 						// assuming it is okay to use one vm for all evaluations and just reset the `self` variable before each eval
 						vm.Set("self", self)
 
 						// eval js
-						jsResult, err := EvalExpression(val, vm)
+						jsResult, err := evalExpression(val, vm)
 						if err != nil {
 							return err
 						}
@@ -184,34 +183,9 @@ func (proc *Process) HandleCLTOutput() (err error) {
 	return nil
 }
 
-func readDir(pwd, dir string) {
-	os.Chdir(pwd)
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		fmt.Printf("error reading dir: %v", err)
-	}
-
-	fmt.Println("reading ", dir, " from dir ", pwd)
-	fmt.Println("found these files:")
-	for _, f := range files {
-		fmt.Println(f.Name())
-	}
-}
-
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
-func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
-	/*
-		readDir("/", proc.Tool.WorkingDir)
-		readDir(proc.Tool.WorkingDir, ".")
-
-			fmt.Println("sleeping 30 seconds to test if latency issue")
-			time.Sleep(30 * time.Second)
-
-			readDir("/", proc.Tool.WorkingDir)
-			readDir(proc.Tool.WorkingDir, ".")
-	*/
-
+func (proc *Process) glob(output *cwl.Output) (results []*File, err error) {
 	fmt.Println("globbing from root")
 	os.Chdir("/") // always glob from root (?)
 
@@ -221,21 +195,7 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 		if err != nil {
 			return results, err
 		}
-
-		/*
-			fmt.Println("this pattern")
-			fmt.Println(pattern)
-			fmt.Println("here is working dir")
-			fmt.Println(proc.Tool.WorkingDir)
-			fmt.Println("globbing here")
-			fmt.Println(proc.Tool.WorkingDir + pattern)
-		*/
-
 		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
-
-		// fmt.Println("here are the resulting paths")
-		// fmt.Println(paths)
-
 		if err != nil {
 			fmt.Printf("error globbing: %v", err)
 			return results, err
@@ -245,11 +205,7 @@ func (proc *Process) Glob(output *cwl.Output) (results []*File, err error) {
 			results = append(results, fileObj)
 		}
 	}
-	os.Chdir(proc.Tool.WorkingDir) // move back to working dir
-	/*
-		fmt.Println("sleeping for 10 minutes for debugging")
-		time.Sleep(10 * time.Minute)
-	*/
+	os.Chdir(proc.Tool.WorkingDir)
 	return results, nil
 }
 
@@ -260,14 +216,7 @@ func (proc *Process) getPattern(glob string) (pattern string, err error) {
 		// eval'ing in the InputsVM with no additional context
 		// not sure if additional context will be needed in other cases
 
-		/*
-			inputs, _ := proc.Tool.Root.InputsVM.Run("inputs")
-			seeInputs, _ := inputs.Export()
-			fmt.Println("here is inputs in the vm:")
-			PrintJSON(seeInputs)
-		*/
-
-		expResult, err := EvalExpression(glob, proc.Tool.Root.InputsVM)
+		expResult, err := evalExpression(glob, proc.Tool.Root.InputsVM)
 		if err != nil {
 			return "", fmt.Errorf("failed to eval glob expression: %v", glob)
 		}
@@ -287,10 +236,10 @@ func (proc *Process) getPattern(glob string) (pattern string, err error) {
 // where the keys are the IDs of the expressionTool output params
 // see `expression` field description here:
 // https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
-func (proc *Process) HandleETOutput() (err error) {
+func (proc *Process) handleETOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
 		// get "output" from "#expressiontool_test.cwl/output"
-		localOutputID := GetLastInPath(output.ID)
+		localOutputID := getLastInPath(output.ID)
 
 		// access output param value from expression result
 		val, ok := proc.Tool.ExpressionResult[localOutputID]
@@ -314,13 +263,13 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 	if output.Types[0].Type == "File" {
 		// indicates `self` should be a file object with keys exposed
 		// should check length fileArray - room for error here
-		self, err = PreProcessContext(fileArray[0])
+		self, err = preProcessContext(fileArray[0])
 		if err != nil {
 			return err
 		}
 	} else {
 		// Not "File" means "array of Files"
-		self, err = PreProcessContext(fileArray)
+		self, err = preProcessContext(fileArray)
 		if err != nil {
 			return err
 		}
@@ -333,7 +282,7 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 	expression := output.Binding.Eval.Raw
 
 	// eval that thing
-	evalResult, err := EvalExpression(expression, vm)
+	evalResult, err := evalExpression(expression, vm)
 	if err != nil {
 		return err
 	}

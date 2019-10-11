@@ -24,7 +24,7 @@ type JobInfo struct {
 
 // DispatchWorkflowJob runs a workflow provided in mariner api request
 // TODO - decide on an approach to error handling, and apply it uniformly
-func DispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
+func dispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 	// get connection to cluster in order to dispatch jobs
 	jobsClient := getJobClient()
 
@@ -47,12 +47,10 @@ func DispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 	return nil
 }
 
-func (engine K8sEngine) DispatchTaskJob(proc *Process) error {
+func (engine K8sEngine) dispatchTaskJob(proc *Process) error {
 	fmt.Println("\tCreating k8s job spec..")
 	batchJob, nil := engine.getTaskJob(proc)
-
 	jobsClient := getJobClient()
-
 	fmt.Println("\tRunning k8s job..")
 	newJob, err := jobsClient.Create(batchJob)
 	if err != nil {
@@ -68,17 +66,17 @@ func (engine K8sEngine) DispatchTaskJob(proc *Process) error {
 }
 
 func getJobClient() batchtypev1.JobInterface {
-	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
-
 	clientset, err := kubernetes.NewForConfig(config)
 	batchClient := clientset.BatchV1()
+
 	// provide k8s namespace in which to dispatch jobs
 	// namespace is inherited from whatever namespace the mariner-server was deployed in
 	jobsClient := batchClient.Jobs(os.Getenv("GEN3_NAMESPACE"))
+
 	return jobsClient
 }
 
@@ -95,23 +93,23 @@ func getJobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error)
 	return nil, fmt.Errorf("job with jobid %s not found", jobid)
 }
 
-func GetJobStatusByID(jobid string) (*JobInfo, error) {
+func getJobStatusByID(jobid string) (*JobInfo, error) {
 	job, err := getJobByID(getJobClient(), jobid)
 	if err != nil {
 		return nil, err
 	}
-	ji := JobInfo{}
-	ji.Name = job.Name
-	ji.UID = string(job.GetUID())
-	ji.Status = jobStatusToString(&job.Status)
-	return &ji, nil
+	i := JobInfo{}
+	i.Name = job.Name
+	i.UID = string(job.GetUID())
+	i.Status = jobStatusToString(&job.Status)
+	return &i, nil
 }
 
+// see: https://kubernetes.io/docs/api-reference/batch/v1/definitions/#_v1_jobstatus
 func jobStatusToString(status *batchv1.JobStatus) string {
 	if status == nil {
 		return "Unknown"
 	}
-	// https://kubernetes.io/docs/api-reference/batch/v1/definitions/#_v1_jobstatus
 	if status.Succeeded >= 1 {
 		return "Completed"
 	}

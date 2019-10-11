@@ -3,13 +3,15 @@ package mariner
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 )
 
 // this file contains miscellaneous utility functions
 
 // PrintJSON pretty prints a struct as json
-func PrintJSON(i interface{}) {
+func printJSON(i interface{}) {
 	var see []byte
 	var err error
 	see, err = json.MarshalIndent(i, "", "   ")
@@ -22,9 +24,22 @@ func PrintJSON(i interface{}) {
 // GetLastInPath is a utility function. Example i/o:
 // in: "#subworkflow_test.cwl/test_expr/file_array"
 // out: "file_array"
-func GetLastInPath(s string) (localID string) {
+func getLastInPath(s string) (localID string) {
 	tmp := strings.Split(s, "/")
 	return tmp[len(tmp)-1]
+}
+
+func readDir(pwd, dir string) {
+	os.Chdir(pwd)
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		fmt.Printf("error reading dir: %v", err)
+	}
+	fmt.Println("reading ", dir, " from dir ", pwd)
+	fmt.Println("found these files:")
+	for _, f := range files {
+		fmt.Println(f.Name())
+	}
 }
 
 func struct2String(i interface{}) (s string) {

@@ -14,12 +14,12 @@ import (
 
 func makeRouter() *mux.Router {
 	router := mux.NewRouter()
-
-	router.HandleFunc("/run", RunHandler).Methods("POST")
-	router.HandleFunc("/_status", HandleHealthcheck).Methods("GET")
+	router.HandleFunc("/run", runHandler).Methods("POST")
+	router.HandleFunc("/_status", handleHealthcheck).Methods("GET")
 	return router
 }
 
+// Server runs the mariner server that listens for API calls
 func Server() {
 	httpLogger := log.New(os.Stdout, "", log.LstdFlags)
 	httpLogger.Fatal(http.ListenAndServe(":80", makeRouter()))

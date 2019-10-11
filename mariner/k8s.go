@@ -17,7 +17,7 @@ import (
 // unfortunate terminology thing: the "workflow job" and the "engine job" are the same thing
 // when I say "run a workflow job",
 // it means to dispatch a job which runs an instance of the mariner-engine,
-// where the engine "runs" the workflow
+// where the engine runs the workflow
 
 ////// ENGINE -> //////
 
@@ -188,7 +188,7 @@ func getEngineArgs(runID string) []string {
 ////// TASK -> ///////
 
 func (engine *K8sEngine) getTaskJob(proc *Process) (taskJob *batchv1.Job, err error) {
-	jobName := proc.makeJobName() // slightly modified Root.ID
+	jobName := proc.makeJobName()
 	proc.JobName = jobName
 	taskJob = getJobSpec(TASK, jobName)
 	taskJob.Spec.Template.Spec.Volumes = getWorkflowVolumes()
@@ -205,15 +205,12 @@ func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Co
 		return nil, err
 	}
 	s3sidecar := engine.getS3SidecarContainer(proc)
-
 	gen3fuse := getGen3fuseContainer(engine.Manifest, TASK, engine.RunID)
-	// organize this better
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
 		Value: proc.Tool.WorkingDir,
 	}
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
-
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
 	return containers, nil
 }
@@ -348,7 +345,7 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 			Value: strings.Join(proc.Tool.Command.Args, " "),
 		},
 		{
-			Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., /engine-workspace/task_id
+			Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., '/engine-workspace/workflowRuns/{runID}/{taskID}/'
 			Value: proc.Tool.WorkingDir,
 		},
 		{

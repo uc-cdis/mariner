@@ -37,7 +37,7 @@ func (tool *Tool) loadInputs() (err error) {
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
 	for _, in := range tool.OriginalStep.In {
-		localID := GetLastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
+		localID := getLastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
 	}
 }
@@ -88,7 +88,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1
 	*/
-	localID := GetLastInPath(input.ID)
+	localID := getLastInPath(input.ID)
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
@@ -110,7 +110,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			// preprocess struct/array so that fields can be accessed in vm
 			// Question: how to handle non-array/struct data types?
 			// --------- no preprocessing should have to happen in this case.
-			self, err := PreProcessContext(tool.Parameters[input.ID])
+			self, err := preProcessContext(tool.Parameters[input.ID])
 			if err != nil {
 				return nil, err
 			}
@@ -140,7 +140,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			*/
 
 			//  eval the expression in the vm, capture result in `out`
-			if out, err = EvalExpression(valueFrom, vm); err != nil {
+			if out, err = evalExpression(valueFrom, vm); err != nil {
 				return nil, err
 			}
 		} else {
@@ -155,7 +155,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	if isFile(out) {
 		// fmt.Println("is a file object")
-		path, err := GetPath(out)
+		path, err := getPath(out)
 		if err != nil {
 			return nil, err
 		}
@@ -222,7 +222,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			var context interface{}
 			if _, f := out.(*File); f {
 				// fmt.Println("context is a file")
-				context, err = PreProcessContext(out)
+				context, err = preProcessContext(out)
 				if err != nil {
 					return nil, err
 				}
@@ -231,7 +231,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				context = out
 			}
 			vm.Set("self", context) // NOTE: again, will more than likely need additional context here to cover other cases
-			if out, err = EvalExpression(valueFrom, vm); err != nil {
+			if out, err = evalExpression(valueFrom, vm); err != nil {
 				return nil, err
 			}
 		} else {
@@ -278,7 +278,7 @@ func (tool *Tool) inputsToVM() (err error) {
 					panic("unexpected datatype representing file object in input.Provided.Raw")
 				}
 			}
-			fileContext, err := PreProcessContext(fileObj)
+			fileContext, err := preProcessContext(fileObj)
 			if err != nil {
 				return err
 			}

@@ -79,7 +79,7 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 }
 
 // RunWorkflow parses a workflow and inputs and run it
-func RunWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
+func runWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 	var root cwl.Root
 	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the request body
 	if err != nil {
@@ -125,11 +125,11 @@ func RunWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 	resolveGraph(flatRoots, mainTask)
 
 	// run the workflow
-	engine.Run(mainTask)
+	engine.run(mainTask)
 
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
-	PrintJSON(mainTask.Outputs)
+	printJSON(mainTask.Outputs)
 
 	return nil
 }
@@ -144,7 +144,7 @@ concurrency notes:
 // recall: a Task is either a workflow or a *Tool
 // workflows are processed into a collection of *Tools via Task.RunSteps()
 // *Tools get dispatched to be executed via Task.Engine.DispatchTask()
-func (engine *K8sEngine) Run(task *Task) error {
+func (engine *K8sEngine) run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
 	if task.Scatter != nil {
 		engine.runScatter(task)
@@ -153,12 +153,12 @@ func (engine *K8sEngine) Run(task *Task) error {
 	}
 	if task.Root.Class == "Workflow" {
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
-		engine.RunSteps(task)
+		engine.runSteps(task)
 		task.mergeChildOutputs()
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
-		engine.DispatchTask(task)
+		engine.dispatchTask(task)
 	}
 	return nil
 }
@@ -215,11 +215,11 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 	}
 
 	// run this step
-	engine.Run(task)
+	engine.run(task)
 }
 
 // concurrently run steps of a workflow
-func (engine *K8sEngine) RunSteps(task *Task) {
+func (engine *K8sEngine) runSteps(task *Task) {
 	// store a map of {outputID: stepID} pairs to trace step i/o dependency
 	task.setupOutputMap()
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one

@@ -23,8 +23,7 @@ var (
 	falseVal                        = false
 	MountPropagationHostToContainer = k8sv1.MountPropagationHostToContainer
 	MountPropagationBidirectional   = k8sv1.MountPropagationBidirectional
-	// S3SIDECARARGS                   = []string{"./s3sidecarDockerrun.sh"}
-	WORKFLOW_VOLUMES = []string{ENGINE_WORKSPACE, COMMONS_DATA}
+	WORKFLOW_VOLUMES                = []string{ENGINE_WORKSPACE, COMMONS_DATA}
 )
 
 const (
@@ -74,16 +73,6 @@ var envVar_HOSTNAME = k8sv1.EnvVar{
 	},
 }
 
-func (config *MarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
-	switch component {
-	case ENGINE:
-		jobConfig = config.Jobs.Engine
-	case TASK:
-		jobConfig = config.Jobs.Task
-	}
-	return jobConfig
-}
-
 type MarinerConfig struct {
 	Containers Containers `json:"containers"`
 	Jobs       Jobs       `json:"jobs"`
@@ -114,6 +103,41 @@ type Resources struct {
 type Resource struct {
 	CPU    string `json:"cpu"`
 	Memory string `json:"memory"`
+}
+
+// run as user? run as group? should mariner have those settings?
+type SecurityContext struct {
+	Privileged bool `json:"privileged"`
+}
+
+type Jobs struct {
+	Engine JobConfig `json:"engine"`
+	Task   JobConfig `json:"task"`
+}
+
+type JobConfig struct {
+	Labels         map[string]string `json:"labels"`
+	ServiceAccount string            `json:"serviceaccount"`
+	RestartPolicy  string            `json:"restart_policy"`
+}
+
+type Secrets struct {
+	AWSUserCreds AWSUserCreds `json:"awsusercreds"`
+}
+
+type AWSUserCreds struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+func (config *MarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
+	switch component {
+	case ENGINE:
+		jobConfig = config.Jobs.Engine
+	case TASK:
+		jobConfig = config.Jobs.Task
+	}
+	return jobConfig
 }
 
 func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceRequirements) {
@@ -223,22 +247,6 @@ func getVolumeMount(name string, component string) *k8sv1.VolumeMount {
 	return volMnt
 }
 
-// run as user? run as group? should mariner have those settings?
-type SecurityContext struct {
-	Privileged bool `json:"privileged"`
-}
-
-type Jobs struct {
-	Engine JobConfig `json:"engine"`
-	Task   JobConfig `json:"task"`
-}
-
-type JobConfig struct {
-	Labels         map[string]string `json:"labels"`
-	ServiceAccount string            `json:"serviceaccount"`
-	RestartPolicy  string            `json:"restart_policy"`
-}
-
 func (conf *JobConfig) getRestartPolicy() (policy k8sv1.RestartPolicy) {
 	switch conf.RestartPolicy {
 	case "never":
@@ -249,15 +257,6 @@ func (conf *JobConfig) getRestartPolicy() (policy k8sv1.RestartPolicy) {
 		policy = k8sv1.RestartPolicyAlways
 	}
 	return policy
-}
-
-type Secrets struct {
-	AWSUserCreds AWSUserCreds `json:"awsusercreds"`
-}
-
-type AWSUserCreds struct {
-	Name string `json:"name"`
-	Key  string `json:"key"`
 }
 
 // read `mariner-config.json` from configmap `mariner-config`

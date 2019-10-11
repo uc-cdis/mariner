@@ -48,7 +48,7 @@ func (cmdElts CommandElements) Swap(i, j int)      { cmdElts[i], cmdElts[j] = cm
 func (cmdElts CommandElements) Less(i, j int) bool { return cmdElts[i].Position < cmdElts[j].Position }
 
 // GenerateCommand ..
-func (tool *Tool) GenerateCommand() (err error) {
+func (tool *Tool) generateCommand() (err error) {
 	cmdElts, err := tool.getCmdElts()
 	if err != nil {
 		return err
@@ -360,7 +360,7 @@ func getPathFromRaw(rawInput interface{}) (path string, err error) {
 		fileObj := rawInput.(*File)
 		path = fileObj.Path
 	default:
-		path, err = GetPath(rawInput)
+		path, err = getPath(rawInput)
 		if err != nil {
 			return "", fmt.Errorf("failed to retrieve file or directory path from object of type %T with value %v", rawInput, rawInput)
 		}
@@ -419,7 +419,7 @@ func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
 			fmt.Println("expression to eval..")
-			result, err := EvalExpression(arg.Value, tool.Root.InputsVM)
+			result, err := evalExpression(arg.Value, tool.Root.InputsVM)
 			if err != nil {
 				return nil, err
 			}
