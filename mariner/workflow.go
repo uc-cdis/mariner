@@ -81,17 +81,13 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 // RunWorkflow parses a workflow and inputs and run it
 func RunWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 	var root cwl.Root
-	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the POST request body
+	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the request body
 	if err != nil {
-		fmt.Println("failed to unmarshal workflow")
-		PrintJSON(workflow)
 		return err
 	}
-
 	var originalParams cwl.Parameters
-	err = json.Unmarshal(inputs, &originalParams) // unmarshal the inputs JSON from the POST request body
+	err = json.Unmarshal(inputs, &originalParams) // unmarshal the inputs JSON from the request body
 	if err != nil {
-		fmt.Println("failed to unmarshal inputs")
 		return err
 	}
 
@@ -156,18 +152,13 @@ func (engine *K8sEngine) Run(task *Task) error {
 		return nil
 	}
 	if task.Root.Class == "Workflow" {
-		// this process is a workflow, i.e., it has steps that must be run
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
-
-		// concurrently run each of the workflow steps
 		engine.RunSteps(task)
-
-		// merge outputs from all steps of this workflow to output for this workflow
 		task.mergeChildOutputs()
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
-		engine.DispatchTask(task) // this line looks weird - task on left and right
+		engine.DispatchTask(task)
 	}
 	return nil
 }
@@ -188,16 +179,6 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 		source := input.Source[0]
 
 		// I/O DEPENDENCY HANDLING
-
-		/*
-			// DEBUG
-				fmt.Printf("\n------\n")
-				fmt.Println("entering i/o parameter passing")
-				fmt.Println("stepInput: ", input.ID)
-				fmt.Println("taskInput: ", taskInput)
-				fmt.Printf("\n------\n")
-		*/
-
 		// if this input's source is the ID of an output parameter of another step
 		if depStepID, ok := parentTask.outputIDMap[source]; ok {
 			// wait until all dependency step output has been collected
@@ -215,7 +196,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {
 			// if the input source to this step is not the outputID of another step
-			// but is an input of the parent workflow (e.g. "#subworkflow_test.cwl/input_bam" in ../testdata/workflow/workflow.json)
+			// but is an input of the parent workflow
 			// assign input parameter of parent workflow to input parameter of this step
 			task.Parameters[taskInput] = parentTask.Parameters[source]
 		}
