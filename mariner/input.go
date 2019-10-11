@@ -37,7 +37,7 @@ func (tool *Tool) loadInputs() (err error) {
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
 	for _, in := range tool.OriginalStep.In {
-		localID := getLastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
+		localID := lastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
 	}
 }
@@ -88,7 +88,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1
 	*/
-	localID := getLastInPath(input.ID)
+	localID := lastInPath(input.ID)
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
@@ -155,7 +155,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	if isFile(out) {
 		// fmt.Println("is a file object")
-		path, err := getPath(out)
+		path, err := filePath(out)
 		if err != nil {
 			return nil, err
 		}
@@ -202,7 +202,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			// FIXME make this path joining cleaner - ideally uniform  with the other path join in the above case
 			path = strings.Join([]string{"/", ENGINE_WORKSPACE, "/", trimmedPath}, "")
 		}
-		out = getFileObj(path)
+		out = fileObject(path)
 	} else {
 		fmt.Println("is not a file object")
 	}
@@ -265,13 +265,13 @@ func (tool *Tool) inputsToVM() (err error) {
 			if input.Provided.Entry != nil {
 				// no valueFrom specified in inputBinding
 				if input.Provided.Entry.Location != "" {
-					fileObj = getFileObj(input.Provided.Entry.Location)
+					fileObj = fileObject(input.Provided.Entry.Location)
 				}
 			} else {
 				// valueFrom specified in inputBinding - resulting value stored in input.Provided.Raw
 				switch input.Provided.Raw.(type) {
 				case string:
-					fileObj = getFileObj(input.Provided.Raw.(string))
+					fileObj = fileObject(input.Provided.Raw.(string))
 				case *File:
 					fileObj = input.Provided.Raw.(*File)
 				default:

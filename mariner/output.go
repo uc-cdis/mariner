@@ -142,7 +142,7 @@ func (proc *Process) handleCLTOutput() (err error) {
 						// TODO: check if resulting secondaryFile actually exists (should encapsulate this to a function)
 
 						// get file object for secondaryFile and append it to the output file's SecondaryFiles field
-						sFileObj := getFileObj(sFilePath)
+						sFileObj := fileObject(sFilePath)
 						fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
 					}
 
@@ -191,7 +191,7 @@ func (proc *Process) glob(output *cwl.Output) (results []*File, err error) {
 
 	var pattern string
 	for _, glob := range output.Binding.Glob {
-		pattern, err = proc.getPattern(glob)
+		pattern, err = proc.pattern(glob)
 		if err != nil {
 			return results, err
 		}
@@ -201,7 +201,7 @@ func (proc *Process) glob(output *cwl.Output) (results []*File, err error) {
 			return results, err
 		}
 		for _, path := range paths {
-			fileObj := getFileObj(path) // these are full paths, so no need to add working dir to path
+			fileObj := fileObject(path) // these are full paths, so no need to add working dir to path
 			results = append(results, fileObj)
 		}
 	}
@@ -209,7 +209,7 @@ func (proc *Process) glob(output *cwl.Output) (results []*File, err error) {
 	return results, nil
 }
 
-func (proc *Process) getPattern(glob string) (pattern string, err error) {
+func (proc *Process) pattern(glob string) (pattern string, err error) {
 	if strings.HasPrefix(glob, "$") {
 		// expression needs to get eval'd
 		// glob pattern is the resulting string
@@ -239,7 +239,7 @@ func (proc *Process) getPattern(glob string) (pattern string, err error) {
 func (proc *Process) handleETOutput() (err error) {
 	for _, output := range proc.Task.Root.Outputs {
 		// get "output" from "#expressiontool_test.cwl/output"
-		localOutputID := getLastInPath(output.ID)
+		localOutputID := lastInPath(output.ID)
 
 		// access output param value from expression result
 		val, ok := proc.Tool.ExpressionResult[localOutputID]

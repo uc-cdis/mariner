@@ -24,7 +24,7 @@ func printJSON(i interface{}) {
 // GetLastInPath is a utility function. Example i/o:
 // in: "#subworkflow_test.cwl/test_expr/file_array"
 // out: "file_array"
-func getLastInPath(s string) (localID string) {
+func lastInPath(s string) (localID string) {
 	tmp := strings.Split(s, "/")
 	return tmp[len(tmp)-1]
 }

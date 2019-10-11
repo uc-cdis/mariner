@@ -33,8 +33,8 @@ type File struct {
 // presently loading both `path` and `location` for sake of loading all potentially needed context to js vm
 // right now they hold the exact same path
 // prefixissue - don't need to handle here - the 'path' argument is the full path, with working dir and all
-func getFileObj(path string) (fileObj *File) {
-	base, root, ext := getFileFields(path)
+func fileObject(path string) (fileObj *File) {
+	base, root, ext := fileFields(path)
 	fileObj = &File{
 		Class:    "File",
 		Location: path, // stores the full path
@@ -49,8 +49,8 @@ func getFileObj(path string) (fileObj *File) {
 // pedantic splitting regarding leading periods in the basename
 // see: https://www.commonwl.org/v1.0/Workflow.html#File
 // the description of nameroot and nameext
-func getFileFields(path string) (base string, root string, ext string) {
-	base = getLastInPath(path)
+func fileFields(path string) (base string, root string, ext string) {
+	base = lastInPath(path)
 	baseNoLeadingPeriods, nPeriods := trimLeading(base, ".")
 	tmp := strings.Split(baseNoLeadingPeriods, ".")
 	if len(tmp) == 1 {
@@ -105,7 +105,7 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 		fmt.Printf("\tfound secondary file %v\n", path)
 
 		// construct file object for this secondary file
-		sFile := getFileObj(path)
+		sFile := fileObject(path)
 
 		// append this secondary file
 		fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFile)
@@ -176,7 +176,7 @@ func exists(path string) (bool, error) {
 
 // get path from a file object which is not of type File
 // NOTE: maybe shouldn't be an error if no path but the contents field is populated
-func getPath(i interface{}) (path string, err error) {
+func filePath(i interface{}) (path string, err error) {
 	iter := reflect.ValueOf(i).MapRange()
 	for iter.Next() {
 		key, val := iter.Key().String(), iter.Value()

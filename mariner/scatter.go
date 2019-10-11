@@ -16,7 +16,7 @@ func (engine *K8sEngine) runScatter(task *Task) (err error) {
 	if err = task.validateScatterMethod(); err != nil {
 		return err
 	}
-	scatterParams, err := task.getScatterParams()
+	scatterParams, err := task.scatterParams()
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func (engine *K8sEngine) runScatter(task *Task) (err error) {
 }
 
 // assign input value to each scattered input parameter
-func (task *Task) getScatterParams() (scatterParams map[string][]interface{}, err error) {
+func (task *Task) scatterParams() (scatterParams map[string][]interface{}, err error) {
 	scatterParams = make(map[string][]interface{})
 	if err != nil {
 		return nil, err

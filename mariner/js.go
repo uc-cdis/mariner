@@ -20,7 +20,7 @@ import (
 // getJS strips the cwl prefix for an expression
 // and tells whether to just eval the expression, or eval the exp as a js function
 // this is modified from the cwl.Eval.ToJavaScriptString() method
-func getJS(s string) (js string, fn bool, err error) {
+func js(s string) (js string, fn bool, err error) {
 	// if curly braces, then need to eval as a js function
 	// see https://www.commonwl.org/v1.0/Workflow.html#Expressions
 	fn = strings.HasPrefix(s, "${")
@@ -36,7 +36,7 @@ func getJS(s string) (js string, fn bool, err error) {
 func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 	// strip the $() (or if ${} just trim leading $), which appears in the cwl as a wrapper for js expressions
 	var output otto.Value
-	js, fn, _ := getJS(exp)
+	js, fn, _ := js(exp)
 	if js == "" {
 		return nil, fmt.Errorf("empty expression")
 	}

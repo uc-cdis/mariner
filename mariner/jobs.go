@@ -26,16 +26,16 @@ type JobInfo struct {
 // TODO - decide on an approach to error handling, and apply it uniformly
 func dispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 	// get connection to cluster in order to dispatch jobs
-	jobsClient := getJobClient()
+	jobsClient := jobClient()
 
 	// create the workflow job spec (i.e., mariner-engine job spec)
-	workflowJobSpec, err := getWorkflowJob(workflowRequest)
+	jobSpec, err := workflowJob(workflowRequest)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow job spec: %v", err)
 	}
 
 	// tell k8s to run this job
-	workflowJob, err := jobsClient.Create(workflowJobSpec)
+	workflowJob, err := jobsClient.Create(jobSpec)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow job: %v", err)
 	}
@@ -49,8 +49,8 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 
 func (engine K8sEngine) dispatchTaskJob(proc *Process) error {
 	fmt.Println("\tCreating k8s job spec..")
-	batchJob, nil := engine.getTaskJob(proc)
-	jobsClient := getJobClient()
+	batchJob, nil := engine.taskJob(proc)
+	jobsClient := jobClient()
 	fmt.Println("\tRunning k8s job..")
 	newJob, err := jobsClient.Create(batchJob)
 	if err != nil {
@@ -65,7 +65,7 @@ func (engine K8sEngine) dispatchTaskJob(proc *Process) error {
 	return nil
 }
 
-func getJobClient() batchtypev1.JobInterface {
+func jobClient() batchtypev1.JobInterface {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
@@ -80,7 +80,7 @@ func getJobClient() batchtypev1.JobInterface {
 	return jobsClient
 }
 
-func getJobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error) {
+func jobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error) {
 	jobs, err := jc.List(metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -93,8 +93,8 @@ func getJobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error)
 	return nil, fmt.Errorf("job with jobid %s not found", jobid)
 }
 
-func getJobStatusByID(jobid string) (*JobInfo, error) {
-	job, err := getJobByID(getJobClient(), jobid)
+func jobStatusByID(jobid string) (*JobInfo, error) {
+	job, err := jobByID(jobClient(), jobid)
 	if err != nil {
 		return nil, err
 	}

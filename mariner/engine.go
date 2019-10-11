@@ -113,7 +113,7 @@ func done(runID string) error {
 
 // DispatchTask does some setup for and dispatches workflow *Tools
 func (engine K8sEngine) dispatchTask(task *Task) (err error) {
-	tool := task.getTool(engine.RunID)
+	tool := task.tool(engine.RunID)
 	err = tool.setupTool()
 	if err != nil {
 		fmt.Printf("ERROR setting up tool: %v\n", err)
@@ -159,12 +159,12 @@ func (engine *K8sEngine) collectOutput(proc *Process) error {
 // GetTool returns a Tool object
 // The Tool represents a workflow *Tool and so is either a CommandLineTool or an ExpressionTool
 // NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
-func (task *Task) getTool(runID string) *Tool {
+func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
 		Root:         task.Root,
 		Parameters:   task.Parameters,
 		OriginalStep: task.originalStep,
-		WorkingDir:   task.getWorkingDir(runID),
+		WorkingDir:   task.workingDir(runID),
 	}
 	return tool
 }
@@ -174,7 +174,7 @@ func (task *Task) getTool(runID string) *Tool {
 // probably need to do some more filtering of other potentially problematic characters
 // NOTE: should make the mount point a go constant - i.e., const MountPoint = "/engine-workspace/"
 // ----- could come up with a better/more uniform naming scheme
-func (task *Task) getWorkingDir(runID string) string {
+func (task *Task) workingDir(runID string) string {
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
 	dir := fmt.Sprintf("/%v/workflowRuns/%v/%v", ENGINE_WORKSPACE, runID, safeID)
 	if task.ScatterIndex > 0 {
@@ -264,7 +264,7 @@ func (engine *K8sEngine) listenForDone(proc *Process) (err error) {
 	fmt.Println("\tListening for job to finish..")
 	status := ""
 	for status != "Completed" {
-		jobInfo, err := getJobStatusByID(proc.JobID)
+		jobInfo, err := jobStatusByID(proc.JobID)
 		if err != nil {
 			return err
 		}

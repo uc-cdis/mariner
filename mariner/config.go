@@ -130,7 +130,7 @@ type AWSUserCreds struct {
 	Key  string `json:"key"`
 }
 
-func (config *MarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
+func (config *MarinerConfig) jobConfig(component string) (jobConfig JobConfig) {
 	switch component {
 	case ENGINE:
 		jobConfig = config.Jobs.Engine
@@ -140,7 +140,7 @@ func (config *MarinerConfig) getJobConfig(component string) (jobConfig JobConfig
 	return jobConfig
 }
 
-func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceRequirements) {
+func (conf *Container) resourceRequirements() (requirements k8sv1.ResourceRequirements) {
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
 	if conf.Resources.Limits.CPU != "" {
 		limits[k8sv1.ResourceCPU] = k8sResource.MustParse(conf.Resources.Limits.CPU)
@@ -165,7 +165,7 @@ func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceReq
 	return requirements
 }
 
-func (conf *Container) getPullPolicy() (policy k8sv1.PullPolicy) {
+func (conf *Container) pullPolicy() (policy k8sv1.PullPolicy) {
 	switch conf.PullPolicy {
 	case "always":
 		policy = k8sv1.PullAlways
@@ -177,46 +177,46 @@ func (conf *Container) getPullPolicy() (policy k8sv1.PullPolicy) {
 	return policy
 }
 
-func (conf *Container) getSecurityContext() (context *k8sv1.SecurityContext) {
+func (conf *Container) securityContext() (context *k8sv1.SecurityContext) {
 	context = &k8sv1.SecurityContext{
 		Privileged: &conf.SecurityContext.Privileged,
 	}
 	return context
 }
 
-func getVolumeMounts(component string) (v []k8sv1.VolumeMount) {
+func volumeMounts(component string) (v []k8sv1.VolumeMount) {
 	switch component {
 	case ENGINE, TASK:
-		v = getMainVolumeMounts(component)
+		v = mainVolumeMounts(component)
 	case S3SIDECAR, GEN3FUSE:
-		v = getSidecarVolumeMounts(component)
+		v = sidecarVolumeMounts(component)
 	}
 	return v
 }
 
-func getSidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
-	engineWorkspace := getVolumeMount(ENGINE_WORKSPACE, component)
+func sidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
+	engineWorkspace := volumeMount(ENGINE_WORKSPACE, component)
 	v = []k8sv1.VolumeMount{*engineWorkspace}
 	if component == GEN3FUSE {
-		commonsData := getVolumeMount(COMMONS_DATA, component)
+		commonsData := volumeMount(COMMONS_DATA, component)
 		v = append(v, *commonsData)
 	}
 	return v
 }
 
-func getMainVolumeMounts(component string) (volumeMounts []k8sv1.VolumeMount) {
+func mainVolumeMounts(component string) (volumeMounts []k8sv1.VolumeMount) {
 	for _, v := range WORKFLOW_VOLUMES {
-		volumeMount := getVolumeMount(v, component)
+		volumeMount := volumeMount(v, component)
 		volumeMounts = append(volumeMounts, *volumeMount)
 	}
 	if component == ENGINE {
-		configVol := getVolumeMount(CONFIG, component)
+		configVol := volumeMount(CONFIG, component)
 		volumeMounts = append(volumeMounts, *configVol)
 	}
 	return volumeMounts
 }
 
-func getConfigVolume() *k8sv1.Volume {
+func configVolume() *k8sv1.Volume {
 	// mariner config in manifest
 	// gets mounted as a volume in this way
 	configMap := &k8sv1.Volume{Name: "mariner-config"}
@@ -227,7 +227,7 @@ func getConfigVolume() *k8sv1.Volume {
 	return configMap
 }
 
-func getVolumeMount(name string, component string) *k8sv1.VolumeMount {
+func volumeMount(name string, component string) *k8sv1.VolumeMount {
 	volMnt := &k8sv1.VolumeMount{
 		Name:      name,
 		MountPath: fmt.Sprintf("/%v", name),
@@ -247,7 +247,7 @@ func getVolumeMount(name string, component string) *k8sv1.VolumeMount {
 	return volMnt
 }
 
-func (conf *JobConfig) getRestartPolicy() (policy k8sv1.RestartPolicy) {
+func (conf *JobConfig) restartPolicy() (policy k8sv1.RestartPolicy) {
 	switch conf.RestartPolicy {
 	case "never":
 		policy = k8sv1.RestartPolicyNever

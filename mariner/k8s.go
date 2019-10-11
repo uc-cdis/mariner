@@ -22,67 +22,67 @@ import (
 ////// ENGINE -> //////
 
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
-func getWorkflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, err error) {
+func workflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, err error) {
 	// get job spec all populated except for pod volumes and containers
-	workflowJob = getJobSpec(ENGINE, "test-workflow") // FIXME - define jobname for a workflow - timestamp, or
+	workflowJob = jobSpec(ENGINE, "test-workflow") // FIXME - define jobname for a workflow - timestamp, or
 
 	// fill in the rest of the spec
-	workflowJob.Spec.Template.Spec.Volumes = getEngineVolumes()
-	workflowJob.Spec.Template.Spec.Containers = getEngineContainers(workflowRequest)
+	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
+	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest)
 
 	return workflowJob, nil
 }
 
 // returns volumes field for workflow/engine job spec
-func getEngineVolumes() (volumes []k8sv1.Volume) {
-	volumes = getWorkflowVolumes()
-	configMap := getConfigVolume()
+func engineVolumes() (volumes []k8sv1.Volume) {
+	volumes = workflowVolumes()
+	configMap := configVolume()
 	volumes = append(volumes, *configMap)
 	return volumes
 }
 
-func getEngineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
+func engineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
 	// don't need to pass workflowRequest here necessarily, since UserID in engine now
 	// recall "Getters and Setters" - fix these function names
-	runID := getTimestamp()
-	engine := getEngineContainer(runID)
-	s3sidecar := getS3SidecarContainer(workflowRequest, runID)
-	gen3fuse := getGen3fuseContainer(&workflowRequest.Manifest, ENGINE, runID)
+	runID := timestamp()
+	engine := engineContainer(runID)
+	s3sidecar := s3SidecarContainer(workflowRequest, runID)
+	gen3fuse := gen3fuseContainer(&workflowRequest.Manifest, ENGINE, runID)
 	containers = []k8sv1.Container{*engine, *s3sidecar, *gen3fuse}
 	return containers
 }
 
-func getEngineContainer(runID string) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Containers.Engine, ENGINE)
-	container.Env = getEngineEnv(runID)
-	container.Args = getEngineArgs(runID) // FIXME - TODO - put this in a bash script
+func engineContainer(runID string) (container *k8sv1.Container) {
+	container = baseContainer(&Config.Containers.Engine, ENGINE)
+	container.Env = engineEnv(runID)
+	container.Args = engineArgs(runID) // FIXME - TODO - put this in a bash script
 	return container
 }
 
 // for ENGINE job
-func getS3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
-	container.Env = getS3SidecarEnv(request, runID) // for ENGINE-sidecar
+func s3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv1.Container) {
+	container = baseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
+	container.Env = s3SidecarEnv(request, runID) // for ENGINE-sidecar
 	return container
 }
 
 // given a manifest, returns the complete gen3fuse container spec for k8s podSpec
-func getGen3fuseContainer(manifest *Manifest, component string, runID string) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Containers.Gen3fuse, GEN3FUSE)
-	container.Env = getGen3fuseEnv(manifest, component, runID)
+func gen3fuseContainer(manifest *Manifest, component string, runID string) (container *k8sv1.Container) {
+	container = baseContainer(&Config.Containers.Gen3fuse, GEN3FUSE)
+	container.Env = gen3fuseEnv(manifest, component, runID)
 	return container
 }
 
 // NOTE: probably can come up with a better ID for a workflow, but for now this will work
 // can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
 // so not exactly sure how to label the workflow runs besides a timestamp
-func getTimestamp() (timeStamp string) {
+func timestamp() (timeStamp string) {
 	now := time.Now()
 	timeStamp = fmt.Sprintf("%v-%v-%v_%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
 	return timeStamp
 }
 
-func getGen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVar) {
+func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVar) {
 	manifest := struct2String(m)
 	env = []k8sv1.EnvVar{
 		{
@@ -115,7 +115,7 @@ func getGen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.En
 }
 
 // k8s namespace in which to dispatch jobs
-func getEngineEnv(runID string) (env []k8sv1.EnvVar) {
+func engineEnv(runID string) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "GEN3_NAMESPACE",
@@ -134,7 +134,7 @@ func getEngineEnv(runID string) (env []k8sv1.EnvVar) {
 }
 
 // for ENGINE job
-func getS3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
+func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 	workflowRequest := struct2String(r)
 	env = []k8sv1.EnvVar{
 		{
@@ -170,7 +170,7 @@ func getS3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 // seems like I can just pass the request directly to the engine
 // and just write some empty "done" flag in the engine workspace
 // ---> to indicate the sidecar is done setting up and the engine container can run
-func getEngineArgs(runID string) []string {
+func engineArgs(runID string) []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
@@ -187,25 +187,25 @@ func getEngineArgs(runID string) []string {
 
 ////// TASK -> ///////
 
-func (engine *K8sEngine) getTaskJob(proc *Process) (taskJob *batchv1.Job, err error) {
-	jobName := proc.makeJobName()
+func (engine *K8sEngine) taskJob(proc *Process) (job *batchv1.Job, err error) {
+	jobName := proc.jobName()
 	proc.JobName = jobName
-	taskJob = getJobSpec(TASK, jobName)
-	taskJob.Spec.Template.Spec.Volumes = getWorkflowVolumes()
-	taskJob.Spec.Template.Spec.Containers, err = engine.getTaskContainers(proc)
+	job = jobSpec(TASK, jobName)
+	job.Spec.Template.Spec.Volumes = workflowVolumes()
+	job.Spec.Template.Spec.Containers, err = engine.taskContainers(proc)
 	if err != nil {
 		return nil, err
 	}
-	return taskJob, nil
+	return job, nil
 }
 
-func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Container, err error) {
-	task, err := proc.getTaskContainer()
+func (engine *K8sEngine) taskContainers(proc *Process) (containers []k8sv1.Container, err error) {
+	task, err := proc.taskContainer()
 	if err != nil {
 		return nil, err
 	}
-	s3sidecar := engine.getS3SidecarContainer(proc)
-	gen3fuse := getGen3fuseContainer(engine.Manifest, TASK, engine.RunID)
+	s3sidecar := engine.s3SidecarContainer(proc)
+	gen3fuse := gen3fuseContainer(engine.Manifest, TASK, engine.RunID)
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
 		Value: proc.Tool.WorkingDir,
@@ -216,9 +216,9 @@ func (engine *K8sEngine) getTaskContainers(proc *Process) (containers []k8sv1.Co
 }
 
 // for TASK job
-func (engine *K8sEngine) getS3SidecarContainer(proc *Process) (container *k8sv1.Container) {
-	container = getBaseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
-	container.Env = engine.getS3SidecarEnv(proc)
+func (engine *K8sEngine) s3SidecarContainer(proc *Process) (container *k8sv1.Container) {
+	container = baseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
+	container.Env = engine.s3SidecarEnv(proc)
 	return container
 }
 
@@ -226,25 +226,25 @@ func (engine *K8sEngine) getS3SidecarContainer(proc *Process) (container *k8sv1.
 // in case errors/warnings creating the container as specified in the cwl
 // additionally, add logic to check if the tool has specified each field
 // if a field is not specified, the spec should be filled out using values from the mariner-config
-func (proc *Process) getTaskContainer() (container *k8sv1.Container, err error) {
+func (proc *Process) taskContainer() (container *k8sv1.Container, err error) {
 	conf := Config.Containers.Task
 	container = new(k8sv1.Container)
 	container.Name = conf.Name
-	container.VolumeMounts = getVolumeMounts(TASK)
-	container.ImagePullPolicy = conf.getPullPolicy()
+	container.VolumeMounts = volumeMounts(TASK)
+	container.ImagePullPolicy = conf.pullPolicy()
 
 	// if not specified use config
-	container.Image = proc.getDockerImage()
+	container.Image = proc.dockerImage()
 
 	// if not specified use config
-	container.Resources = proc.getResourceReqs()
+	container.Resources = proc.resourceReqs()
 
 	// if not specified use config
-	container.Command = []string{proc.getCLTBash()} // FIXME - please
+	container.Command = []string{proc.cltBash()} // FIXME - please
 
-	container.Args = proc.getCLToolArgs() // FIXME - make string constant or something
+	container.Args = proc.cltArgs() // FIXME - make string constant or something
 
-	container.Env = proc.getEnv()
+	container.Env = proc.env()
 
 	return container, nil
 }
@@ -258,7 +258,7 @@ func (proc *Process) getTaskContainer() (container *k8sv1.Container, err error) 
 // so, just make this string a constant or something in the config file
 // TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
 // HERE - how to handle case of different possible bash, depending on CLT image specified in CWL?
-func (proc *Process) getCLToolArgs() []string {
+func (proc *Process) cltArgs() []string {
 	// Uncomment after debugging
 	args := []string{
 		"-c",
@@ -272,7 +272,7 @@ func (proc *Process) getCLToolArgs() []string {
 				echo "running command $(cat %vrun.sh)"
 				%v %vrun.sh
 				echo "commandlinetool has finished running" > %vdone
-				`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.getCLTBash(), proc.Tool.WorkingDir, proc.Tool.WorkingDir),
+				`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.cltBash(), proc.Tool.WorkingDir, proc.Tool.WorkingDir),
 	}
 
 	/*
@@ -301,7 +301,7 @@ func (proc *Process) getCLToolArgs() []string {
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 // and: https://godoc.org/k8s.io/api/core/v1#EnvVar
 // and: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
-func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
+func (proc *Process) env() (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{}
 	for _, requirement := range proc.Tool.Root.Requirements {
 		if requirement.Class == "EnvVarRequirement" {
@@ -322,7 +322,7 @@ func (proc *Process) getEnv() (env []k8sv1.EnvVar) {
 }
 
 // for TASK job
-func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
+func (engine *K8sEngine) s3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
@@ -360,7 +360,7 @@ func (engine *K8sEngine) getS3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 // replace disallowed job name characters
 // Q: is there a better job-naming scheme?
 // -- should every mariner task job have `mariner` as a prefix, for easy identification?
-func (proc *Process) makeJobName() string {
+func (proc *Process) jobName() string {
 	taskID := proc.Task.Root.ID
 	jobName := strings.ReplaceAll(taskID, "#", "")
 	jobName = strings.ReplaceAll(jobName, "_", "-")
@@ -377,7 +377,7 @@ func (proc *Process) makeJobName() string {
 // NOTE: if no image specified, returns `ubuntu` as a default image - need to ask/check if there is a better default image to use
 // NOTE: presently only supporting use of the `dockerPull` CWL field
 // FIXME
-func (proc *Process) getDockerImage() string {
+func (proc *Process) dockerImage() string {
 	for _, requirement := range proc.Task.Root.Requirements {
 		if requirement.Class == "DockerRequirement" {
 			if requirement.DockerPull != "" {
@@ -391,8 +391,8 @@ func (proc *Process) getDockerImage() string {
 }
 
 // FIXME
-func (proc *Process) getCLTBash() string {
-	if proc.getDockerImage() == "alpine" {
+func (proc *Process) cltBash() string {
+	if proc.dockerImage() == "alpine" {
 		return "/bin/sh"
 	}
 	return "/bin/bash"
@@ -404,7 +404,7 @@ func (proc *Process) getCLTBash() string {
 // for k8s resource info see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 //
 // NOTE: presently only supporting req's for cpu cores and RAM - need to implement outdir and tmpdir and whatever other fields are allowed
-func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
+func (proc *Process) resourceReqs() k8sv1.ResourceRequirements {
 	var cpuReq, cpuLim int64
 	var memReq, memLim int64
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
@@ -453,7 +453,7 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 	}
 
 	// start with default settings
-	resourceReqs := Config.Containers.Task.getResourceRequirements()
+	resourceReqs := Config.Containers.Task.resourceRequirements()
 
 	// only want to overwrite default limits if requirements specified in the CWL
 	if len(requests) > 0 {
@@ -468,15 +468,15 @@ func (proc *Process) getResourceReqs() k8sv1.ResourceRequirements {
 /////// General purpose - for TASK & ENGINE -> ///////
 
 // for info, see: https://godoc.org/k8s.io/api/core/v1#Container
-func getBaseContainer(conf *Container, component string) (container *k8sv1.Container) {
+func baseContainer(conf *Container, component string) (container *k8sv1.Container) {
 	container = &k8sv1.Container{
 		Name:            conf.Name,
 		Image:           conf.Image,
 		Command:         conf.Command,
-		ImagePullPolicy: conf.getPullPolicy(),
-		SecurityContext: conf.getSecurityContext(),
-		VolumeMounts:    getVolumeMounts(component),
-		Resources:       conf.getResourceRequirements(),
+		ImagePullPolicy: conf.pullPolicy(),
+		SecurityContext: conf.securityContext(),
+		VolumeMounts:    volumeMounts(component),
+		Resources:       conf.resourceRequirements(),
 	}
 	return container
 }
@@ -484,24 +484,24 @@ func getBaseContainer(conf *Container, component string) (container *k8sv1.Conta
 // two volumes:
 // 1. engine workspace
 // 2. commons data
-func getWorkflowVolumes() []k8sv1.Volume {
+func workflowVolumes() []k8sv1.Volume {
 	vols := []k8sv1.Volume{}
 	for _, volName := range WORKFLOW_VOLUMES {
-		vol := getNamedVolume(volName)
+		vol := namedVolume(volName)
 		vols = append(vols, *vol)
 	}
 	return vols
 }
 
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
-func getJobSpec(component string, name string) (job *batchv1.Job) {
-	jobConfig := Config.getJobConfig(component)
+func jobSpec(component string, name string) (job *batchv1.Job) {
+	jobConfig := Config.jobConfig(component)
 	job = new(batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
 	job.Name, job.Labels = name, jobConfig.Labels
 	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
-	job.Spec.Template.Spec.RestartPolicy = jobConfig.getRestartPolicy()
+	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
 	if component == ENGINE {
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
@@ -515,13 +515,13 @@ func getJobSpec(component string, name string) (job *batchv1.Job) {
 	return job
 }
 
-func getNamedVolume(name string) (v *k8sv1.Volume) {
-	v = getEmptyVolume()
+func namedVolume(name string) (v *k8sv1.Volume) {
+	v = emptyVolume()
 	v.Name = name
 	return v
 }
 
-func getEmptyVolume() (v *k8sv1.Volume) {
+func emptyVolume() (v *k8sv1.Volume) {
 	v = new(k8sv1.Volume)
 	v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
 	return v
