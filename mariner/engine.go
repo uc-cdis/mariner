@@ -270,15 +270,12 @@ func (engine *K8sEngine) ListenForDone(proc *Process) (err error) {
 	return nil
 }
 
-// RunExpressionTool runs an ExpressionTool
 func (engine *K8sEngine) runExpressionTool(proc *Process) (err error) {
 	// note: context has already been loaded
-	err = os.Chdir(proc.Tool.WorkingDir) // move to this tool's working directory before executing the tool
-	if err != nil {
+	if err = os.Chdir(proc.Tool.WorkingDir); err != nil {
 		return err
 	}
-	result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM) // execute tool
-	if err != nil {
+	if result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM); err != nil {
 		return err
 	}
 	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
