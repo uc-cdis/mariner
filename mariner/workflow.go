@@ -38,7 +38,6 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 	task.Children is a map, where keys are the taskIDs and values are the Task objects of the workflow steps
 */
 type Task struct {
-	Engine        *K8sEngine        // the workflow engine - all tasks in a workflow job share the same engine
 	Parameters    cwl.Parameters    // input parameters of this task
 	Root          *cwl.Root         // "root" of the "namespace" of the cwl file for this task
 	Outputs       cwl.Parameters    // output parameters of this task
@@ -66,7 +65,6 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 				panic(fmt.Sprintf("can't find workflow %v", step.Run.Value))
 			}
 			newTask := &Task{
-				Engine:       curTask.Engine,
 				Root:         subworkflow,
 				Parameters:   make(cwl.Parameters),
 				originalStep: step,
@@ -120,7 +118,7 @@ func RunWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 		// once we encounter the top level workflow (which always has ID "#main")
 		if process.ID == "#main" {
 			// construct `mainTask` - the task object for the top level workflow
-			mainTask = &Task{Root: process, Parameters: params, Engine: engine}
+			mainTask = &Task{Root: process, Parameters: params}
 		}
 	}
 	if mainTask == nil {
@@ -131,7 +129,7 @@ func RunWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 	resolveGraph(flatRoots, mainTask)
 
 	// run the workflow
-	mainTask.Run()
+	engine.Run(mainTask)
 
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
@@ -150,32 +148,33 @@ concurrency notes:
 // recall: a Task is either a workflow or a *Tool
 // workflows are processed into a collection of *Tools via Task.RunSteps()
 // *Tools get dispatched to be executed via Task.Engine.DispatchTask()
-func (task *Task) Run() error {
+func (engine *K8sEngine) Run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
 	if task.Scatter != nil {
-		task.runScatter()
-		task.gatherScatterOutputs()
+		engine.runScatter(task)
+		engine.gatherScatterOutputs(task)
 		return nil
 	}
-
 	if task.Root.Class == "Workflow" {
 		// this process is a workflow, i.e., it has steps that must be run
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
+
 		// concurrently run each of the workflow steps
-		task.RunSteps()
+		engine.RunSteps(task)
+
 		// merge outputs from all steps of this workflow to output for this workflow
 		task.mergeChildOutputs()
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
-		task.Engine.DispatchTask(task) // this line looks weird - task on left and right
+		engine.DispatchTask(task) // this line looks weird - task on left and right
 	}
 	return nil
 }
 
 // for concurrent processing of steps of a workflow
 // key point: the task does not get Run() until its input params are populated - that's how/where the dependencies get handled
-func (task *Task) runStep(curStepID string, parentTask *Task) {
+func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
 	fmt.Printf("\tProcessing Step: %v\n", curStepID)
 	curStep := task.originalStep
 	idMaps := make(map[string]string)
@@ -235,16 +234,16 @@ func (task *Task) runStep(curStepID string, parentTask *Task) {
 	}
 
 	// run this step
-	task.Run()
+	engine.Run(task)
 }
 
 // concurrently run steps of a workflow
-func (task *Task) RunSteps() {
+func (engine *K8sEngine) RunSteps(task *Task) {
 	// store a map of {outputID: stepID} pairs to trace step i/o dependency
 	task.setupOutputMap()
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
 	for curStepID, subtask := range task.Children {
-		go subtask.runStep(curStepID, task)
+		go engine.runStep(curStepID, task, subtask)
 	}
 }
 

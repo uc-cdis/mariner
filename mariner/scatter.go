@@ -12,7 +12,7 @@ import (
 // NOTE: scattered subtasks get run concurrently -> see runScatterTasks()
 // what does "scatter" mean? great question -> see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
 
-func (task *Task) runScatter() (err error) {
+func (engine *K8sEngine) runScatter(task *Task) (err error) {
 	if err = task.validateScatterMethod(); err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func (task *Task) runScatter() (err error) {
 	if err != nil {
 		return err
 	}
-	err = task.runScatterTasks()
+	err = engine.runScatterTasks(task)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 	return true, initLen
 }
 
-func (task *Task) gatherScatterOutputs() (err error) {
+func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	fmt.Println("gathering scatter outputs..")
 	task.Outputs = make(cwl.Parameters)
 	totalOutput := make([]cwl.Parameters, len(task.ScatterTasks))
@@ -115,14 +115,14 @@ func (task *Task) validateScatterMethod() (err error) {
 }
 
 // run all scatter tasks concurrently
-func (task *Task) runScatterTasks() (err error) {
+func (engine *K8sEngine) runScatterTasks(task *Task) (err error) {
 	fmt.Println("running scatter tasks concurrently..")
 	var wg sync.WaitGroup
 	for _, scattertask := range task.ScatterTasks {
 		wg.Add(1)
 		go func(scattertask *Task) {
 			defer wg.Done()
-			scattertask.Run()
+			engine.Run(scattertask)
 		}(scattertask)
 	}
 	wg.Wait()
@@ -174,7 +174,6 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	_, inputLength := uniformLength(scatterParams)
 	for i := 0; i < inputLength; i++ {
 		subtask := &Task{
-			Engine:       task.Engine,
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
 			originalStep: task.originalStep,
@@ -206,7 +205,6 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 	scatterIndex := 1
 	for ix := make([]int, len(inputArrays)); ix[0] < lens(0); nextIndex(ix, lens) {
 		subtask := &Task{
-			Engine:       task.Engine,
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
 			originalStep: task.originalStep,
