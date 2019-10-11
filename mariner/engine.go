@@ -122,6 +122,9 @@ func (engine K8sEngine) DispatchTask(task *Task) (err error) {
 
 	// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
 	// this will be handled when code is refactored/polished/cleaned up
+
+	// FIXME - refactor - either make a tool interface and have different types for expression vs. commandlinetool
+	// or just put everything in the Task object (?)
 	proc := &Process{
 		Tool: tool,
 		Task: task,
@@ -275,7 +278,8 @@ func (engine *K8sEngine) runExpressionTool(proc *Process) (err error) {
 	if err = os.Chdir(proc.Tool.WorkingDir); err != nil {
 		return err
 	}
-	if result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM); err != nil {
+	result, err := EvalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
+	if err != nil {
 		return err
 	}
 	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
