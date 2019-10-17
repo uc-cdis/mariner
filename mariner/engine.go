@@ -27,10 +27,8 @@ type K8sEngine struct {
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
-	// ---- NEW FIELDS ----
-	Status  string // see consts in log.go
-	Request WorkflowRequest
-	Log     EventLog
+	// ---- NEW FIELD ----
+	Log *MainLog
 }
 
 // Process represents a leaf in the graph of a workflow
@@ -68,7 +66,7 @@ func Engine(runID string) error {
 		return err
 	}
 	engine := engine(request, runID)
-	runWorkflow(request.Workflow, request.Input, engine)
+	engine.runWorkflow(request.Workflow, request.Input)
 	if err = done(runID); err != nil {
 		return err
 	}
@@ -76,8 +74,8 @@ func Engine(runID string) error {
 }
 
 // get WorkflowRequest object
-func request(runID string) (WorkflowRequest, error) {
-	var request WorkflowRequest
+func request(runID string) (*WorkflowRequest, error) {
+	var request *WorkflowRequest
 	f, err := os.Open(fmt.Sprintf("/%v/workflowRuns/%v/request.json", ENGINE_WORKSPACE, runID))
 	if err != nil {
 		return request, err
@@ -86,7 +84,7 @@ func request(runID string) (WorkflowRequest, error) {
 	if err != nil {
 		return request, err
 	}
-	err = json.Unmarshal(b, &request)
+	err = json.Unmarshal(b, request)
 	if err != nil {
 		return request, err
 	}
@@ -94,7 +92,8 @@ func request(runID string) (WorkflowRequest, error) {
 }
 
 // instantiate a K8sEngine object
-func engine(request WorkflowRequest, runID string) *K8sEngine {
+// FIXME
+func engine(request *WorkflowRequest, runID string) *K8sEngine {
 	e := &K8sEngine{
 		FinishedProcs:   make(map[string]*Process),
 		UnfinishedProcs: make(map[string]*Process),
@@ -102,6 +101,12 @@ func engine(request WorkflowRequest, runID string) *K8sEngine {
 		UserID:          request.ID,
 		RunID:           runID,
 	}
+
+	// FIXME make this cleaner, less janky
+	// HERE check if log already exists! if yes, then this is a 'restart'
+	pathToLog := fmt.Sprintf("/%v/workflowRuns/%v/marinerLog.json", ENGINE_WORKSPACE, runID)
+	e.Log = mainLog(pathToLog, request)
+
 	return e
 }
 

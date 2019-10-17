@@ -3,6 +3,7 @@ package mariner
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -19,6 +20,34 @@ type MainLog struct {
 	Status    string           `json:"status"` // for API, 'runs/{runID}/status' and 'runs/{runID}/restart'
 	Engine    *Log             `json:"engineLog"`
 	ByProcess map[string]*Log  `json:"byProcess"`
+}
+
+func mainLog(path string, request *WorkflowRequest) *MainLog {
+	log := &MainLog{
+		Path:      path,
+		Request:   request,
+		Status:    IN_PROGRESS,
+		Engine:    &Log{},
+		ByProcess: make(map[string]*Log),
+	}
+	return log
+}
+
+func showLog(path string) {
+	f, err := os.Open(path)
+	if err != nil {
+		fmt.Printf("error opening log: %v", err)
+	}
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		fmt.Printf("error reading log: %v", err)
+	}
+	var j *MainLog
+	err = json.Unmarshal(b, j)
+	if err != nil {
+		fmt.Printf("error unmarshalling log: %v", err)
+	}
+	printJSON(j)
 }
 
 func (log *MainLog) write() error {
@@ -44,6 +73,13 @@ type Log struct {
 	Event  EventLog       `json:"eventLog,omitempty"`
 	Input  cwl.Parameters `json:"input"`
 	Output cwl.Parameters `json:"output"`
+}
+
+func logger() *Log {
+	logger := &Log{
+		Status: NOT_STARTED,
+	}
+	return logger
 }
 
 // Stats holds performance stats for a given process

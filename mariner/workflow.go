@@ -50,7 +50,7 @@ type Task struct {
 	originalStep  cwl.Step          // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool             // false until all output for this task has been collected, then true
 	// new field
-	Log Log // contains Status, Stats, Event
+	Log *Log // contains Status, Stats, Event
 }
 
 // recursively populates `mainTask` (the task object for the top level workflow with all downstream task objects)
@@ -71,6 +71,7 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 				Parameters:   make(cwl.Parameters),
 				originalStep: step,
 				Done:         &falseVal,
+				Log:          logger(), // pointer to Log struct with status NOT_STARTED
 			}
 			resolveGraph(rootMap, newTask)
 			// what to use as id? value or step.id - using step.ID for now, seems to work okay
@@ -81,7 +82,7 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 }
 
 // RunWorkflow parses a workflow and inputs and run it
-func runWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
+func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 	var root cwl.Root
 	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the request body
 	if err != nil {
@@ -116,7 +117,11 @@ func runWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 		// once we encounter the top level workflow (which always has ID "#main")
 		if process.ID == "#main" {
 			// construct `mainTask` - the task object for the top level workflow
-			mainTask = &Task{Root: process, Parameters: params}
+			mainTask = &Task{
+				Root:       process,
+				Parameters: params,
+				Log:        logger(), // initialize empty Log object with status NOT_STARTED
+			}
 		}
 	}
 	if mainTask == nil {
@@ -128,6 +133,13 @@ func runWorkflow(workflow []byte, inputs []byte, engine *K8sEngine) error {
 
 	// run the workflow
 	engine.run(mainTask)
+
+	// probably don't put this here
+	engine.Log.Engine.Status = COMPLETE
+	engine.Log.write()
+
+	// if this works I'm gonna be stoked in all aspects
+	showLog(engine.Log.Path)
 
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
@@ -148,6 +160,8 @@ concurrency notes:
 // *Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
+	task.Log.Status = IN_PROGRESS
+	engine.Log.write()
 	if task.Scatter != nil {
 		engine.runScatter(task)
 		engine.gatherScatterOutputs(task)
@@ -162,6 +176,8 @@ func (engine *K8sEngine) run(task *Task) error {
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		engine.dispatchTask(task)
 	}
+	task.Log.Status = COMPLETE
+	engine.Log.write()
 	return nil
 }
 
