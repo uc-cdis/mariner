@@ -48,6 +48,17 @@ const (
 	// for pod annotation so that WTS works
 	// only here for testing, of course
 	GEN3USERNAME = "mgarvin3@uchicago.edu"
+
+	// values for ProcessStatus field
+	NOT_STARTED = "NOT_STARTED" // 3
+	IN_PROGRESS = "IN_PROGRESS" // 2
+	FAILED      = "FAILED"      // 1
+	COMPLETE    = "COMPLETE"    // 0
+
+	// log levels
+	INFO    = "INFO"
+	WARNING = "WARNING"
+	ERROR   = "ERROR"
 )
 
 // for mounting aws-user-creds secret to s3sidecar

@@ -49,6 +49,8 @@ type Task struct {
 	outputIDMap   map[string]string // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	originalStep  cwl.Step          // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool             // false until all output for this task has been collected, then true
+	// new field
+	Log Log // contains Status, Stats, Event
 }
 
 // recursively populates `mainTask` (the task object for the top level workflow with all downstream task objects)

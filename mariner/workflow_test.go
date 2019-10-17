@@ -15,7 +15,6 @@ func NotTestWorkflow(t *testing.T) {
 	inputsfile, _ := os.Open("../testdata/inputs.json")
 	inputs, _ := ioutil.ReadAll(inputsfile)
 	engine := new(K8sEngine)
-	engine.Commands = make(map[string][]string)
 	engine.FinishedProcs = make(map[string]*Process)
 	engine.UnfinishedProcs = make(map[string]*Process)
 	err := runWorkflow(body, inputs, engine)

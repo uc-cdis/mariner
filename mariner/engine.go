@@ -22,12 +22,15 @@ import (
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
 	TaskSequence    []string            // for testing purposes
-	Commands        map[string][]string // also for testing purposes
 	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   map[string]*Process // engine's stack of completed processes; (task.Root.ID, Process) pairs
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
+	// ---- NEW FIELDS ----
+	Status  string // see consts in log.go
+	Request WorkflowRequest
+	Log     EventLog
 }
 
 // Process represents a leaf in the graph of a workflow
@@ -93,7 +96,6 @@ func request(runID string) (WorkflowRequest, error) {
 // instantiate a K8sEngine object
 func engine(request WorkflowRequest, runID string) *K8sEngine {
 	e := &K8sEngine{
-		Commands:        make(map[string][]string),
 		FinishedProcs:   make(map[string]*Process),
 		UnfinishedProcs: make(map[string]*Process),
 		Manifest:        &request.Manifest,
