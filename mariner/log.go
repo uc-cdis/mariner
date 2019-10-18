@@ -17,7 +17,6 @@ import (
 type MainLog struct {
 	Path      string           `json:"-"` // path to log file to write/update
 	Request   *WorkflowRequest `json:"request"`
-	Status    string           `json:"status"` // for API, 'runs/{runID}/status' and 'runs/{runID}/restart'
 	Engine    *Log             `json:"engineLog"`
 	ByProcess map[string]*Log  `json:"byProcess"`
 }
@@ -26,10 +25,10 @@ func mainLog(path string, request *WorkflowRequest) *MainLog {
 	log := &MainLog{
 		Path:      path,
 		Request:   request,
-		Status:    IN_PROGRESS,
-		Engine:    &Log{},
+		Engine:    logger(),
 		ByProcess: make(map[string]*Log),
 	}
+	log.Engine.Status = IN_PROGRESS
 	return log
 }
 
