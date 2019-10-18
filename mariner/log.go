@@ -17,7 +17,7 @@ import (
 type MainLog struct {
 	Path      string           `json:"-"` // path to log file to write/update
 	Request   *WorkflowRequest `json:"request"`
-	Engine    *Log             `json:"engineLog"`
+	Engine    *Log             `json:"main"`
 	ByProcess map[string]*Log  `json:"byProcess"`
 }
 
