@@ -58,7 +58,7 @@ type Task struct {
 // basically, if task is a workflow, the task objects for the workflow steps get stored in the Task.Children field
 // so the graph gets "resolved" via creating one big task (`mainTask`) which contains the entire workflow
 // i.e., the whole workflow and its graphical structure are represented as a nested collection of Task objects
-func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
+func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 	if curTask.Root.Class == "Workflow" {
 		curTask.Children = make(map[string]*Task)
 		for _, step := range curTask.Root.Steps {
@@ -73,7 +73,8 @@ func resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 				Done:         &falseVal,
 				Log:          logger(), // pointer to Log struct with status NOT_STARTED
 			}
-			resolveGraph(rootMap, newTask)
+			engine.Log.ByProcess[step.ID] = newTask.Log
+			engine.resolveGraph(rootMap, newTask)
 			// what to use as id? value or step.id - using step.ID for now, seems to work okay
 			curTask.Children[step.ID] = newTask
 		}
@@ -129,12 +130,12 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 	}
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
-	resolveGraph(flatRoots, mainTask)
+	engine.resolveGraph(flatRoots, mainTask)
 
 	// run the workflow
 	engine.run(mainTask)
 
-	// probably don't put this here
+	// FIXME - probably don't put this here
 	engine.Log.Engine.Status = COMPLETE
 	engine.Log.write()
 
