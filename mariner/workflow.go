@@ -46,10 +46,10 @@ type Task struct {
 	ScatterTasks  map[int]*Task     // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
 	ScatterIndex  int               // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
 	Children      map[string]*Task  // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
-	outputIDMap   map[string]string // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
-	originalStep  cwl.Step          // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
+	OutputIDMap   map[string]string // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
+	OriginalStep  cwl.Step          // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool             // false until all output for this task has been collected, then true
-	// new field
+	// --- New Fields ---
 	Log *Log // contains Status, Stats, Event
 }
 
@@ -69,7 +69,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			newTask := &Task{
 				Root:         subworkflow,
 				Parameters:   make(cwl.Parameters),
-				originalStep: step,
+				OriginalStep: step,
 				Done:         &falseVal,
 				Log:          logger(), // pointer to Log struct with status NOT_STARTED
 			}
@@ -187,7 +187,7 @@ func (engine *K8sEngine) run(task *Task) error {
 // key point: the task does not get Run() until its input params are populated - that's how/where the dependencies get handled
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
 	fmt.Printf("\tProcessing Step: %v\n", curStepID)
-	curStep := task.originalStep
+	curStep := task.OriginalStep
 	idMaps := make(map[string]string)
 	for _, input := range curStep.In {
 		taskInput := step2taskID(&curStep, input.ID)
@@ -200,7 +200,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 
 		// I/O DEPENDENCY HANDLING
 		// if this input's source is the ID of an output parameter of another step
-		if depStepID, ok := parentTask.outputIDMap[source]; ok {
+		if depStepID, ok := parentTask.OutputIDMap[source]; ok {
 			// wait until all dependency step output has been collected
 			// and then assign output parameter of dependency step (which has just finished running) to input parameter of this step
 			depTask := parentTask.Children[depStepID]
@@ -268,11 +268,11 @@ func (task *Task) mergeChildOutputs() error {
 	for _, output := range task.Root.Outputs {
 		if len(output.Source) == 1 {
 			source := output.Source[0]
-			stepID, ok := task.outputIDMap[source]
+			stepID, ok := task.OutputIDMap[source]
 			if !ok {
 				panic(fmt.Sprintf("Can't find output source %v", source))
 			}
-			subtaskOutputID := step2taskID(&task.Children[stepID].originalStep, source)
+			subtaskOutputID := step2taskID(&task.Children[stepID].OriginalStep, source)
 			fmt.Printf("Waiting to merge child outputs for workflow %v ..\n", task.Root.ID)
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
 				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {
@@ -294,10 +294,10 @@ func (task *Task) mergeChildOutputs() error {
 // and so the dependency step must finish running
 // before the dependent step can execute
 func (task *Task) setupOutputMap() error {
-	task.outputIDMap = make(map[string]string)
+	task.OutputIDMap = make(map[string]string)
 	for _, step := range task.Root.Steps {
 		for _, output := range step.Out {
-			task.outputIDMap[output.ID] = step.ID
+			task.OutputIDMap[output.ID] = step.ID
 		}
 	}
 	return nil

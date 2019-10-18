@@ -49,13 +49,13 @@ type Process struct {
 
 // Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
 type Tool struct {
-	WorkingDir       string // e.g., /engine-workspace/taskID/
-	Root             *cwl.Root
-	Parameters       cwl.Parameters
-	Command          *exec.Cmd
-	OriginalStep     cwl.Step
-	StepInputMap     map[string]*cwl.StepInput // see: transformInput()
-	ExpressionResult map[string]interface{}    // storing the result of an expression tool here for now - maybe there's a better way to do this
+	WorkingDir       string                    // TOOL - e.g., /engine-workspace/workflowRuns/runID/taskID/
+	Root             *cwl.Root                 // common
+	Parameters       cwl.Parameters            // common
+	Command          *exec.Cmd                 // TOOL
+	OriginalStep     cwl.Step                  // common
+	StepInputMap     map[string]*cwl.StepInput // TOOL - see: transformInput()
+	ExpressionResult map[string]interface{}    // TOOL - storing the result of an expression tool here for now - maybe there's a better way to do this
 }
 
 // Engine runs an instance of the mariner engine job
@@ -173,7 +173,7 @@ func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
 		Root:         task.Root,
 		Parameters:   task.Parameters,
-		OriginalStep: task.originalStep,
+		OriginalStep: task.OriginalStep,
 		WorkingDir:   task.workingDir(runID),
 	}
 	return tool
