@@ -107,6 +107,10 @@ func engine(request *WorkflowRequest, runID string) *K8sEngine {
 	pathToLog := fmt.Sprintf("/%v/workflowRuns/%v/marinerLog.json", ENGINE_WORKSPACE, runID)
 	e.Log = mainLog(pathToLog, request)
 
+	fmt.Println("in engine()")
+	fmt.Println("here is engine log:")
+	printJSON(e.Log)
+
 	return e
 }
 

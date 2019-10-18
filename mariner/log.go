@@ -36,22 +36,22 @@ func mainLog(path string, request *WorkflowRequest) *MainLog {
 func showLog(path string) {
 	f, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("error opening log: %v", err)
+		fmt.Printf("error opening log: %v\n", err)
 	}
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
-		fmt.Printf("error reading log: %v", err)
+		fmt.Printf("error reading log: %v\n", err)
 	}
 	j := &MainLog{}
 	err = json.Unmarshal(b, j)
 	if err != nil {
-		fmt.Printf("error unmarshalling log: %v", err)
+		fmt.Printf("error unmarshalling log: %v\n", err)
 	}
 	printJSON(j)
 }
 
 func (log *MainLog) write() error {
-	j, err := json.Marshal(log)
+	j, err := json.Marshal(*log)
 	if err != nil {
 		return err
 	}
