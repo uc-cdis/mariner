@@ -75,7 +75,7 @@ func Engine(runID string) error {
 
 // get WorkflowRequest object
 func request(runID string) (*WorkflowRequest, error) {
-	var request *WorkflowRequest
+	request := &WorkflowRequest{}
 	fmt.Println("opening request..")
 	f, err := os.Open(fmt.Sprintf("/%v/workflowRuns/%v/request.json", ENGINE_WORKSPACE, runID))
 	if err != nil {
