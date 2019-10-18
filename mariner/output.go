@@ -9,7 +9,7 @@ import (
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
-// this file contains code for collecting/processing output from *Tools
+// this file contains code for collecting/processing output from Tools
 
 // CollectOutput collects the output for a tool after the tool has run
 // output parameter values get set, and the outputs parameter object gets stored in tool.Task.Outputs

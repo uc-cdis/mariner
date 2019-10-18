@@ -48,7 +48,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
 	// so that would be specified in a cwl workflow file like Workflow.cwl
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
-	// so that information would be specified in a cwl  *tool file like CommandLineTool.cwl or ExpressionTool.cwl
+	// so that information would be specified in a cwl tool file like CommandLineTool.cwl or ExpressionTool.cwl
 	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	} else {

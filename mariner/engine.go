@@ -13,11 +13,11 @@ import (
 
 // this file contains the top level functions for the task engine
 // the task engine
-// 1. sets up a *Tool
-// 2. runs the *Tool
+// 1. sets up a Tool
+// 2. runs the Tool
 // 3. if k8s job, then listens for job to finish
 
-// K8sEngine runs all *Tools, where a *Tool is a CWL expressiontool or commandlinetool
+// K8sEngine runs all Tools, where a Tool is a CWL expressiontool or commandlinetool
 // NOTE: engine object code store all the logs/event-monitoring/statistics for the workflow run
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
@@ -31,26 +31,6 @@ type K8sEngine struct {
 	Log *MainLog
 }
 
-// Process represents a leaf in the graph of a workflow
-// i.e., a Process is either a CommandLineTool or an ExpressionTool
-// If Process is a CommandLineTool, then it gets run as a k8s job in its own container
-// When a k8s job gets created, a Process struct gets pushed onto the k8s engine's stack of UnfinishedProcs
-// the k8s engine continuously iterates through the stack of running procs, retrieving job status from k8s api
-// as soon as a job is complete, the Process struct gets popped from the stack
-// and a function is called to collect the output from that completed process
-//
-// presently ExpressionTools run in a js vm in the mariner-engine, so they don't get dispatched as k8s jobs
-
-// Process is DEPRECATED
-/*
-type Process struct {
-	JobName string // if a k8s job (i.e., if a CommandLineTool)
-	JobID   string // if a k8s job (i.e., if a CommandLineTool)
-	Tool    *Tool
-	Task    *Task
-}
-*/
-
 // lots of room for better design here
 // Tool interface
 // CLT type
@@ -60,7 +40,15 @@ type Process struct {
 //
 // it should make sense! it should simplify things, not make things more complicated.
 
-// Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
+// Tool represents a leaf in the graph of a workflow
+// i.e., a Tool is either a CommandLineTool or an ExpressionTool
+// If Tool is a CommandLineTool, then it gets run as a k8s job in its own container
+// When a k8s job gets created, a pointer to that Tool gets pushed onto the k8s engine's stack of UnfinishedProcs
+// the k8s engine continuously iterates through the stack of running procs, retrieving job status from k8s api
+// as soon as a job is complete, the pointer to the Tool gets popped from the stack
+// and a function is called to collect the output from that Tool's completed process
+//
+// presently ExpressionTools run in a js vm in the mariner-engine, so they don't get dispatched as k8s jobs
 type Tool struct {
 	JobName          string // if a k8s job (i.e., if a CommandLineTool)
 	JobID            string // if a k8s job (i.e., if a CommandLineTool)
@@ -134,7 +122,7 @@ func done(runID string) error {
 	return nil
 }
 
-// DispatchTask does some setup for and dispatches workflow *Tools
+// DispatchTask does some setup for and dispatches workflow Tools
 func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 	tool := task.tool(engine.RunID)
 	err = tool.setupTool()
@@ -182,7 +170,7 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 }
 
 // GetTool returns a Tool object
-// The Tool represents a workflow *Tool and so is either a CommandLineTool or an ExpressionTool
+// The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 // NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
 func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
@@ -207,7 +195,7 @@ func (task *Task) workingDir(runID string) string {
 	return dir
 }
 
-// create working directory for this *Tool
+// create working directory for this Tool
 func (tool *Tool) makeWorkingDir() error {
 	err := os.MkdirAll(tool.WorkingDir, 0777)
 	if err != nil {
@@ -217,7 +205,7 @@ func (tool *Tool) makeWorkingDir() error {
 	return nil
 }
 
-// performs some setup for a *Tool to prepare for the engine to run the *Tool
+// performs some setup for a Tool to prepare for the engine to run the Tool
 func (tool *Tool) setupTool() (err error) {
 	err = tool.makeWorkingDir()
 	if err != nil {

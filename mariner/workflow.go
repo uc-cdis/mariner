@@ -10,8 +10,8 @@ import (
 
 // this file contains functions for managing the workflow graph
 // i.e., assemble the graph, track dependencies
-// recursively process workflows into *Tools
-// dispatch *Tools to be executed by the K8sEngine
+// recursively process workflows into Tools
+// dispatch Tools to be executed by the K8sEngine
 
 // NOTE: workflow steps are processed concurrently - see RunSteps()
 
@@ -28,7 +28,7 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 
 	Task is a nested object
 	A Task represents a process, which is a node on the graph (NOTE: maybe rename Task to Process, or something)
-	So a Task is either a leaf in the graph (a *Tool)
+	So a Task is either a leaf in the graph (a Tool)
 	or not a leaf in the graph (a workflow)
 	If a Task is a workflow, then it has steps
 	These steps have their own representations as Task objects
@@ -157,9 +157,9 @@ concurrency notes:
 */
 
 // Run recursively and concurrently processes Tasks
-// recall: a Task is either a workflow or a *Tool
-// workflows are processed into a collection of *Tools via Task.RunSteps()
-// *Tools get dispatched to be executed via Task.Engine.DispatchTask()
+// recall: a Task is either a workflow or a Tool
+// workflows are processed into a collection of Tools via Task.RunSteps()
+// Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
 	task.Log.Status = IN_PROGRESS
@@ -174,7 +174,7 @@ func (engine *K8sEngine) run(task *Task) error {
 		engine.runSteps(task)
 		task.mergeChildOutputs()
 	} else {
-		// this process is not a workflow - it is a leaf in the graph (a *Tool) and gets dispatched to the task engine
+		// this process is not a workflow - it is a leaf in the graph (a Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		engine.dispatchTask(task)
 	}

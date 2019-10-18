@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-// this file contains some methods/functions for setting up and working with *Tools (i.e., commandlinetools and expressiontools)
+// this file contains some methods/functions for setting up and working with Tools (i.e., commandlinetools and expressiontools)
 
 // initDirReq handles the InitialWorkDirRequirement if specified for this tool
 // TODO: support cases where File or dirent is returned from `entry`
@@ -52,8 +52,8 @@ func (tool *Tool) initWorkDir() (err error) {
 				if resFile != nil {
 					// "If the value is an expression that evaluates to a File object,
 					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."
-					// NOTE: the "designated output directory" is just the directory corresponding to the *Tool
-					// not sure what the purpose/meaning/use of this feature is - pretty sure all i/o for *Tools gets handled already
+					// NOTE: the "designated output directory" is just the directory corresponding to the Tool
+					// not sure what the purpose/meaning/use of this feature is - pretty sure all i/o for Tools gets handled already
 					// presently not supporting this case - will implement this feature once I find an example to work with
 					panic("feature not supported: entry expression returned a file object")
 				} else {
