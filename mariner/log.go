@@ -42,7 +42,7 @@ func showLog(path string) {
 	if err != nil {
 		fmt.Printf("error reading log: %v", err)
 	}
-	var j *MainLog
+	j := &MainLog{}
 	err = json.Unmarshal(b, j)
 	if err != nil {
 		fmt.Printf("error unmarshalling log: %v", err)
