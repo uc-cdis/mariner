@@ -186,7 +186,8 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 // NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
 func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
-		Task: task,
+		Task:       task,
+		WorkingDir: task.workingDir(runID),
 	}
 	return tool
 }
