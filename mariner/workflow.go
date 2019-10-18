@@ -69,11 +69,16 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			newTask := &Task{
 				Root:         subworkflow,
 				Parameters:   make(cwl.Parameters),
+				Outputs:      make(cwl.Parameters),
 				OriginalStep: step,
 				Done:         &falseVal,
 				Log:          logger(), // pointer to Log struct with status NOT_STARTED
 			}
+			// FIXME - this can probably be cleaned up
 			engine.Log.ByProcess[step.ID] = newTask.Log
+			newTask.Log.Input = newTask.Parameters
+			newTask.Log.Output = newTask.Outputs
+
 			engine.resolveGraph(rootMap, newTask)
 			// what to use as id? value or step.id - using step.ID for now, seems to work okay
 			curTask.Children[step.ID] = newTask
