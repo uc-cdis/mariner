@@ -76,16 +76,20 @@ func Engine(runID string) error {
 // get WorkflowRequest object
 func request(runID string) (*WorkflowRequest, error) {
 	var request *WorkflowRequest
+	fmt.Println("opening request..")
 	f, err := os.Open(fmt.Sprintf("/%v/workflowRuns/%v/request.json", ENGINE_WORKSPACE, runID))
 	if err != nil {
 		return request, err
 	}
+	fmt.Println("reading request..")
 	b, err := ioutil.ReadAll(f)
 	if err != nil {
 		return request, err
 	}
+	fmt.Println("unmarshalling request..")
 	err = json.Unmarshal(b, request)
 	if err != nil {
+		fmt.Printf("error: %v", err)
 		return request, err
 	}
 	return request, nil

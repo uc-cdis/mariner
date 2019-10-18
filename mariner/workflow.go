@@ -139,6 +139,7 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 	engine.Log.write()
 
 	// if this works I'm gonna be stoked in all aspects
+	fmt.Println("Here's the log file!")
 	showLog(engine.Log.Path)
 
 	fmt.Print("\n\nFinished running workflow job.\n")
