@@ -131,18 +131,6 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 		return err
 	}
 
-	/*
-		// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
-		// this will be handled when code is refactored/polished/cleaned up
-
-		// FIXME - refactor - either make a tool interface and have different types for expression vs. commandlinetool
-		// or just put everything in the Task object (?)
-		proc := &Process{
-			Tool: tool,
-			Task: task,
-		}
-	*/
-
 	// {Q: when should the process get pushed onto the stack?}
 	// push newly started process onto the engine's stack of running processes
 	engine.UnfinishedProcs[tool.Task.Root.ID] = nil

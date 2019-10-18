@@ -76,7 +76,23 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			}
 			// FIXME - this can probably be cleaned up
 			engine.Log.ByProcess[step.ID] = newTask.Log
+
+			// TODO - MONDAY - capture desired I/O in log
+			/*
+				- inputs
+				- outputs
+				- stats
+					- time
+					- resources
+					- failures
+					- retries
+			*/
+
+			// FIXME - I want a map of input parameter to VALUE - provided
+			// need to write a few lines to do this, in loadInputs (?)
 			newTask.Log.Input = newTask.Parameters
+
+			// FIXME - empty??
 			newTask.Log.Output = newTask.Outputs
 
 			engine.resolveGraph(rootMap, newTask)
