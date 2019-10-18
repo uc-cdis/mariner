@@ -57,8 +57,8 @@ func (tool *Tool) generateCommand() (err error) {
 	// Sort the command elements by position
 	sort.Sort(cmdElts)
 
-	// capture stdout if specified - tool.Root.Stdout resolves to a file name where stdout will be redirected
-	if tool.Root.Stdout != "" {
+	// capture stdout if specified - tool.Task.Root.Stdout resolves to a file name where stdout will be redirected
+	if tool.Task.Root.Stdout != "" {
 		// append "1> stdout_file" to end of command
 		stdoutElts, err := tool.stdElts(1)
 		if err != nil {
@@ -67,8 +67,8 @@ func (tool *Tool) generateCommand() (err error) {
 		cmdElts = append(cmdElts, stdoutElts...)
 	}
 
-	// capture stderr if specified - tool.Root.Stderr resolves to a file name where stderr will be redirected
-	if tool.Root.Stderr != "" {
+	// capture stderr if specified - tool.Task.Root.Stderr resolves to a file name where stderr will be redirected
+	if tool.Task.Root.Stderr != "" {
 		// append "2> stderr_file" to end of command
 		stderrElts, err := tool.stdElts(2)
 		if err != nil {
@@ -80,7 +80,7 @@ func (tool *Tool) generateCommand() (err error) {
 	// fmt.Println("here are cmdElts:")
 	// PrintJSON(cmdElts)
 
-	cmd := tool.Root.BaseCommands // BaseCommands is []string - empty array if no BaseCommand specified
+	cmd := tool.Task.Root.BaseCommands // BaseCommands is []string - empty array if no BaseCommand specified
 	for _, cmdElt := range cmdElts {
 		cmd = append(cmd, cmdElt.Value...)
 	}
@@ -94,9 +94,9 @@ func (tool *Tool) stdElts(i int) (cmdElts CommandElements, err error) {
 	var f string
 	switch i {
 	case 1:
-		f, err = tool.resolveExpressions(tool.Root.Stdout)
+		f, err = tool.resolveExpressions(tool.Task.Root.Stdout)
 	case 2:
-		f, err = tool.resolveExpressions(tool.Root.Stderr)
+		f, err = tool.resolveExpressions(tool.Task.Root.Stderr)
 	}
 	if err != nil {
 		return nil, err
@@ -142,7 +142,7 @@ func (tool *Tool) cmdElts() (cmdElts CommandElements, err error) {
 func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0)
 	var inputType string
-	for _, input := range tool.Root.Inputs {
+	for _, input := range tool.Task.Root.Inputs {
 		// no binding -> input doesn't get processed for representation on the commandline (though this input may be referenced by an argument)
 		if input.Binding != nil {
 			pos := input.Binding.Position // default position is 0, as per CWL spec
@@ -386,7 +386,7 @@ func valFromRaw(rawInput interface{}) (val string, err error) {
 // collect CommandElement objects from arguments
 func (tool *Tool) argElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0) // this might be redundant - basic q: do I need to instantiate this array if it's a named output?
-	for i, arg := range tool.Root.Arguments {
+	for i, arg := range tool.Task.Root.Arguments {
 		pos := 0 // if no position specified the default is zero, as per CWL spec
 		if arg.Binding != nil {
 			pos = arg.Binding.Position
@@ -419,7 +419,7 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
 			fmt.Println("expression to eval..")
-			result, err := evalExpression(arg.Value, tool.Root.InputsVM)
+			result, err := evalExpression(arg.Value, tool.Task.Root.InputsVM)
 			if err != nil {
 				return nil, err
 			}

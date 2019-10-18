@@ -15,14 +15,14 @@ import (
 
 // LoadInputs passes parameter value to input.Provided for each input
 // in this setting, "ValueFrom" may appear either in:
-//  - tool.Root.Inputs[i].inputBinding.ValueFrom, OR
+//  - tool.Task.Root.Inputs[i].inputBinding.ValueFrom, OR
 //  - tool.OriginalStep.In[i].ValueFrom
 // need to handle both cases - first eval at the workflowStepInput level, then eval at the tool input level
 func (tool *Tool) loadInputs() (err error) {
-	sort.Sort(tool.Root.Inputs)
+	sort.Sort(tool.Task.Root.Inputs)
 	fmt.Println("building step input map..")
 	tool.buildStepInputMap()
-	for _, in := range tool.Root.Inputs {
+	for _, in := range tool.Task.Root.Inputs {
 		fmt.Printf("loading input %v..\n", in.ID)
 		err = tool.loadInput(in)
 		if err != nil {
@@ -36,7 +36,7 @@ func (tool *Tool) loadInputs() (err error) {
 // FIXME - this function is busted - something to do with the pointer I'm sure
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
-	for _, in := range tool.OriginalStep.In {
+	for _, in := range tool.Task.OriginalStep.In {
 		localID := lastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
 	}
@@ -60,11 +60,11 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 		return fmt.Errorf("input `%s` doesn't have default field but not provided", input.ID)
 	}
 	if key, needed := input.Types[0].NeedRequirement(); needed {
-		for _, req := range tool.Root.Requirements {
+		for _, req := range tool.Task.Root.Requirements {
 			for _, requiredtype := range req.Types {
 				if requiredtype.Name == key {
 					input.RequiredType = &requiredtype
-					input.Requirements = tool.Root.Requirements
+					input.Requirements = tool.Task.Root.Requirements
 				}
 			}
 		}
@@ -94,7 +94,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// no processing needs to happen if the valueFrom field is empty
 		fmt.Println("no value from to handle")
 		var ok bool
-		if out, ok = tool.Parameters[input.ID]; !ok {
+		if out, ok = tool.Task.Parameters[input.ID]; !ok {
 			fmt.Println("error: input not found in tool's parameters")
 			return nil, fmt.Errorf("input not found in tool's parameters")
 		}
@@ -110,7 +110,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			// preprocess struct/array so that fields can be accessed in vm
 			// Question: how to handle non-array/struct data types?
 			// --------- no preprocessing should have to happen in this case.
-			self, err := preProcessContext(tool.Parameters[input.ID])
+			self, err := preProcessContext(tool.Task.Parameters[input.ID])
 			if err != nil {
 				return nil, err
 			}
@@ -245,15 +245,15 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	return out, nil
 }
 
-// inputsToVM loads tool.Root.InputsVM with inputs context - using Input.Provided for each input
+// inputsToVM loads tool.Task.Root.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
-	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
+	prefix := tool.Task.Root.ID + "/" // need to trim this from all the input.ID's
 	// fmt.Println("loading inputs to vm..")
-	tool.Root.InputsVM = otto.New()
+	tool.Task.Root.InputsVM = otto.New()
 	context := make(map[string]interface{})
 	var fileObj *File
-	for _, input := range tool.Root.Inputs {
+	for _, input := range tool.Task.Root.Inputs {
 		/*
 			fmt.Println("input:")
 			PrintJSON(input)
@@ -289,6 +289,6 @@ func (tool *Tool) inputsToVM() (err error) {
 	}
 	// fmt.Println("Here's the context")
 	// PrintJSON(context)
-	tool.Root.InputsVM.Set("inputs", context)
+	tool.Task.Root.InputsVM.Set("inputs", context)
 	return nil
 }

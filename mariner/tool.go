@@ -14,7 +14,7 @@ import (
 func (tool *Tool) initWorkDir() (err error) {
 	var result, resFile interface{}
 
-	for _, requirement := range tool.Root.Requirements {
+	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "InitialWorkDirRequirement" {
 			for _, listing := range requirement.Listing {
 				// handling the case where `entry` is content (expression or string) to be written to a file

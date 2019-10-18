@@ -12,7 +12,7 @@ import (
 // this file contains code for collecting/processing output from *Tools
 
 // CollectOutput collects the output for a tool after the tool has run
-// output parameter values get set, and the outputs parameter object gets stored in proc.Task.Outputs
+// output parameter values get set, and the outputs parameter object gets stored in tool.Task.Outputs
 // if the outputs of this process are the inputs of another process,
 // then the output parameter object of this process (the Task.Outputs field)
 // gets assigned as the input parameter object of that other process (the Task.Parameters field)
@@ -26,16 +26,16 @@ import (
 // ---
 // NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
 // ----- no binding provided -> output won't be collected
-func (proc *Process) collectOutput() (err error) {
-	proc.Task.Outputs = make(map[string]cwl.Parameter)
-	switch class := proc.Tool.Root.Class; class {
+func (tool *Tool) collectOutput() (err error) {
+	tool.Task.Outputs = make(map[string]cwl.Parameter)
+	switch class := tool.Task.Root.Class; class {
 	case "CommandLineTool":
-		if err = proc.handleCLTOutput(); err != nil {
+		if err = tool.handleCLTOutput(); err != nil {
 			fmt.Printf("Error handling CLT output: %v\n", err)
 			return err
 		}
 	case "ExpressionTool":
-		if err = proc.handleETOutput(); err != nil {
+		if err = tool.handleETOutput(); err != nil {
 			return err
 		}
 	default:
@@ -45,12 +45,12 @@ func (proc *Process) collectOutput() (err error) {
 }
 
 // HandleCLTOutput assigns values to output parameters for this CommandLineTool
-// stores resulting output parameters object in proc.Task.Outputs
+// stores resulting output parameters object in tool.Task.Outputs
 // From my CWL reading.. each output parameter SHOULD have a binding
 // if no binding, not sure what the procedure is
 // for now, no binding -> output won't be collected
-func (proc *Process) handleCLTOutput() (err error) {
-	for _, output := range proc.Task.Root.Outputs {
+func (tool *Tool) handleCLTOutput() (err error) {
+	for _, output := range tool.Task.Root.Outputs {
 		if output.Binding == nil {
 			return fmt.Errorf("output parameter missing binding: %v", output.ID)
 		}
@@ -68,7 +68,7 @@ func (proc *Process) handleCLTOutput() (err error) {
 
 		// 1. Glob - prefixissue
 		if len(output.Binding.Glob) > 0 {
-			results, err = proc.glob(&output)
+			results, err = tool.glob(&output)
 			if err != nil {
 				fmt.Printf("error globbing: %v", err)
 				return err
@@ -93,7 +93,7 @@ func (proc *Process) handleCLTOutput() (err error) {
 		// 3. OutputEval - TODO: test this functionality
 		if output.Binding.Eval != nil {
 			// eval the expression and store result in task.Outputs
-			proc.outputEval(&output, results)
+			tool.outputEval(&output, results)
 			// if outputEval, then the resulting value from the expression eval is assigned to the output parameter
 			// hence the function HandleCLTOutput() returns here
 			return nil
@@ -108,7 +108,7 @@ func (proc *Process) handleCLTOutput() (err error) {
 				if strings.HasPrefix(val, "$") {
 
 					// get inputs context
-					vm := proc.Tool.Root.InputsVM.Copy()
+					vm := tool.Task.Root.InputsVM.Copy()
 
 					// iterate through output files
 					var self interface{}
@@ -153,7 +153,7 @@ func (proc *Process) handleCLTOutput() (err error) {
 						return err
 					}
 					for _, fileObj := range results {
-						proc.Tool.loadSFilesFromPattern(fileObj, suffix, carats)
+						tool.loadSFilesFromPattern(fileObj, suffix, carats)
 					}
 				}
 			}
@@ -173,11 +173,11 @@ func (proc *Process) handleCLTOutput() (err error) {
 			// fmt.Println("output type is file")
 
 			// FIXME - TODO: add error handling for cases len(results) != 1
-			proc.Task.Outputs[output.ID] = results[0]
+			tool.Task.Outputs[output.ID] = results[0]
 		} else {
 			// output should be an array of File objects
 			// NOTE: also need to add error handling here
-			proc.Task.Outputs[output.ID] = results
+			tool.Task.Outputs[output.ID] = results
 		}
 	}
 	return nil
@@ -185,17 +185,17 @@ func (proc *Process) handleCLTOutput() (err error) {
 
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
-func (proc *Process) glob(output *cwl.Output) (results []*File, err error) {
+func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
 	fmt.Println("globbing from root")
 	os.Chdir("/") // always glob from root (?)
 
 	var pattern string
 	for _, glob := range output.Binding.Glob {
-		pattern, err = proc.pattern(glob)
+		pattern, err = tool.pattern(glob)
 		if err != nil {
 			return results, err
 		}
-		paths, err := filepath.Glob(proc.Tool.WorkingDir + pattern)
+		paths, err := filepath.Glob(tool.WorkingDir + pattern)
 		if err != nil {
 			fmt.Printf("error globbing: %v", err)
 			return results, err
@@ -205,18 +205,18 @@ func (proc *Process) glob(output *cwl.Output) (results []*File, err error) {
 			results = append(results, fileObj)
 		}
 	}
-	os.Chdir(proc.Tool.WorkingDir)
+	os.Chdir(tool.WorkingDir)
 	return results, nil
 }
 
-func (proc *Process) pattern(glob string) (pattern string, err error) {
+func (tool *Tool) pattern(glob string) (pattern string, err error) {
 	if strings.HasPrefix(glob, "$") {
 		// expression needs to get eval'd
 		// glob pattern is the resulting string
 		// eval'ing in the InputsVM with no additional context
 		// not sure if additional context will be needed in other cases
 
-		expResult, err := evalExpression(glob, proc.Tool.Root.InputsVM)
+		expResult, err := evalExpression(glob, tool.Task.Root.InputsVM)
 		if err != nil {
 			return "", fmt.Errorf("failed to eval glob expression: %v", glob)
 		}
@@ -236,27 +236,27 @@ func (proc *Process) pattern(glob string) (pattern string, err error) {
 // where the keys are the IDs of the expressionTool output params
 // see `expression` field description here:
 // https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
-func (proc *Process) handleETOutput() (err error) {
-	for _, output := range proc.Task.Root.Outputs {
+func (tool *Tool) handleETOutput() (err error) {
+	for _, output := range tool.Task.Root.Outputs {
 		// get "output" from "#expressiontool_test.cwl/output"
 		localOutputID := lastInPath(output.ID)
 
 		// access output param value from expression result
-		val, ok := proc.Tool.ExpressionResult[localOutputID]
+		val, ok := tool.ExpressionResult[localOutputID]
 		if !ok {
-			return fmt.Errorf("output parameter %v missing from ExpressionTool %v result", output.ID, proc.Task.Root.ID)
+			return fmt.Errorf("output parameter %v missing from ExpressionTool %v result", output.ID, tool.Task.Root.ID)
 		}
 
 		// assign retrieved value to output param in Task object
-		proc.Task.Outputs[output.ID] = val
+		tool.Task.Outputs[output.ID] = val
 	}
 	return nil
 }
 
 // see: https://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
-func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err error) {
+func (tool *Tool) outputEval(output *cwl.Output, fileArray []*File) (err error) {
 	// copy InputsVM to get inputs context
-	vm := proc.Tool.Root.InputsVM.Copy()
+	vm := tool.Task.Root.InputsVM.Copy()
 
 	// here `self` is the file or array of files returned by glob (with contents loaded if so specified)
 	var self interface{}
@@ -288,6 +288,6 @@ func (proc *Process) outputEval(output *cwl.Output, fileArray []*File) (err erro
 	}
 
 	// assign expression eval result to output parameter
-	proc.Task.Outputs[output.ID] = evalResult
+	tool.Task.Outputs[output.ID] = evalResult
 	return nil
 }

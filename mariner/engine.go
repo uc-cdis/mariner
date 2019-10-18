@@ -21,12 +21,12 @@ import (
 // NOTE: engine object code store all the logs/event-monitoring/statistics for the workflow run
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
-	TaskSequence    []string            // for testing purposes
-	UnfinishedProcs map[string]*Process // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
-	FinishedProcs   map[string]*Process // engine's stack of completed processes; (task.Root.ID, Process) pairs
-	UserID          string              // the userID for the user who requested the workflow run
-	RunID           string              // the workflow timestamp
-	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
+	TaskSequence    []string               // for testing purposes
+	UnfinishedProcs map[string]interface{} // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
+	FinishedProcs   map[string]interface{} // engine's stack of completed processes; (task.Root.ID, Process) pairs
+	UserID          string                 // the userID for the user who requested the workflow run
+	RunID           string                 // the workflow timestamp
+	Manifest        *Manifest              // to pass the manifest to the gen3fuse container of each task pod
 	// ---- NEW FIELD ----
 	Log *MainLog
 }
@@ -40,22 +40,35 @@ type K8sEngine struct {
 // and a function is called to collect the output from that completed process
 //
 // presently ExpressionTools run in a js vm in the mariner-engine, so they don't get dispatched as k8s jobs
+
+// Process is DEPRECATED
+/*
 type Process struct {
 	JobName string // if a k8s job (i.e., if a CommandLineTool)
 	JobID   string // if a k8s job (i.e., if a CommandLineTool)
 	Tool    *Tool
 	Task    *Task
 }
+*/
+
+// lots of room for better design here
+// Tool interface
+// CLT type
+// ET type
+// Workflow interface (?)
+// Scatter interface (?)
+//
+// it should make sense! it should simplify things, not make things more complicated.
 
 // Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
 type Tool struct {
-	WorkingDir       string                    // TOOL - e.g., /engine-workspace/workflowRuns/runID/taskID/
-	Root             *cwl.Root                 // common
-	Parameters       cwl.Parameters            // common
-	Command          *exec.Cmd                 // TOOL
-	OriginalStep     cwl.Step                  // common
-	StepInputMap     map[string]*cwl.StepInput // TOOL - see: transformInput()
-	ExpressionResult map[string]interface{}    // TOOL - storing the result of an expression tool here for now - maybe there's a better way to do this
+	JobName          string // if a k8s job (i.e., if a CommandLineTool)
+	JobID            string // if a k8s job (i.e., if a CommandLineTool)
+	WorkingDir       string // e.g., /engine-workspace/workflowRuns/runID/taskID/
+	Command          *exec.Cmd
+	StepInputMap     map[string]*cwl.StepInput
+	ExpressionResult map[string]interface{}
+	Task             *Task
 }
 
 // Engine runs an instance of the mariner engine job
@@ -94,8 +107,8 @@ func request(runID string) (*WorkflowRequest, error) {
 // FIXME
 func engine(request *WorkflowRequest, runID string) *K8sEngine {
 	e := &K8sEngine{
-		FinishedProcs:   make(map[string]*Process),
-		UnfinishedProcs: make(map[string]*Process),
+		FinishedProcs:   make(map[string]interface{}),
+		UnfinishedProcs: make(map[string]interface{}),
 		Manifest:        &request.Manifest,
 		UserID:          request.ID,
 		RunID:           runID,
@@ -130,39 +143,41 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 		return err
 	}
 
-	// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
-	// this will be handled when code is refactored/polished/cleaned up
+	/*
+		// NOTE: there's a lot of duplicated information here, because Tool is almost a subset of Task
+		// this will be handled when code is refactored/polished/cleaned up
 
-	// FIXME - refactor - either make a tool interface and have different types for expression vs. commandlinetool
-	// or just put everything in the Task object (?)
-	proc := &Process{
-		Tool: tool,
-		Task: task,
-	}
+		// FIXME - refactor - either make a tool interface and have different types for expression vs. commandlinetool
+		// or just put everything in the Task object (?)
+		proc := &Process{
+			Tool: tool,
+			Task: task,
+		}
+	*/
 
 	// {Q: when should the process get pushed onto the stack?}
 	// push newly started process onto the engine's stack of running processes
-	engine.UnfinishedProcs[tool.Root.ID] = proc
-	if err = engine.runTool(proc); err != nil {
+	engine.UnfinishedProcs[tool.Task.Root.ID] = nil
+	if err = engine.runTool(tool); err != nil {
 		fmt.Printf("\tError running tool: %v\n", err)
 		return err
 	}
-	if err = engine.collectOutput(proc); err != nil {
+	if err = engine.collectOutput(tool); err != nil {
 		return err
 	}
-	engine.updateStack(proc)
+	engine.updateStack(tool)
 	return nil
 }
 
 // move proc from unfinished to finished stack
-func (engine *K8sEngine) updateStack(proc *Process) {
-	delete(engine.UnfinishedProcs, proc.Tool.Root.ID)
-	engine.FinishedProcs[proc.Tool.Root.ID] = proc
-	proc.Task.Done = &trueVal
+func (engine *K8sEngine) updateStack(tool *Tool) {
+	delete(engine.UnfinishedProcs, tool.Task.Root.ID)
+	engine.FinishedProcs[tool.Task.Root.ID] = nil
+	tool.Task.Done = &trueVal
 }
 
-func (engine *K8sEngine) collectOutput(proc *Process) error {
-	err := proc.collectOutput()
+func (engine *K8sEngine) collectOutput(tool *Tool) error {
+	err := tool.collectOutput()
 	return err
 }
 
@@ -171,10 +186,7 @@ func (engine *K8sEngine) collectOutput(proc *Process) error {
 // NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
 func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
-		Root:         task.Root,
-		Parameters:   task.Parameters,
-		OriginalStep: task.OriginalStep,
-		WorkingDir:   task.workingDir(runID),
+		Task: task,
 	}
 	return tool
 }
@@ -215,7 +227,7 @@ func (tool *Tool) setupTool() (err error) {
 		fmt.Printf("\tError loading inputs: %v\n", err)
 		return err
 	}
-	err = tool.inputsToVM() // loads inputs context to js vm tool.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
+	err = tool.inputsToVM() // loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
 	if err != nil {
 		fmt.Printf("\tError loading inputs to js VM: %v\n", err)
 		return err
@@ -231,17 +243,17 @@ func (tool *Tool) setupTool() (err error) {
 // RunTool runs the tool
 // If ExpressionTool, passes to appropriate handler to eval the expression
 // If CommandLineTool, passes to appropriate handler to create k8s job
-func (engine *K8sEngine) runTool(proc *Process) (err error) {
-	switch class := proc.Tool.Root.Class; class {
+func (engine *K8sEngine) runTool(tool *Tool) (err error) {
+	switch class := tool.Task.Root.Class; class {
 	case "ExpressionTool":
-		if err = engine.runExpressionTool(proc); err != nil {
+		if err = engine.runExpressionTool(tool); err != nil {
 			return err
 		}
 	case "CommandLineTool":
-		if err = engine.runCommandLineTool(proc); err != nil {
+		if err = engine.runCommandLineTool(tool); err != nil {
 			return err
 		}
-		if err = engine.listenForDone(proc); err != nil {
+		if err = engine.listenForDone(tool); err != nil {
 			return fmt.Errorf("error listening for done: %v", err)
 		}
 	default:
@@ -253,13 +265,13 @@ func (engine *K8sEngine) runTool(proc *Process) (err error) {
 // runCommandLineTool..
 // 1. generates the command to execute
 // 2. makes call to RunK8sJob to dispatch job to run the commandline tool
-func (engine K8sEngine) runCommandLineTool(proc *Process) (err error) {
+func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
 	fmt.Println("\tRunning CommandLineTool")
-	err = proc.Tool.generateCommand()
+	err = tool.generateCommand()
 	if err != nil {
 		return err
 	}
-	err = engine.dispatchTaskJob(proc)
+	err = engine.dispatchTaskJob(tool)
 	if err != nil {
 		return err
 	}
@@ -270,11 +282,11 @@ func (engine K8sEngine) runCommandLineTool(proc *Process) (err error) {
 // once that happens, calls a function to collect output and update engine's proc stacks
 // TODO: implement error handling, listen for errors and failures, retries as well
 // ----- handle the cases where the job status is not "Completed" or "Running"
-func (engine *K8sEngine) listenForDone(proc *Process) (err error) {
+func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	fmt.Println("\tListening for job to finish..")
 	status := ""
 	for status != "Completed" {
-		jobInfo, err := jobStatusByID(proc.JobID)
+		jobInfo, err := jobStatusByID(tool.JobID)
 		if err != nil {
 			return err
 		}
@@ -283,12 +295,12 @@ func (engine *K8sEngine) listenForDone(proc *Process) (err error) {
 	return nil
 }
 
-func (engine *K8sEngine) runExpressionTool(proc *Process) (err error) {
+func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	// note: context has already been loaded
-	if err = os.Chdir(proc.Tool.WorkingDir); err != nil {
+	if err = os.Chdir(tool.WorkingDir); err != nil {
 		return err
 	}
-	result, err := evalExpression(proc.Tool.Root.Expression, proc.Tool.Root.InputsVM)
+	result, err := evalExpression(tool.Task.Root.Expression, tool.Task.Root.InputsVM)
 	if err != nil {
 		return err
 	}
@@ -298,7 +310,7 @@ func (engine *K8sEngine) runExpressionTool(proc *Process) (err error) {
 	// see description of `expression` field here:
 	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
 	var ok bool
-	proc.Tool.ExpressionResult, ok = result.(map[string]interface{})
+	tool.ExpressionResult, ok = result.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("expressionTool expression did not return a JSON object")
 	}

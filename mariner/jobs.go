@@ -47,9 +47,9 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) error {
 	return nil
 }
 
-func (engine K8sEngine) dispatchTaskJob(proc *Process) error {
+func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	fmt.Println("\tCreating k8s job spec..")
-	batchJob, nil := engine.taskJob(proc)
+	batchJob, nil := engine.taskJob(tool)
 	jobsClient := jobClient()
 	fmt.Println("\tRunning k8s job..")
 	newJob, err := jobsClient.Create(batchJob)
@@ -60,8 +60,8 @@ func (engine K8sEngine) dispatchTaskJob(proc *Process) error {
 	fmt.Println("\tSuccessfully created job.")
 	fmt.Printf("\tNew job name: %v\n", newJob.Name)
 	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
-	proc.JobID = string(newJob.GetUID())
-	proc.JobName = newJob.Name
+	tool.JobID = string(newJob.GetUID())
+	tool.JobName = newJob.Name
 	return nil
 }
 

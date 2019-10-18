@@ -187,28 +187,28 @@ func engineArgs(runID string) []string {
 
 ////// TASK -> ///////
 
-func (engine *K8sEngine) taskJob(proc *Process) (job *batchv1.Job, err error) {
-	jobName := proc.jobName()
-	proc.JobName = jobName
+func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
+	jobName := tool.jobName()
+	tool.JobName = jobName
 	job = jobSpec(TASK, jobName)
 	job.Spec.Template.Spec.Volumes = workflowVolumes()
-	job.Spec.Template.Spec.Containers, err = engine.taskContainers(proc)
+	job.Spec.Template.Spec.Containers, err = engine.taskContainers(tool)
 	if err != nil {
 		return nil, err
 	}
 	return job, nil
 }
 
-func (engine *K8sEngine) taskContainers(proc *Process) (containers []k8sv1.Container, err error) {
-	task, err := proc.taskContainer()
+func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Container, err error) {
+	task, err := tool.taskContainer()
 	if err != nil {
 		return nil, err
 	}
-	s3sidecar := engine.s3SidecarContainer(proc)
+	s3sidecar := engine.s3SidecarContainer(tool)
 	gen3fuse := gen3fuseContainer(engine.Manifest, TASK, engine.RunID)
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
-		Value: proc.Tool.WorkingDir,
+		Value: tool.WorkingDir,
 	}
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
@@ -216,9 +216,9 @@ func (engine *K8sEngine) taskContainers(proc *Process) (containers []k8sv1.Conta
 }
 
 // for TASK job
-func (engine *K8sEngine) s3SidecarContainer(proc *Process) (container *k8sv1.Container) {
+func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Container) {
 	container = baseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
-	container.Env = engine.s3SidecarEnv(proc)
+	container.Env = engine.s3SidecarEnv(tool)
 	return container
 }
 
@@ -226,7 +226,7 @@ func (engine *K8sEngine) s3SidecarContainer(proc *Process) (container *k8sv1.Con
 // in case errors/warnings creating the container as specified in the cwl
 // additionally, add logic to check if the tool has specified each field
 // if a field is not specified, the spec should be filled out using values from the mariner-config
-func (proc *Process) taskContainer() (container *k8sv1.Container, err error) {
+func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 	conf := Config.Containers.Task
 	container = new(k8sv1.Container)
 	container.Name = conf.Name
@@ -234,17 +234,17 @@ func (proc *Process) taskContainer() (container *k8sv1.Container, err error) {
 	container.ImagePullPolicy = conf.pullPolicy()
 
 	// if not specified use config
-	container.Image = proc.dockerImage()
+	container.Image = tool.dockerImage()
 
 	// if not specified use config
-	container.Resources = proc.resourceReqs()
+	container.Resources = tool.resourceReqs()
 
 	// if not specified use config
-	container.Command = []string{proc.cltBash()} // FIXME - please
+	container.Command = []string{tool.cltBash()} // FIXME - please
 
-	container.Args = proc.cltArgs() // FIXME - make string constant or something
+	container.Args = tool.cltArgs() // FIXME - make string constant or something
 
-	container.Env = proc.env()
+	container.Env = tool.env()
 
 	return container, nil
 }
@@ -258,7 +258,7 @@ func (proc *Process) taskContainer() (container *k8sv1.Container, err error) {
 // so, just make this string a constant or something in the config file
 // TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
 // HERE - how to handle case of different possible bash, depending on CLT image specified in CWL?
-func (proc *Process) cltArgs() []string {
+func (tool *Tool) cltArgs() []string {
 	// Uncomment after debugging
 	args := []string{
 		"-c",
@@ -272,7 +272,7 @@ func (proc *Process) cltArgs() []string {
 				echo "running command $(cat %vrun.sh)"
 				%v %vrun.sh
 				echo "commandlinetool has finished running" > %vdone
-				`, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.Tool.WorkingDir, proc.cltBash(), proc.Tool.WorkingDir, proc.Tool.WorkingDir),
+				`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
 	}
 
 	/*
@@ -289,7 +289,7 @@ func (proc *Process) cltArgs() []string {
 					while true; do
 						:
 					done
-					`, proc.Tool.WorkingDir),
+					`, tool.WorkingDir),
 		}
 	*/
 
@@ -301,12 +301,12 @@ func (proc *Process) cltArgs() []string {
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 // and: https://godoc.org/k8s.io/api/core/v1#EnvVar
 // and: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
-func (proc *Process) env() (env []k8sv1.EnvVar) {
+func (tool *Tool) env() (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{}
-	for _, requirement := range proc.Tool.Root.Requirements {
+	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "EnvVarRequirement" {
 			for _, envDef := range requirement.EnvDef {
-				varValue, err := proc.Tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
+				varValue, err := tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
 				if err != nil {
 					panic("failed to resolve expressions in envVar def")
 				}
@@ -322,7 +322,7 @@ func (proc *Process) env() (env []k8sv1.EnvVar) {
 }
 
 // for TASK job
-func (engine *K8sEngine) s3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
+func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
@@ -342,11 +342,11 @@ func (engine *K8sEngine) s3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "TOOL_COMMAND", // the command from the commandlinetool to actually execute
-			Value: strings.Join(proc.Tool.Command.Args, " "),
+			Value: strings.Join(tool.Command.Args, " "),
 		},
 		{
 			Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., '/engine-workspace/workflowRuns/{runID}/{taskID}/'
-			Value: proc.Tool.WorkingDir,
+			Value: tool.WorkingDir,
 		},
 		{
 			Name:  "ENGINE_WORKSPACE",
@@ -360,15 +360,15 @@ func (engine *K8sEngine) s3SidecarEnv(proc *Process) (env []k8sv1.EnvVar) {
 // replace disallowed job name characters
 // Q: is there a better job-naming scheme?
 // -- should every mariner task job have `mariner` as a prefix, for easy identification?
-func (proc *Process) jobName() string {
-	taskID := proc.Task.Root.ID
+func (tool *Tool) jobName() string {
+	taskID := tool.Task.Root.ID
 	jobName := strings.ReplaceAll(taskID, "#", "")
 	jobName = strings.ReplaceAll(jobName, "_", "-")
 	jobName = strings.ToLower(jobName)
-	if proc.Task.ScatterIndex != 0 {
+	if tool.Task.ScatterIndex != 0 {
 		// indicates this task is a scattered subtask of a task which was scattered
 		// in order to not dupliate k8s job names - append suffix with ScatterIndex to job name
-		jobName = fmt.Sprintf("%v-scattered-%v", jobName, proc.Task.ScatterIndex)
+		jobName = fmt.Sprintf("%v-scattered-%v", jobName, tool.Task.ScatterIndex)
 	}
 	return jobName
 }
@@ -377,8 +377,8 @@ func (proc *Process) jobName() string {
 // NOTE: if no image specified, returns `ubuntu` as a default image - need to ask/check if there is a better default image to use
 // NOTE: presently only supporting use of the `dockerPull` CWL field
 // FIXME
-func (proc *Process) dockerImage() string {
-	for _, requirement := range proc.Task.Root.Requirements {
+func (tool *Tool) dockerImage() string {
+	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "DockerRequirement" {
 			if requirement.DockerPull != "" {
 				// NOTE: Shenglai made comment about adding `sha256` tag in order to pull exactly the latest image you want
@@ -391,8 +391,8 @@ func (proc *Process) dockerImage() string {
 }
 
 // FIXME
-func (proc *Process) cltBash() string {
-	if proc.dockerImage() == "alpine" {
+func (tool *Tool) cltBash() string {
+	if tool.dockerImage() == "alpine" {
 		return "/bin/sh"
 	}
 	return "/bin/bash"
@@ -404,11 +404,11 @@ func (proc *Process) cltBash() string {
 // for k8s resource info see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 //
 // NOTE: presently only supporting req's for cpu cores and RAM - need to implement outdir and tmpdir and whatever other fields are allowed
-func (proc *Process) resourceReqs() k8sv1.ResourceRequirements {
+func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
 	var cpuReq, cpuLim int64
 	var memReq, memLim int64
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
-	for _, requirement := range proc.Task.Root.Requirements {
+	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "ResourceRequirement" {
 			// for info on quantities, see: https://godoc.org/k8s.io/apimachinery/pkg/api/resource#Quantity
 			if requirement.CoresMin > 0 {

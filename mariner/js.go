@@ -102,7 +102,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 			expression = c1 + c2 + expression
 
 			// eval that thing
-			result, err := evalExpression(expression, tool.Root.InputsVM)
+			result, err := evalExpression(expression, tool.Task.Root.InputsVM)
 			if err != nil {
 				return "", err
 			}
