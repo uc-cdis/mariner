@@ -50,19 +50,34 @@ func showLog(path string) {
 	printJSON(j)
 }
 
+// tmp, for debugging mostly, though could/should adapt for complete error handling interface
+func check(err error) {
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+	}
+}
+
 func (log *MainLog) write() error {
+	fmt.Println("writing main log..")
+	fmt.Println("marshalling MainLog to json..")
 	j, err := json.Marshal(*log)
-	if err != nil {
-		return err
-	}
-	f, err := os.Create(log.Path)
-	if err != nil {
-		return err
-	}
-	_, err = f.Write(j)
-	if err != nil {
-		return err
-	}
+	check(err)
+	fmt.Println("writing data to file..")
+	err = ioutil.WriteFile(log.Path, j, 0644)
+	check(err)
+	/*
+		fmt.Println("creating MainLog file..")
+		f, err := os.Create(log.Path)
+		if err != nil {
+			fmt.Printf("error: %v", err)
+			return err
+		}
+		_, err = f.Write(j)
+		if err != nil {
+			fmt.Printf("error: %v", err)
+			return err
+		}
+	*/
 	return nil
 }
 
