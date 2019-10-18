@@ -49,7 +49,6 @@ type Process struct {
 
 // Tool represents a workflow *Tool - i.e., a CommandLineTool or an ExpressionTool
 type Tool struct {
-	Outdir           string // Given by context - NOTE: not sure what this is for
 	WorkingDir       string // e.g., /engine-workspace/taskID/
 	Root             *cwl.Root
 	Parameters       cwl.Parameters
