@@ -88,9 +88,9 @@ func (log *MainLog) write() error {
 // Log stores the eventLog and runtime stats for a mariner component (i.e., engine or task)
 // see: https://golang.org/pkg/time/
 type Log struct {
-	Created        string                 `json:"created,omitempty"`     // okay
+	Created        string                 `json:"created,omitempty"`     // okay - timezone???
 	CreatedObj     time.Time              `json:"-"`                     // okay
-	LastUpdated    string                 `json:"lastUpdated,omitempty"` // okay
+	LastUpdated    string                 `json:"lastUpdated,omitempty"` // okay - timezone???
 	LastUpdatedObj time.Time              `json:"-"`                     // okay
 	Status         string                 `json:"status"`                // okay
 	Stats          Stats                  `json:"stats"`                 // TODO
@@ -124,6 +124,7 @@ type EventLog []string
 // a record is "<timestamp> - <level> - <message>"
 func (log EventLog) write(level, message string) {
 	timestamp := ts()
+	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
 	log = append(log, record)
 }
@@ -168,6 +169,7 @@ func ts() string {
 
 // convert time object to string timestamp
 // for logging purposes
+// TODO timezone???
 func timef(t time.Time) string {
 	s := fmt.Sprintf("%v/%v/%v %v:%v:%v", t.Year(), int(t.Month()), t.Day(), t.Hour(), t.Minute(), t.Second())
 	return s
