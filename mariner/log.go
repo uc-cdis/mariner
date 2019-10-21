@@ -23,12 +23,12 @@ type MainLog struct {
 
 func mainLog(path string, request *WorkflowRequest) *MainLog {
 	log := &MainLog{
-		Path:      path,
-		Request:   request,
-		Engine:    logger(),
+		Path:    path,
+		Request: request,
+		//		Engine:    logger(),
 		ByProcess: make(map[string]*Log),
 	}
-	log.Engine.Status = IN_PROGRESS
+	// log.Engine.Status = IN_PROGRESS
 	return log
 }
 
@@ -66,11 +66,17 @@ func (log *MainLog) write() error {
 	// presently only applying timestamps at the top-level workflow (i.e., engine) level
 	// NOT applying timestamps to individual tasks/subworkflows, but that would be easy to do
 	// just not sure if it's useful/necessary right now
-	t := ts()
-	if log.Engine.Created == "" {
-		log.Engine.Created = t
-	}
-	log.Engine.LastUpdated = t
+
+	// do this BY PROCESS
+	// the "engine" is just the top level workflow task
+	// and should not be treated specially here
+	/*
+		t := ts()
+		if log.Engine.Created == "" {
+			log.Engine.Created = t
+		}
+		log.Engine.LastUpdated = t
+	*/
 
 	fmt.Println("marshalling MainLog to json..")
 	j, err := json.Marshal(*log)

@@ -87,6 +87,12 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 					- retries
 			*/
 
+			/*
+				NOTE:
+				The Task.Outputs field is of type cwl.Parameters, which is a map
+
+			*/
+
 			// FIXME - I want a map of input parameter to VALUE - provided
 			// need to write a few lines to do this, in loadInputs (?)
 			newTask.Log.Input = make(map[string]interface{})
@@ -146,6 +152,8 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 		panic(fmt.Sprint("can't find main workflow"))
 	}
 
+	engine.Log.Engine = mainTask.Log
+
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
 	engine.resolveGraph(flatRoots, mainTask)
 
@@ -153,7 +161,7 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 	engine.run(mainTask)
 
 	// FIXME - probably don't put this here
-	engine.Log.Engine.Status = COMPLETE
+	// engine.Log.Engine.Status = COMPLETE
 	engine.Log.write()
 
 	// if this works I'm gonna be stoked in all aspects
