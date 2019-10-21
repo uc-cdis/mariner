@@ -30,6 +30,7 @@ func (tool *Tool) loadInputs() (err error) {
 		}
 		// HERE - map parameter to value for log
 		tool.Task.Log.Input[in.ID] = in.Provided
+
 	}
 	return nil
 }
