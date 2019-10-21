@@ -90,7 +90,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 
 			// FIXME - I want a map of input parameter to VALUE - provided
 			// need to write a few lines to do this, in loadInputs (?)
-			newTask.Log.Input = newTask.Parameters
+			newTask.Log.Input = make(map[string]*cwl.Provided)
 
 			// FIXME - empty??
 			newTask.Log.Output = newTask.Outputs
