@@ -27,7 +27,6 @@ import (
 // NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
 // ----- no binding provided -> output won't be collected
 func (tool *Tool) collectOutput() (err error) {
-	tool.Task.Outputs = make(map[string]cwl.Parameter)
 	switch class := tool.Task.Root.Class; class {
 	case "CommandLineTool":
 		if err = tool.handleCLTOutput(); err != nil {
