@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -185,8 +186,17 @@ concurrency notes:
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
+
+	// wrap these things into a function
+	// wrap into logging interface
+	// e.g., functions Log.startTask(args...), Log.completeTask(args...), etc.
+	start := time.Now()
+	task.Log.CreatedObj = start
+	task.Log.Created = timef(task.Log.CreatedObj)
+	task.Log.LastUpdatedObj = start
 	task.Log.Status = IN_PROGRESS
 	engine.Log.write()
+
 	if task.Scatter != nil {
 		engine.runScatter(task)
 		engine.gatherScatterOutputs(task)
@@ -195,15 +205,26 @@ func (engine *K8sEngine) run(task *Task) error {
 	if task.Root.Class == "Workflow" {
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
+
+		// TODO - log inputs for workflow vertex
 		// task.mergeChildInputs()
+
 		task.mergeChildOutputs()
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		engine.dispatchTask(task)
 	}
+
+	// wrap into logging interface
+	stop := time.Now()
+	task.Log.LastUpdatedObj = stop
+	task.Log.LastUpdated = timef(task.Log.LastUpdatedObj)
+	task.Log.Stats.DurationObj = stop.Sub(start)
+	task.Log.Stats.Duration = task.Log.Stats.DurationObj.Minutes()
 	task.Log.Status = COMPLETE
 	engine.Log.write()
+
 	return nil
 }
 

@@ -87,13 +87,15 @@ func (log *MainLog) write() error {
 
 // Log stores the eventLog and runtime stats for a mariner component (i.e., engine or task)
 type Log struct {
-	Created     string                 `json:"created,omitempty"`     // OKAY
-	LastUpdated string                 `json:"lastUpdated,omitempty"` // OKAY
-	Status      string                 `json:"status"`                // OKAY
-	Stats       Stats                  `json:"stats"`
-	Event       EventLog               `json:"eventLog,omitempty"`
-	Input       map[string]interface{} `json:"input"`
-	Output      cwl.Parameters         `json:"output"`
+	Created        string                 `json:"created,omitempty"`     // okay
+	CreatedObj     time.Time              `json:"-"`                     // okay
+	LastUpdated    string                 `json:"lastUpdated,omitempty"` // okay
+	LastUpdatedObj time.Time              `json:"-"`                     // okay
+	Status         string                 `json:"status"`                // okay
+	Stats          Stats                  `json:"stats"`                 // TODO
+	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
+	Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
+	Output         cwl.Parameters         `json:"output"`                // okay
 }
 
 func logger() *Log {
@@ -107,11 +109,12 @@ func logger() *Log {
 // recorded for tasks as well as workflows
 // Runtime for a workflow is the sum of runtime of that workflow's steps
 type Stats struct {
-	CPU       int `json:"cpu"`
-	Memory    int `json:"memory"`
-	Duration  int `json:"duration"`
-	NFailures int `json:"nfailures"`
-	NRetries  int `json:"nretries"`
+	CPU         int           `json:"cpu"`       // TODO
+	Memory      int           `json:"memory"`    // TODO
+	Duration    float64       `json:"duration"`  // okay - currently measured in minutes
+	DurationObj time.Duration `json:"-"`         // okay
+	NFailures   int           `json:"nfailures"` // TODO
+	NRetries    int           `json:"nretries"`  // TODO
 }
 
 // EventLog is an event logger for a mariner component (i.e., engine or task)
@@ -151,8 +154,20 @@ func (log *EventLog) error(m string) {
 	log.write(ERROR, m)
 }
 
+// get string timestamp for right now
 func ts() string {
 	t := time.Now()
+	s := timef(t)
+	return s
+}
+
+// TODO
+// should just have a function that returns (t time.Time, ts string)
+// ---> return the time object AND the string timestamp for right now
+
+// convert time object to string timestamp
+// for logging purposes
+func timef(t time.Time) string {
 	s := fmt.Sprintf("%v/%v/%v %v:%v:%v", t.Year(), int(t.Month()), t.Day(), t.Hour(), t.Minute(), t.Second())
 	return s
 }
