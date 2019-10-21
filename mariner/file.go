@@ -11,12 +11,22 @@ import (
 
 // this file contains code for handling/processing file objects
 
-// the File type represents a CWL file object
+// File type represents a CWL file object
 // NOTE: the json representation of field names is what gets loaded into js vm
 // ----- see PreProcessContext() and accompanying note of explanation.
 // ----- these json aliases are the fieldnames defined by cwl for cwl File objects
 //
 // see: see: https://www.commonwl.org/v1.0/Workflow.html#File
+//
+// would be nice for logging to strip some of the redundant information
+// e.g., only have Class, Path, Contents, and SecondaryFiles
+// omitempty
+// but can't do that JSON encoding directly here because
+// these JSON encodings are used for context in parameters refs and JS expressions
+// so again - CANNOT implement the stripped JSON marhsalling here
+// --- would need some preprocessing step before writing/storing a file object to log
+// --- could just create a wrapper around the File type,
+// --- like FileLog or something, which implements the desired, stripped JSON encodings
 type File struct {
 	Class          string  `json:"class"`          // always "File"
 	Location       string  `json:"location"`       // path to file (same as `path`)
