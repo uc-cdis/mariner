@@ -60,6 +60,12 @@ func (log *MainLog) write() error {
 	fmt.Println("writing main log..")
 
 	// apply/update timestamps on the main log
+	// not sure if I should collect timestamps of all writes
+	// or just the times of first write and latest writes
+	//
+	// presently only applying timestamps at the top-level workflow (i.e., engine) level
+	// NOT applying timestamps to individual tasks/subworkflows, but that would be easy to do
+	// just not sure if it's useful/necessary right now
 	t := ts()
 	if log.Engine.Created == "" {
 		log.Engine.Created = t
@@ -143,6 +149,6 @@ func (log *EventLog) error(m string) {
 
 func ts() string {
 	t := time.Now()
-	s := fmt.Sprintf("%v/%v/%v %v:%v:%v", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+	s := fmt.Sprintf("%v/%v/%v %v:%v:%v", t.Year(), int(t.Month()), t.Day(), t.Hour(), t.Minute(), t.Second())
 	return s
 }
