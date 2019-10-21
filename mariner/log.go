@@ -82,11 +82,13 @@ func (log *MainLog) write() error {
 
 // Log stores the eventLog and runtime stats for a mariner component (i.e., engine or task)
 type Log struct {
-	Status string         `json:"status"`
-	Stats  Stats          `json:"stats"`
-	Event  EventLog       `json:"eventLog,omitempty"`
-	Input  cwl.Parameters `json:"input"`
-	Output cwl.Parameters `json:"output"`
+	Created     string         `json:"created"`
+	LastUpdated string         `json:"lastUpdated"`
+	Status      string         `json:"status"`
+	Stats       Stats          `json:"stats"`
+	Event       EventLog       `json:"eventLog,omitempty"`
+	Input       cwl.Parameters `json:"input"`
+	Output      cwl.Parameters `json:"output"`
 }
 
 func logger() *Log {
