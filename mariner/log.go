@@ -23,12 +23,10 @@ type MainLog struct {
 
 func mainLog(path string, request *WorkflowRequest) *MainLog {
 	log := &MainLog{
-		Path:    path,
-		Request: request,
-		//		Engine:    logger(),
+		Path:      path,
+		Request:   request,
 		ByProcess: make(map[string]*Log),
 	}
-	// log.Engine.Status = IN_PROGRESS
 	return log
 }
 
