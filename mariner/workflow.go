@@ -282,6 +282,7 @@ func step2taskID(step *cwl.Step, stepVarID string) string {
 // and outputValue is the value for that output parameter for the workflow step
 // -> this outputValue gets mapped from the workflow step's outputs to the output of the workflow itself
 func (task *Task) mergeChildOutputs() error {
+	task.Outputs = make(cwl.Parameters)
 	if task.Children == nil {
 		panic(fmt.Sprintf("Can't call merge child outputs without childs %v \n", task.Root.ID))
 	}
@@ -303,6 +304,7 @@ func (task *Task) mergeChildOutputs() error {
 			panic(fmt.Sprintf("NOT SUPPORTED: don't know how to handle empty or array outputsource"))
 		}
 	}
+	task.Log.Output = task.Outputs
 	return nil
 }
 

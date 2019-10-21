@@ -152,6 +152,7 @@ func (engine *K8sEngine) updateStack(tool *Tool) {
 	tool.Task.Done = &trueVal
 }
 
+// maybe this is a pointless wrapper?
 func (engine *K8sEngine) collectOutput(tool *Tool) error {
 	err := tool.collectOutput()
 	return err
@@ -161,6 +162,8 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 // NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
 func (task *Task) tool(runID string) *Tool {
+	task.Outputs = make(cwl.Parameters)
+	task.Log.Output = task.Outputs
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
