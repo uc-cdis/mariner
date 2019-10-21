@@ -69,7 +69,6 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			newTask := &Task{
 				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
-				Outputs:      make(cwl.Parameters),
 				OriginalStep: step,
 				Done:         &falseVal,
 				Log:          logger(), // pointer to Log struct with status NOT_STARTED
@@ -91,9 +90,6 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			// FIXME - I want a map of input parameter to VALUE - provided
 			// need to write a few lines to do this, in loadInputs (?)
 			newTask.Log.Input = make(map[string]interface{})
-
-			// FIXME - empty??
-			newTask.Log.Output = newTask.Outputs
 
 			engine.resolveGraph(rootMap, newTask)
 			// what to use as id? value or step.id - using step.ID for now, seems to work okay
