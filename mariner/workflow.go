@@ -152,7 +152,7 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 		panic(fmt.Sprint("can't find main workflow"))
 	}
 
-	engine.Log.Engine = mainTask.Log
+	engine.Log.Main = mainTask.Log
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
 	engine.resolveGraph(flatRoots, mainTask)
