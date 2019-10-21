@@ -86,6 +86,7 @@ func (log *MainLog) write() error {
 }
 
 // Log stores the eventLog and runtime stats for a mariner component (i.e., engine or task)
+// see: https://golang.org/pkg/time/
 type Log struct {
 	Created        string                 `json:"created,omitempty"`     // okay
 	CreatedObj     time.Time              `json:"-"`                     // okay
