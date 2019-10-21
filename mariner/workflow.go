@@ -160,8 +160,6 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 	// run the workflow
 	engine.run(mainTask)
 
-	// FIXME - probably don't put this here
-	// engine.Log.Engine.Status = COMPLETE
 	engine.Log.write()
 
 	// if this works I'm gonna be stoked in all aspects

@@ -68,7 +68,7 @@ func (log *MainLog) write() error {
 	// just not sure if it's useful/necessary right now
 
 	// do this BY PROCESS
-	// the "engine" is just the top level workflow task
+	// the "engine" corresponds to the top level workflow task
 	// and should not be treated specially here
 	/*
 		t := ts()
