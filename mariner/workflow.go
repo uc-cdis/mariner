@@ -62,12 +62,12 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 	if curTask.Root.Class == "Workflow" {
 		curTask.Children = make(map[string]*Task)
 		for _, step := range curTask.Root.Steps {
-			subworkflow, ok := rootMap[step.Run.Value]
+			stepRoot, ok := rootMap[step.Run.Value]
 			if !ok {
 				panic(fmt.Sprintf("can't find workflow %v", step.Run.Value))
 			}
 			newTask := &Task{
-				Root:         subworkflow,
+				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
 				Outputs:      make(cwl.Parameters),
 				OriginalStep: step,
