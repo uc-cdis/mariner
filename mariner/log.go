@@ -58,25 +58,20 @@ func check(err error) {
 
 func (log *MainLog) write() error {
 	fmt.Println("writing main log..")
+
+	// apply/update timestamps on the main log
+	t := ts()
+	if log.Engine.Created == "" {
+		log.Engine.Created = t
+	}
+	log.Engine.LastUpdated = t
+
 	fmt.Println("marshalling MainLog to json..")
 	j, err := json.Marshal(*log)
 	check(err)
 	fmt.Println("writing data to file..")
 	err = ioutil.WriteFile(log.Path, j, 0644)
 	check(err)
-	/*
-		fmt.Println("creating MainLog file..")
-		f, err := os.Create(log.Path)
-		if err != nil {
-			fmt.Printf("error: %v", err)
-			return err
-		}
-		_, err = f.Write(j)
-		if err != nil {
-			fmt.Printf("error: %v", err)
-			return err
-		}
-	*/
 	return nil
 }
 
