@@ -105,11 +105,13 @@ func (mainLog *MainLog) start(task *Task) {
 	mainLog.write()
 }
 
+// called when a task finishes running
 func (mainLog *MainLog) finish(task *Task) {
 	task.Log.finish()
 	mainLog.write()
 }
 
+// called when a task finishes running
 func (log *Log) finish() {
 	t := time.Now()
 	log.LastUpdatedObj = t

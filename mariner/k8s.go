@@ -23,16 +23,28 @@ import (
 
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func workflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, err error) {
+	// presently this is just a timestamp - unique key is the pair (userID, runID)
+	runID := runID()
+
 	// get job spec all populated except for pod volumes and containers
-	workflowJob = jobSpec(ENGINE, "test-workflow") // FIXME - define jobname for a workflow - timestamp, or
+	workflowJob = jobSpec(ENGINE, runID)
 
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
 
 	// runID (timestamp) is generated here! can just generate it at the very beginning of this function
 	// can use it to name the job
-	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest)
+	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, runID)
 	return workflowJob, nil
+}
+
+// NOTE: probably can come up with a better ID for a workflow, but for now this will work
+// can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
+// so not exactly sure how to label the workflow runs besides a timestamp
+func runID() (timeStamp string) {
+	now := time.Now()
+	timeStamp = fmt.Sprintf("%v-%v-%v-%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
+	return timeStamp
 }
 
 // returns volumes field for workflow/engine job spec
@@ -43,8 +55,7 @@ func engineVolumes() (volumes []k8sv1.Volume) {
 	return volumes
 }
 
-func engineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
-	runID := timestamp() // HERE - move this to workflowJob() - create a job naming interface - a function to generate a job name using timestamp and.. need to ensure job names are unique across workflows
+func engineContainers(workflowRequest *WorkflowRequest, runID string) (containers []k8sv1.Container) {
 	engine := engineContainer(runID)
 	s3sidecar := s3SidecarContainer(workflowRequest, runID)
 	gen3fuse := gen3fuseContainer(&workflowRequest.Manifest, ENGINE, runID)
@@ -71,15 +82,6 @@ func gen3fuseContainer(manifest *Manifest, component string, runID string) (cont
 	container = baseContainer(&Config.Containers.Gen3fuse, GEN3FUSE)
 	container.Env = gen3fuseEnv(manifest, component, runID)
 	return container
-}
-
-// NOTE: probably can come up with a better ID for a workflow, but for now this will work
-// can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
-// so not exactly sure how to label the workflow runs besides a timestamp
-func timestamp() (timeStamp string) {
-	now := time.Now()
-	timeStamp = fmt.Sprintf("%v-%v-%v_%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
-	return timeStamp
 }
 
 func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVar) {
@@ -495,11 +497,20 @@ func workflowVolumes() []k8sv1.Volume {
 
 // returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
 func jobSpec(component string, name string) (job *batchv1.Job) {
+
+	// probably need a prefix of some kind on job names
+	// some hash of the userID maybe
+	// can get from token
+
+	// if ENGINE, then `name` is the runID (i.e., timestamp)
+	if component == ENGINE {
+		name = fmt.Sprintf("mariner.%v", name)
+	}
+
 	jobConfig := Config.jobConfig(component)
 	job = new(batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
-
 	job.Name, job.Labels = name, jobConfig.Labels
 	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
