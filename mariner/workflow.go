@@ -302,6 +302,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 func (engine *K8sEngine) runSteps(task *Task) {
 	// store a map of {outputID: stepID} pairs to trace step i/o dependency
 	task.setupOutputMap()
+	task.InputIDMap = make(map[string]string)
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
 	for curStepID, subtask := range task.Children {
 		go engine.runStep(curStepID, task, subtask)
