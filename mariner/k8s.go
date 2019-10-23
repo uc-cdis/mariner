@@ -44,9 +44,7 @@ func engineVolumes() (volumes []k8sv1.Volume) {
 }
 
 func engineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
-	// don't need to pass workflowRequest here necessarily, since UserID in engine now
-	// recall "Getters and Setters" - fix these function names
-	runID := timestamp()
+	runID := timestamp() // HERE - move this to workflowJob() - create a job naming interface - a function to generate a job name using timestamp and.. need to ensure job names are unique across workflows
 	engine := engineContainer(runID)
 	s3sidecar := s3SidecarContainer(workflowRequest, runID)
 	gen3fuse := gen3fuseContainer(&workflowRequest.Manifest, ENGINE, runID)
@@ -501,6 +499,7 @@ func jobSpec(component string, name string) (job *batchv1.Job) {
 	job = new(batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
+
 	job.Name, job.Labels = name, jobConfig.Labels
 	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()

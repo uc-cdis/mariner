@@ -102,6 +102,7 @@ type Log struct {
 func logger() *Log {
 	logger := &Log{
 		Status: NOT_STARTED,
+		Input:  make(map[string]interface{}),
 	}
 	return logger
 }
