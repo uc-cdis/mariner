@@ -232,9 +232,9 @@ func (engine *K8sEngine) run(task *Task) error {
 // audition
 func (task *Task) mergeChildInputs() {
 	for _, child := range task.Children {
-		for _, input := range child.Root.Inputs {
-			if workflowInputID, ok := task.InputIDMap[input.ID]; ok {
-				task.Log.Input[workflowInputID] = input.Provided
+		for param := range child.Parameters {
+			if wfParam, ok := task.InputIDMap[param]; ok {
+				task.Log.Input[wfParam] = child.Log.Input[param]
 			}
 		}
 	}
