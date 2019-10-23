@@ -231,13 +231,19 @@ func (engine *K8sEngine) run(task *Task) error {
 
 // audition
 func (task *Task) mergeChildInputs() {
+	fmt.Println("in mergeChildInputs()..")
 	for _, child := range task.Children {
+		fmt.Println("handling child ", child.Root.ID)
 		for param := range child.Parameters {
+			fmt.Println("handling task param ", param)
 			if wfParam, ok := task.InputIDMap[param]; ok {
+				fmt.Println("collecting wf param ", wfParam)
 				task.Log.Input[wfParam] = child.Log.Input[param]
 			}
 		}
 	}
+	fmt.Println("show me the money!")
+	printJSON(task.Log.Input)
 }
 
 // for concurrent processing of steps of a workflow
