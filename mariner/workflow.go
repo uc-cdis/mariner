@@ -48,8 +48,9 @@ type Task struct {
 	ScatterIndex  int               // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
 	Children      map[string]*Task  // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
 	OutputIDMap   map[string]string // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
-	OriginalStep  cwl.Step          // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
-	Done          *bool             // false until all output for this task has been collected, then true
+	InputIDMap    map[string]string
+	OriginalStep  cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
+	Done          *bool    // false until all output for this task has been collected, then true
 	// --- New Fields ---
 	Log *Log // contains Status, Stats, Event
 }
@@ -206,8 +207,8 @@ func (engine *K8sEngine) run(task *Task) error {
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
 
-		// TODO - log inputs for workflow vertex
-		// task.mergeChildInputs()
+		// todo - testing
+		task.mergeChildInputs()
 
 		task.mergeChildOutputs()
 	} else {
@@ -226,6 +227,17 @@ func (engine *K8sEngine) run(task *Task) error {
 	engine.Log.write()
 
 	return nil
+}
+
+// audition
+func (task *Task) mergeChildInputs() {
+	for _, child := range task.Children {
+		for _, input := range child.Root.Inputs {
+			if workflowInputID, ok := task.InputIDMap[input.ID]; ok {
+				task.Log.Input[workflowInputID] = input.Provided
+			}
+		}
+	}
 }
 
 // for concurrent processing of steps of a workflow
@@ -264,6 +276,9 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			// but is an input of the parent workflow
 			// assign input parameter of parent workflow to input parameter of this step
 			task.Parameters[taskInput] = parentTask.Parameters[source]
+
+			// used for logging to merge child inputs for a workflow
+			parentTask.InputIDMap[taskInput] = source
 		}
 	}
 
