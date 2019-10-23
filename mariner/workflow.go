@@ -74,31 +74,10 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 				Done:         &falseVal,
 				Log:          logger(), // pointer to Log struct with status NOT_STARTED
 			}
-			// FIXME - this can probably be cleaned up
 			engine.Log.ByProcess[step.ID] = newTask.Log
 
-			// TODO - MONDAY - capture desired I/O in log
-			/*
-				- inputs
-				- outputs
-				- stats
-					- time
-					- resources
-					- failures
-					- retries
-			*/
-
-			/*
-				NOTE:
-				The Task.Outputs field is of type cwl.Parameters, which is a map
-
-			*/
-
-			// FIXME - I want a map of input parameter to VALUE - provided
-			// need to write a few lines to do this, in loadInputs (?)
-			// newTask.Log.Input = make(map[string]interface{})
-
 			engine.resolveGraph(rootMap, newTask)
+
 			// what to use as id? value or step.id - using step.ID for now, seems to work okay
 			curTask.Children[step.ID] = newTask
 		}
@@ -186,21 +165,7 @@ concurrency notes:
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
-
-	// wrap these things into a function
-	// wrap into logging interface
-	// e.g., functions Log.startTask(args...), Log.completeTask(args...), etc.
-	/*
-		start := time.Now()
-		task.Log.CreatedObj = start
-		task.Log.Created = timef(task.Log.CreatedObj)
-		task.Log.LastUpdatedObj = start
-		task.Log.Status = IN_PROGRESS
-		engine.Log.write()
-	*/
-
 	engine.Log.start(task)
-
 	if task.Scatter != nil {
 		engine.runScatter(task)
 		engine.gatherScatterOutputs(task)
@@ -215,19 +180,7 @@ func (engine *K8sEngine) run(task *Task) error {
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		engine.dispatchTask(task)
 	}
-
-	// wrap into logging interface
-	/*
-		stop := time.Now()
-		task.Log.LastUpdatedObj = stop
-		task.Log.LastUpdated = timef(task.Log.LastUpdatedObj)
-		task.Log.Stats.DurationObj = stop.Sub(task.Log.CreatedObj)
-		task.Log.Stats.Duration = task.Log.Stats.DurationObj.Minutes()
-		task.Log.Status = COMPLETE
-		engine.Log.write()
-	*/
 	engine.Log.finish(task)
-
 	return nil
 }
 
@@ -237,19 +190,14 @@ func (engine *K8sEngine) mergeChildParams(task *Task) {
 }
 
 func (task *Task) mergeChildInputs() {
-	fmt.Println("in mergeChildInputs()..")
 	for _, child := range task.Children {
-		fmt.Println("handling child ", child.Root.ID)
 		for param := range child.Parameters {
-			fmt.Println("handling task param ", param)
 			if wfParam, ok := task.InputIDMap[param]; ok {
 				fmt.Println("collecting wf param ", wfParam)
 				task.Log.Input[wfParam] = child.Log.Input[param]
 			}
 		}
 	}
-	fmt.Println("show me the money!")
-	printJSON(task.Log.Input)
 }
 
 // for concurrent processing of steps of a workflow
@@ -257,10 +205,10 @@ func (task *Task) mergeChildInputs() {
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
 	fmt.Printf("\tProcessing Step: %v\n", curStepID)
 	curStep := task.OriginalStep
-	idMaps := make(map[string]string)
+	stepIDMap := make(map[string]string)
 	for _, input := range curStep.In {
 		taskInput := step2taskID(&curStep, input.ID)
-		idMaps[input.ID] = taskInput // step input ID maps to [sub]task input ID
+		stepIDMap[input.ID] = taskInput // step input ID maps to [sub]task input ID
 
 		// presently not handling the case of multiple sources for a given input parameter
 		// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
@@ -302,7 +250,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 	// collect those parameters in Task.Scatter array
 	if len(curStep.Scatter) > 0 {
 		for _, i := range curStep.Scatter {
-			task.Scatter = append(task.Scatter, idMaps[i])
+			task.Scatter = append(task.Scatter, stepIDMap[i])
 		}
 	}
 
