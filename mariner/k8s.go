@@ -28,8 +28,10 @@ func workflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, er
 
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
-	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest)
 
+	// runID (timestamp) is generated here! can just generate it at the very beginning of this function
+	// can use it to name the job
+	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest)
 	return workflowJob, nil
 }
 

@@ -207,10 +207,8 @@ func (engine *K8sEngine) run(task *Task) error {
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
 
-		// todo - testing
-		task.mergeChildInputs()
-
 		task.mergeChildOutputs()
+		task.mergeChildInputs() // todo - testing
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
