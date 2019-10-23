@@ -201,14 +201,12 @@ func (engine *K8sEngine) run(task *Task) error {
 	if task.Scatter != nil {
 		engine.runScatter(task)
 		engine.gatherScatterOutputs(task)
-		return nil
+		return nil // does this mean final log doesn't get written for scattered tasks?
 	}
 	if task.Root.Class == "Workflow" {
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
-
-		task.mergeChildOutputs()
-		task.mergeChildInputs() // todo - testing
+		engine.mergeChildParams(task)
 	} else {
 		// this process is not a workflow - it is a leaf in the graph (a Tool) and gets dispatched to the task engine
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
@@ -227,7 +225,11 @@ func (engine *K8sEngine) run(task *Task) error {
 	return nil
 }
 
-// audition
+func (engine *K8sEngine) mergeChildParams(task *Task) {
+	task.mergeChildOutputs()
+	task.mergeChildInputs() // for logging
+}
+
 func (task *Task) mergeChildInputs() {
 	fmt.Println("in mergeChildInputs()..")
 	for _, child := range task.Children {
