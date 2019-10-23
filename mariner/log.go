@@ -54,7 +54,7 @@ func check(err error) {
 	}
 }
 
-func (log *MainLog) write() error {
+func (mainLog *MainLog) write() error {
 	fmt.Println("writing main log..")
 
 	// apply/update timestamps on the main log
@@ -77,10 +77,10 @@ func (log *MainLog) write() error {
 	*/
 
 	fmt.Println("marshalling MainLog to json..")
-	j, err := json.Marshal(*log)
+	j, err := json.Marshal(*mainLog)
 	check(err)
 	fmt.Println("writing data to file..")
-	err = ioutil.WriteFile(log.Path, j, 0644)
+	err = ioutil.WriteFile(mainLog.Path, j, 0644)
 	check(err)
 	return nil
 }
@@ -97,6 +97,36 @@ type Log struct {
 	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
 	Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
 	Output         cwl.Parameters         `json:"output"`                // okay
+}
+
+// called when a task is run
+func (mainLog *MainLog) start(task *Task) {
+	task.Log.start()
+	mainLog.write()
+}
+
+func (mainLog *MainLog) finish(task *Task) {
+	task.Log.finish()
+	mainLog.write()
+}
+
+func (log *Log) finish() {
+	t := time.Now()
+	log.LastUpdatedObj = t
+	log.LastUpdated = timef(log.LastUpdatedObj)
+	log.Stats.DurationObj = t.Sub(log.CreatedObj)
+	log.Stats.Duration = log.Stats.DurationObj.Minutes()
+	log.Status = COMPLETE
+}
+
+// called when a task is run
+func (log *Log) start() {
+	t := time.Now()
+	log.CreatedObj = t
+	log.Created = timef(t)
+	log.LastUpdatedObj = t
+	log.LastUpdated = timef(t)
+	log.Status = IN_PROGRESS
 }
 
 func logger() *Log {

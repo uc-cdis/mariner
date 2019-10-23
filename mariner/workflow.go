@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -191,12 +190,16 @@ func (engine *K8sEngine) run(task *Task) error {
 	// wrap these things into a function
 	// wrap into logging interface
 	// e.g., functions Log.startTask(args...), Log.completeTask(args...), etc.
-	start := time.Now()
-	task.Log.CreatedObj = start
-	task.Log.Created = timef(task.Log.CreatedObj)
-	task.Log.LastUpdatedObj = start
-	task.Log.Status = IN_PROGRESS
-	engine.Log.write()
+	/*
+		start := time.Now()
+		task.Log.CreatedObj = start
+		task.Log.Created = timef(task.Log.CreatedObj)
+		task.Log.LastUpdatedObj = start
+		task.Log.Status = IN_PROGRESS
+		engine.Log.write()
+	*/
+
+	engine.Log.start(task)
 
 	if task.Scatter != nil {
 		engine.runScatter(task)
@@ -214,13 +217,16 @@ func (engine *K8sEngine) run(task *Task) error {
 	}
 
 	// wrap into logging interface
-	stop := time.Now()
-	task.Log.LastUpdatedObj = stop
-	task.Log.LastUpdated = timef(task.Log.LastUpdatedObj)
-	task.Log.Stats.DurationObj = stop.Sub(start)
-	task.Log.Stats.Duration = task.Log.Stats.DurationObj.Minutes()
-	task.Log.Status = COMPLETE
-	engine.Log.write()
+	/*
+		stop := time.Now()
+		task.Log.LastUpdatedObj = stop
+		task.Log.LastUpdated = timef(task.Log.LastUpdatedObj)
+		task.Log.Stats.DurationObj = stop.Sub(task.Log.CreatedObj)
+		task.Log.Stats.Duration = task.Log.Stats.DurationObj.Minutes()
+		task.Log.Status = COMPLETE
+		engine.Log.write()
+	*/
+	engine.Log.finish(task)
 
 	return nil
 }
