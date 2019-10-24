@@ -1,6 +1,8 @@
 package mariner
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -138,6 +140,7 @@ func engineEnv(runID string) (env []k8sv1.EnvVar) {
 // for ENGINE job
 func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 	workflowRequest := struct2String(r)
+	userID := userID(r.Token)
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
@@ -149,7 +152,7 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "USER_ID",
-			Value: r.ID,
+			Value: userID,
 		},
 		{
 			Name:  "MARINER_COMPONENT",
@@ -165,6 +168,37 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 		},
 	}
 	return env
+}
+
+type TokenPayload struct {
+	Context TokenContext `json:"context"`
+}
+
+type TokenContext struct {
+	User TokenUser `json:"user"`
+}
+
+type TokenUser struct {
+	Name string `json:"name"`
+}
+
+func userID(token string) (userID string) {
+	fmt.Println("in userID..")
+	parts := strings.Split(token, ".")
+	encoded := parts[1]
+	p, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		fmt.Println("failed to decode token")
+	}
+	payload := &TokenPayload{}
+	err = json.Unmarshal(p, payload)
+	if err != nil {
+		fmt.Println("failed unmarshal token payload")
+	}
+	userID = payload.Context.User.Name
+	fmt.Println("SHOW ME THE MONEY!")
+	fmt.Println(userID)
+	return userID
 }
 
 // FIXME - TODO - put it in a bash script

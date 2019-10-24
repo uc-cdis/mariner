@@ -98,7 +98,7 @@ func engine(request *WorkflowRequest, runID string) *K8sEngine {
 		FinishedProcs:   make(map[string]interface{}),
 		UnfinishedProcs: make(map[string]interface{}),
 		Manifest:        &request.Manifest,
-		UserID:          request.ID,
+		UserID:          userID(request.Token),
 		RunID:           runID,
 	}
 
