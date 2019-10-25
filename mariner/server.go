@@ -148,6 +148,77 @@ func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+/*
+
+type AuthHTTPRequest struct {
+	URL         string
+	ContentType string
+	Body        io.Reader
+}
+
+type RequestJSON struct {
+	User    UserJSON    `json:"user"`
+	Request AuthRequest `json:"request"`
+}
+
+type AuthRequest struct {
+	Resource string     `json:"resource"`
+	Action   AuthAction `json:"action"`
+}
+
+type AuthAction struct {
+	Service string `json:"service"`
+	Method  string `json:"method"`
+}
+
+type UserJSON struct {
+	Token string `json:"token"`
+}
+
+// auth middleware - processes every request, checks auth with arborist
+// if arborist says 'okay', then process the request
+// if arborist says 'not okay', then return 'not authorized'
+// need to have router.Use(authRequest) or something like that - need to add it to router
+func (server *Server) handleAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// here pass token to arborist with context, get response, apply conditional
+
+			url := "arborist-service/auth/request"
+			contentType := "application/json"
+			body :=
+				http.Post(
+					url,
+					contentType,
+				)
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
+
+}
+
+// HERE - MONDAY - MAKE THIS WORK
+
+func (server *Server) authZ(r *http.Request) bool {
+	authHTTPRequest := authHTTPRequest(r)
+	resp, err := http.Post(
+		authHTTPRequest.URL,
+		authHTTPRequest.ContentType,
+		authHTTPRequest.Body,
+	)
+	if err != nil {
+		// insert better error and logging handling here
+		fmt.Println("error asking arborist: ", err)
+	}
+	resp.Body
+}
+
+type ArboristResponse struct {
+	Auth bool `json:"auth"`
+}
+*/
 // HandleHealthcheck registers root endpoint
 func (server *Server) handleHealthcheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL)
