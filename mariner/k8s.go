@@ -184,16 +184,21 @@ type TokenUser struct {
 
 func userID(token string) (userID string) {
 	fmt.Println("in userID..")
+	fmt.Println("token: ", token)
 	parts := strings.Split(token, ".")
+	fmt.Println("parts: ", parts)
 	encoded := parts[1]
+	fmt.Println("encoded: ", encoded)
 	p, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		fmt.Println("failed to decode token")
+		fmt.Println("failed to decode token: ", err)
 	}
+	fmt.Println("p:")
+	printJSON(p)
 	payload := &TokenPayload{}
 	err = json.Unmarshal(p, payload)
 	if err != nil {
-		fmt.Println("failed unmarshal token payload")
+		fmt.Println("failed unmarshal token payload: ", err)
 	}
 	userID = payload.Context.User.Name
 	fmt.Println("SHOW ME THE MONEY!")

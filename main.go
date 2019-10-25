@@ -25,7 +25,7 @@ func main() {
 	switch os.Args[1] {
 	case "listen":
 		fmt.Println("running mariner-server..")
-		mariner.Server() // should this function return an error?
+		mariner.RunServer() // should this function return an error?
 	case "run":
 		fmt.Println("running mariner-engine..")
 		runID := os.Args[2]
