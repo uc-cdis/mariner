@@ -30,7 +30,7 @@ import (
 type WorkflowRequest struct {
 	Workflow json.RawMessage `json:"workflow"`
 	Input    json.RawMessage `json:"input"`
-	ID       string          `json:"id"`    // after token flow implemented, remove this field
+	UserID   string          `json:"id"`
 	Token    string          `json:"token"` // flow not yet implemented, but field defined here
 	Manifest Manifest        `json:"manifest"`
 }
@@ -62,6 +62,7 @@ func (server *Server) withJWTApp(jwtApp JWTDecoder) *Server {
 	return server
 }
 
+// TODO - see logging in mariner - implement server logging for mariner
 func (server *Server) withLogger(logger *log.Logger) *Server {
 	server.logger = &LogHandler{logger: logger}
 	return server
@@ -80,7 +81,7 @@ func server() (server *Server) {
 
 // Server runs the mariner server that listens for API calls
 func RunServer() {
-	jwkEndpointEnv := os.Getenv("JWKS_ENDPOINT")
+	jwkEndpointEnv := os.Getenv("JWKS_ENDPOINT") // TODO - add this environment variable to mariner-deployment pod spec - see arborist deployment
 
 	// Parse flags:
 	//     - port (to serve on)
@@ -131,10 +132,14 @@ func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
+
+	// HERE extract userID from token! put it in the workflowRequest
+	workflowRequest.UserID = server.userID(workflowRequest.Token)
+
 	// dispatch job to k8s to run workflow
 	// -> `mariner run $S3PREFIX`, where
 	// S3PREFIX is the working directory for this workflow in the workflow bucket
-	fmt.Printf("running workflow for user %v\n", workflowRequest.ID)
+	fmt.Printf("running workflow for user %v\n", workflowRequest.UserID)
 	printJSON(workflowRequest)
 	err = dispatchWorkflowJob(&workflowRequest)
 	if err != nil {
