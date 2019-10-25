@@ -38,10 +38,6 @@
   name = "github.com/uc-cdis/cwl.go"
 
 [[constraint]]
-  name = "github.com/urfave/cli"
-  version = "1.20.0"
-
-[[constraint]]
   branch = "master"
   name = "k8s.io/api"
 
