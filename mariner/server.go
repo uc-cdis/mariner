@@ -129,17 +129,23 @@ func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func workflowRequest(r *http.Request) *WorkflowRequest {
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		fmt.Println("error reading request body: ", err)
-	}
-	// probably this variable should be a pointer, not the val itself
+	b := body(r)
 	workflowRequest := &WorkflowRequest{}
-	err = json.Unmarshal(body, workflowRequest)
+	err := json.Unmarshal(b, workflowRequest)
 	if err != nil {
 		fmt.Printf("fail to parse json %v\n", err)
 	}
 	return workflowRequest
+}
+
+func body(r *http.Request) []byte {
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println("error reading body: ", err)
+	}
+	r.Body.Close()
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(b))
+	return b
 }
 
 type AuthHTTPRequest struct {
