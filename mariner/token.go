@@ -5,8 +5,6 @@ import (
 	"fmt"
 )
 
-// this is verbatim arborist source code .. feels stupid to duplicate code but not sure how else to handle the token properly - to extract the userID
-
 type TokenInfo struct {
 	UserID string
 }
@@ -42,17 +40,6 @@ func (server *Server) decodeToken(token string, aud []string) (*TokenInfo, error
 	if err != nil {
 		fmt.Println("error decoding token: ", err)
 	}
-	/* Commented out for debugging
-	claims, err := server.jwtApp.Decode(token)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding token: %s", err.Error())
-	}
-	expected := &authutils.Expected{Audiences: aud}
-	err = expected.Validate(claims)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding token: %s", err.Error())
-	}
-	*/
 	contextInterface, exists := (*claims)["context"]
 	if !exists {
 		return nil, missingRequiredField("context")
