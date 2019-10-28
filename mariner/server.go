@@ -1,6 +1,7 @@
 package mariner
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -119,21 +120,9 @@ func RunServer() {
 func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("handling root mariner request..")
 	fmt.Println(r.URL)
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		fmt.Print(err)
-		http.Error(w, "failed to read in workflow request", 400)
-		return
-	}
-	var workflowRequest WorkflowRequest
-	err = json.Unmarshal(body, &workflowRequest)
-	if err != nil {
-		fmt.Printf("fail to parse json %v\n", err)
-		http.Error(w, err.Error(), 400)
-		return
-	}
 
-	// HERE extract userID from token! put it in the workflowRequest
+	workflowRequest := workflowRequest(r)
+
 	workflowRequest.UserID = server.userID(workflowRequest.Token)
 
 	// dispatch job to k8s to run workflow
@@ -141,14 +130,26 @@ func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 	// S3PREFIX is the working directory for this workflow in the workflow bucket
 	fmt.Printf("running workflow for user %v\n", workflowRequest.UserID)
 	printJSON(workflowRequest)
-	err = dispatchWorkflowJob(&workflowRequest)
+	err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
 }
 
-/*
+func workflowRequest(r *http.Request) *WorkflowRequest {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("error reading request body: ", err)
+	}
+	// probably this variable should be a pointer, not the val itself
+	workflowRequest := &WorkflowRequest{}
+	err = json.Unmarshal(body, workflowRequest)
+	if err != nil {
+		fmt.Printf("fail to parse json %v\n", err)
+	}
+	return workflowRequest
+}
 
 type AuthHTTPRequest struct {
 	URL         string
@@ -157,13 +158,13 @@ type AuthHTTPRequest struct {
 }
 
 type RequestJSON struct {
-	User    UserJSON    `json:"user"`
-	Request AuthRequest `json:"request"`
+	User    *UserJSON    `json:"user"`
+	Request *AuthRequest `json:"request"`
 }
 
 type AuthRequest struct {
-	Resource string     `json:"resource"`
-	Action   AuthAction `json:"action"`
+	Resource string      `json:"resource"`
+	Action   *AuthAction `json:"action"`
 }
 
 type AuthAction struct {
@@ -177,29 +178,48 @@ type UserJSON struct {
 
 // auth middleware - processes every request, checks auth with arborist
 // if arborist says 'okay', then process the request
-// if arborist says 'not okay', then return 'not authorized'
+// if arborist says 'not okay', then http error 'not authorized'
 // need to have router.Use(authRequest) or something like that - need to add it to router
 func (server *Server) handleAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// here pass token to arborist with context, get response, apply conditional
-
-			url := "arborist-service/auth/request"
-			contentType := "application/json"
-			body :=
-				http.Post(
-					url,
-					contentType,
-				)
-
-		next.ServeHTTP(w, r)
+		if server.authZ(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		http.Error(w, "user not authorized to access this resource", 403)
 	})
 }
 
+// polish this
 func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
-
+	workflowRequest := workflowRequest(r)
+	user := &UserJSON{
+		Token: workflowRequest.Token,
+	}
+	// double check these things
+	authRequest := &AuthRequest{
+		Resource: "mariner",
+	}
+	authAction := &AuthAction{
+		Service: "mariner",
+		Method:  "access",
+	}
+	authRequest.Action = authAction
+	requestJSON := &RequestJSON{
+		User:    user,
+		Request: authRequest,
+	}
+	b, err := json.Marshal(requestJSON)
+	if err != nil {
+		fmt.Println("error marhsaling authRequest to json: ", err)
+	}
+	authHTTPRequest := &AuthHTTPRequest{
+		URL:         "arborist-service/auth/request",
+		ContentType: "application/json",
+		Body:        bytes.NewBuffer(b),
+	}
+	return authHTTPRequest
 }
-
-// HERE - MONDAY - MAKE THIS WORK
 
 func (server *Server) authZ(r *http.Request) bool {
 	authHTTPRequest := authHTTPRequest(r)
@@ -212,13 +232,22 @@ func (server *Server) authZ(r *http.Request) bool {
 		// insert better error and logging handling here
 		fmt.Println("error asking arborist: ", err)
 	}
-	resp.Body
+	authResponse := &ArboristResponse{}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("error reading arborist response body: ", err)
+	}
+	err = json.Unmarshal(b, authResponse)
+	if err != nil {
+		fmt.Println("error unmarshalling arborist response to struct: ", err)
+	}
+	return authResponse.Auth
 }
 
 type ArboristResponse struct {
 	Auth bool `json:"auth"`
 }
-*/
+
 // HandleHealthcheck registers root endpoint
 func (server *Server) handleHealthcheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL)
