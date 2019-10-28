@@ -193,7 +193,7 @@ func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
 	}
 	// double check these things
 	authRequest := &AuthRequest{
-		Resource: "mariner",
+		Resource: "/mariner",
 	}
 	authAction := &AuthAction{
 		Service: "mariner",
