@@ -73,6 +73,7 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/run", server.runHandler).Methods("POST")
 	router.HandleFunc("/_status", server.handleHealthcheck).Methods("GET")
+	router.Use(server.handleAuth) // use auth middleware function - right now access to mariner API is all-or-nothing
 	return router
 }
 
@@ -140,7 +141,7 @@ func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 func workflowRequest(r *http.Request) *WorkflowRequest {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		fmt.Printf("error reading request body: ", err)
+		fmt.Println("error reading request body: ", err)
 	}
 	// probably this variable should be a pointer, not the val itself
 	workflowRequest := &WorkflowRequest{}
