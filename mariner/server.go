@@ -211,7 +211,7 @@ func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
 		fmt.Println("error marhsaling authRequest to json: ", err)
 	}
 	authHTTPRequest := &AuthHTTPRequest{
-		URL:         "arborist-service/auth/request",
+		URL:         "http://arborist-service/auth/request",
 		ContentType: "application/json",
 		Body:        bytes.NewBuffer(b),
 	}
