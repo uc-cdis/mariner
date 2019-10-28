@@ -119,7 +119,7 @@ func RunServer() {
 // since those are the same fields as the request body
 // NOTE: come up with uniform, sensible names for handler functions
 func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
-	workflowRequest := workflowRequest(r)
+	workflowRequest := unmarshal(r, &WorkflowRequest{}).(*WorkflowRequest)
 	workflowRequest.UserID = server.userID(workflowRequest.Token)
 	err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
@@ -128,14 +128,14 @@ func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func workflowRequest(r *http.Request) *WorkflowRequest {
+// unmarshal the request body to the given go struct
+func unmarshal(r *http.Request, v interface{}) interface{} {
 	b := body(r)
-	workflowRequest := &WorkflowRequest{}
-	err := json.Unmarshal(b, workflowRequest)
+	err := json.Unmarshal(b, v)
 	if err != nil {
-		fmt.Printf("fail to parse json %v\n", err)
+		fmt.Println("error unmarshalling: ", err)
 	}
-	return workflowRequest
+	return v
 }
 
 func body(r *http.Request) []byte {
@@ -155,7 +155,7 @@ type AuthHTTPRequest struct {
 }
 
 type RequestJSON struct {
-	User    *UserJSON    `json:"user"`
+	User    *Token       `json:"user"`
 	Request *AuthRequest `json:"request"`
 }
 
@@ -169,7 +169,7 @@ type AuthAction struct {
 	Method  string `json:"method"`
 }
 
-type UserJSON struct {
+type Token struct {
 	Token string `json:"token"`
 }
 
@@ -193,10 +193,7 @@ func (server *Server) handleAuth(next http.Handler) http.Handler {
 
 // polish this
 func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
-	workflowRequest := workflowRequest(r)
-	user := &UserJSON{
-		Token: workflowRequest.Token,
-	}
+	token := unmarshal(r, &Token{}).(*Token)
 	// double check these things
 	authRequest := &AuthRequest{
 		Resource: "/mariner",
@@ -207,7 +204,7 @@ func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
 	}
 	authRequest.Action = authAction
 	requestJSON := &RequestJSON{
-		User:    user,
+		User:    token,
 		Request: authRequest,
 	}
 	fmt.Println("here is auth request JSON:")
