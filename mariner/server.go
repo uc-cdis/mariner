@@ -31,8 +31,8 @@ import (
 type WorkflowRequest struct {
 	Workflow json.RawMessage `json:"workflow"`
 	Input    json.RawMessage `json:"input"`
-	UserID   string          `json:"id"`
-	Token    string          `json:"token"` // flow not yet implemented, but field defined here
+	UserID   string          `json:"user"`
+	Token    string          `json:"token"`
 	Manifest Manifest        `json:"manifest"`
 }
 
@@ -83,7 +83,7 @@ func server() (server *Server) {
 
 // Server runs the mariner server that listens for API calls
 func RunServer() {
-	jwkEndpointEnv := os.Getenv("JWKS_ENDPOINT") // TODO - add this environment variable to mariner-deployment pod spec - see arborist deployment
+	jwkEndpointEnv := os.Getenv("JWKS_ENDPOINT") // TODO - this is in cloud-automation branch feat/mariner_jwks - need to test, then merge to master
 
 	// Parse flags:
 	//     - port (to serve on)
@@ -119,18 +119,8 @@ func RunServer() {
 // since those are the same fields as the request body
 // NOTE: come up with uniform, sensible names for handler functions
 func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("handling root mariner request..")
-	fmt.Println(r.URL)
-
 	workflowRequest := workflowRequest(r)
-
 	workflowRequest.UserID = server.userID(workflowRequest.Token)
-
-	// dispatch job to k8s to run workflow
-	// -> `mariner run $S3PREFIX`, where
-	// S3PREFIX is the working directory for this workflow in the workflow bucket
-	fmt.Printf("running workflow for user %v\n", workflowRequest.UserID)
-	printJSON(workflowRequest)
 	err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -182,11 +172,15 @@ type UserJSON struct {
 // if arborist says 'not okay', then http error 'not authorized'
 // need to have router.Use(authRequest) or something like that - need to add it to router
 func (server *Server) handleAuth(next http.Handler) http.Handler {
+	fmt.Println("in auth middleware function..")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("checking auth..")
 		if server.authZ(r) {
+			fmt.Println("user has access")
 			next.ServeHTTP(w, r)
 			return
 		}
+		fmt.Println("user does NOT have access")
 		http.Error(w, "user not authorized to access this resource", 403)
 	})
 }
@@ -210,6 +204,8 @@ func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
 		User:    user,
 		Request: authRequest,
 	}
+	fmt.Println("here is auth request JSON:")
+	printJSON(requestJSON)
 	b, err := json.Marshal(requestJSON)
 	if err != nil {
 		fmt.Println("error marhsaling authRequest to json: ", err)
@@ -242,6 +238,8 @@ func (server *Server) authZ(r *http.Request) bool {
 	if err != nil {
 		fmt.Println("error unmarshalling arborist response to struct: ", err)
 	}
+	fmt.Println("here is the arborist response:")
+	printJSON(authResponse)
 	return authResponse.Auth
 }
 
