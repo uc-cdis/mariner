@@ -27,6 +27,10 @@ func workflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, er
 	runID := runID()
 
 	// get job spec all populated except for pod volumes and containers
+	// NOTE: FIXME - job names (task and engine) are only unique within-user, not globally (among-users) unique - need to fix
+	// actually task job names are not unique within-user either
+	// currently the only unique job names are engine within-user
+	// this needs to be fixed
 	workflowJob = jobSpec(ENGINE, runID)
 
 	// fill in the rest of the spec
