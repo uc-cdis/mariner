@@ -118,7 +118,7 @@ func RunServer() {
 // since those are the same fields as the request body
 // NOTE: come up with uniform, sensible names for handler functions
 func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
-	workflowRequest := unmarshal(r, &WorkflowRequest{}).(*WorkflowRequest)
+	workflowRequest := unmarshalBody(r, &WorkflowRequest{}).(*WorkflowRequest)
 	workflowRequest.UserID = server.userID(r.Header.Get(AUTH_HEADER))
 	err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
@@ -128,7 +128,7 @@ func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // unmarshal the request body to the given go struct
-func unmarshal(r *http.Request, v interface{}) interface{} {
+func unmarshalBody(r *http.Request, v interface{}) interface{} {
 	b := body(r)
 	err := json.Unmarshal(b, v)
 	if err != nil {

@@ -104,6 +104,7 @@ func engine(request *WorkflowRequest, runID string) *K8sEngine {
 
 	// FIXME make this cleaner, less janky
 	// HERE check if log already exists! if yes, then this is a 'restart'
+	// definitely make this a constant, or combination of constants - not just hardcoded in-line like this
 	pathToLog := fmt.Sprintf("/%v/workflowRuns/%v/marinerLog.json", ENGINE_WORKSPACE, runID)
 	e.Log = mainLog(pathToLog, request)
 

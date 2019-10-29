@@ -65,7 +65,7 @@ const (
 )
 
 // for mounting aws-user-creds secret to s3sidecar
-var awscreds = k8sv1.EnvVarSource{
+var envVar_AWSCREDS = &k8sv1.EnvVarSource{
 	SecretKeyRef: &k8sv1.SecretKeySelector{
 		LocalObjectReference: k8sv1.LocalObjectReference{
 			Name: Config.Secrets.AWSUserCreds.Name,

@@ -7,6 +7,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -19,6 +25,61 @@ type MainLog struct {
 	Request   *WorkflowRequest `json:"request"`
 	Main      *Log             `json:"main"`
 	ByProcess map[string]*Log  `json:"byProcess"`
+}
+
+type awsCredentials struct {
+	ID     string `json:"id"`
+	Secret string `json:"secret"`
+}
+
+// for fetching sub-paths of a key, probably - https://docs.aws.amazon.com/sdk-for-go/api/service/s3/#S3.ListObjects
+
+// split this out into smaller, more atomic functions as soon as it's working - refactor
+// most API endpoint handlers will call this function
+func fetchMainLog(userID, runID string) (*MainLog, error) {
+	secret := []byte(os.Getenv("AWSCREDS")) // probably make this a constant
+	creds := &awsCredentials{}
+	err := json.Unmarshal(secret, creds)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling aws secret: %v", err)
+	}
+	credsConfig := credentials.NewStaticCredentials(creds.ID, creds.Secret, "")
+	awsConfig := &aws.Config{
+		Region:      aws.String("us-east-1"), // only here for initial testing - do NOT leave this hardcoded here - put in manifest/config
+		Credentials: credsConfig,
+	}
+
+	// The session the S3 Downloader will use
+	sess := session.Must(session.NewSession(awsConfig))
+
+	// Create a downloader with the session and default options
+	downloader := s3manager.NewDownloader(sess)
+
+	// Create a buffer to write the S3 Object contents to.
+	// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
+	buf := &aws.WriteAtBuffer{}
+
+	// FIXME - again, make this path a constant, or combination of constants
+	// do NOT leave this path hardcoded here like this
+	objKey := fmt.Sprintf("%v/workflowRuns/%v/marinerLog.json", userID, runID)
+	bucket := "workflow-engine-garvin"
+
+	// Write the contents of S3 Object to the buffer
+	s3Obj := &s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(objKey),
+	}
+	_, err = downloader.Download(buf, s3Obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file, %v", err)
+	}
+	b := buf.Bytes()
+	log := &MainLog{}
+	err = json.Unmarshal(b, log)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarhsalling log: %v", err)
+	}
+	return log, nil
 }
 
 func mainLog(path string, request *WorkflowRequest) *MainLog {

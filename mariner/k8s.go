@@ -145,7 +145,7 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
-			ValueFrom: &awscreds,
+			ValueFrom: envVar_AWSCREDS,
 		},
 		{
 			Name:  "RUN_ID",
@@ -344,7 +344,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
-			ValueFrom: &awscreds,
+			ValueFrom: envVar_AWSCREDS,
 		},
 		{
 			Name:  "USER_ID",
