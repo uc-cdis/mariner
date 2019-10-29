@@ -52,3 +52,7 @@
 [[constraint]]
   branch = "master"
   name = "github.com/uc-cdis/go-authutils"
+
+[[constraint]]
+  name = "github.com/aws/aws-sdk-go"
+  version = "1.25.22"

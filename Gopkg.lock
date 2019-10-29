@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:4204d3a042a955a28ab860df2f9532300eada83fa1dc9e6c662069bdfdef7778"
+  name = "github.com/aws/aws-sdk-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "23e996a57757e6b586048809309e3945557c4edb"
+  version = "v1.25.22"
+
+[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -452,6 +460,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/aws/aws-sdk-go",
     "github.com/gorilla/mux",
     "github.com/robertkrimen/otto",
     "github.com/uc-cdis/cwl.go",
