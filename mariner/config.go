@@ -59,6 +59,9 @@ const (
 	INFO    = "INFO"
 	WARNING = "WARNING"
 	ERROR   = "ERROR"
+
+	// HTTP
+	AUTH_HEADER = "Authorization"
 )
 
 // for mounting aws-user-creds secret to s3sidecar

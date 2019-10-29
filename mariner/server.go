@@ -32,7 +32,6 @@ type WorkflowRequest struct {
 	Workflow json.RawMessage `json:"workflow"`
 	Input    json.RawMessage `json:"input"`
 	UserID   string          `json:"user"`
-	Token    string          `json:"token"`
 	Manifest Manifest        `json:"manifest"`
 }
 
@@ -120,7 +119,7 @@ func RunServer() {
 // NOTE: come up with uniform, sensible names for handler functions
 func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
 	workflowRequest := unmarshal(r, &WorkflowRequest{}).(*WorkflowRequest)
-	workflowRequest.UserID = server.userID(workflowRequest.Token)
+	workflowRequest.UserID = server.userID(r.Header.Get(AUTH_HEADER))
 	err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -193,7 +192,7 @@ func (server *Server) handleAuth(next http.Handler) http.Handler {
 
 // polish this
 func authHTTPRequest(r *http.Request) (*AuthHTTPRequest, error) {
-	token := r.Header.Get("Authorization")
+	token := r.Header.Get(AUTH_HEADER)
 	if token == "" {
 		return nil, fmt.Errorf("no token in Authorization header")
 	}
