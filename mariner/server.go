@@ -155,7 +155,7 @@ type AuthHTTPRequest struct {
 }
 
 type RequestJSON struct {
-	User    *Token       `json:"user"`
+	User    *UserJSON    `json:"user"`
 	Request *AuthRequest `json:"request"`
 }
 
@@ -169,7 +169,7 @@ type AuthAction struct {
 	Method  string `json:"method"`
 }
 
-type Token struct {
+type UserJSON struct {
 	Token string `json:"token"`
 }
 
@@ -192,8 +192,14 @@ func (server *Server) handleAuth(next http.Handler) http.Handler {
 }
 
 // polish this
-func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
-	token := unmarshal(r, &Token{}).(*Token)
+func authHTTPRequest(r *http.Request) (*AuthHTTPRequest, error) {
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		return nil, fmt.Errorf("no token in Authorization header")
+	}
+	user := &UserJSON{
+		Token: token,
+	}
 	// double check these things
 	authRequest := &AuthRequest{
 		Resource: "/mariner",
@@ -204,7 +210,7 @@ func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
 	}
 	authRequest.Action = authAction
 	requestJSON := &RequestJSON{
-		User:    token,
+		User:    user,
 		Request: authRequest,
 	}
 	fmt.Println("here is auth request JSON:")
@@ -218,11 +224,15 @@ func authHTTPRequest(r *http.Request) *AuthHTTPRequest {
 		ContentType: "application/json",
 		Body:        bytes.NewBuffer(b),
 	}
-	return authHTTPRequest
+	return authHTTPRequest, nil
 }
 
 func (server *Server) authZ(r *http.Request) bool {
-	authHTTPRequest := authHTTPRequest(r)
+	authHTTPRequest, err := authHTTPRequest(r)
+	if err != nil {
+		fmt.Println("error building auth request: ", err)
+		return false
+	}
 	resp, err := http.Post(
 		authHTTPRequest.URL,
 		authHTTPRequest.ContentType,
@@ -231,15 +241,18 @@ func (server *Server) authZ(r *http.Request) bool {
 	if err != nil {
 		// insert better error and logging handling here
 		fmt.Println("error asking arborist: ", err)
+		return false
 	}
 	authResponse := &ArboristResponse{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("error reading arborist response body: ", err)
+		return false
 	}
 	err = json.Unmarshal(b, authResponse)
 	if err != nil {
 		fmt.Println("error unmarshalling arborist response to struct: ", err)
+		return false
 	}
 	fmt.Println("here is the arborist response:")
 	printJSON(authResponse)
