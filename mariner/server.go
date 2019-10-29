@@ -68,16 +68,57 @@ func (server *Server) withLogger(logger *log.Logger) *Server {
 	return server
 }
 
+func server() (server *Server) {
+	return &Server{}
+}
+
 func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/run", server.runHandler).Methods("POST")
-	router.HandleFunc("/_status", server.handleHealthcheck).Methods("GET")
+	router.HandleFunc("/runs", server.handleRunsPOST).Methods("POST")                     // OKAY
+	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // TODO
+	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // TODO
+	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // TODO
+	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // TODO
+	router.HandleFunc("/_status", server.handleHealthCheck).Methods("GET")                // TO CHECK
+
 	router.Use(server.handleAuth) // use auth middleware function - right now access to mariner API is all-or-nothing
 	return router
 }
 
-func server() (server *Server) {
-	return &Server{}
+// '/runs/{runID}' - GET
+func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
+
+}
+
+// '/runs/{runID}/status' - GET
+func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request) {
+
+}
+
+// '/runs/{runID}/cancel' - POST
+func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request) {
+
+}
+
+// '/runs' - GET
+func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
+
+}
+
+// `/runs` - POST
+// handles a POST request to run a workflow by dispatching the workflow job
+// see "../testdata/request_body.json" for an example of a valid request body
+// also see above description of the fields of the WorkflowRequest struct
+// since those are the same fields as the request body
+// NOTE: come up with uniform, sensible names for handler functions
+func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
+	workflowRequest := unmarshalBody(r, &WorkflowRequest{}).(*WorkflowRequest)
+	workflowRequest.UserID = server.userID(r.Header.Get(AUTH_HEADER))
+	err := dispatchWorkflowJob(workflowRequest)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
 }
 
 // Server runs the mariner server that listens for API calls
@@ -109,22 +150,6 @@ func RunServer() {
 	}
 	httpLogger.Println(fmt.Sprintf("mariner serving at %s", httpServer.Addr))
 	httpLogger.Fatal(httpServer.ListenAndServe())
-}
-
-// RunHandler handles `/run` endpoint
-// handles a POST request to run a workflow by dispatching the workflow job
-// see "../testdata/request_body.json" for an example of a valid request body
-// also see above description of the fields of the WorkflowRequest struct
-// since those are the same fields as the request body
-// NOTE: come up with uniform, sensible names for handler functions
-func (server *Server) runHandler(w http.ResponseWriter, r *http.Request) {
-	workflowRequest := unmarshalBody(r, &WorkflowRequest{}).(*WorkflowRequest)
-	workflowRequest.UserID = server.userID(r.Header.Get(AUTH_HEADER))
-	err := dispatchWorkflowJob(workflowRequest)
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
 }
 
 // unmarshal the request body to the given go struct
@@ -263,7 +288,7 @@ type ArboristResponse struct {
 }
 
 // HandleHealthcheck registers root endpoint
-func (server *Server) handleHealthcheck(w http.ResponseWriter, r *http.Request) {
+func (server *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL)
 	return
 }
