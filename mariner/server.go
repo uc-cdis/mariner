@@ -106,7 +106,19 @@ func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
 
 // '/runs/{runID}/status' - GET - TODO
 func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request) {
+	userID, runID := server.uniqueKey(r)
+	runLog, err := fetchMainLog(userID, runID)
+	if err != nil {
+		fmt.Println("error fetching main log: ", err)
+	}
+	status := &StatusJSON{
+		Status: runLog.Main.Status,
+	}
+	json.NewEncoder(w).Encode(status)
+}
 
+type StatusJSON struct {
+	Status string `json:"status"`
 }
 
 // '/runs/{runID}/cancel' - POST - TODO
