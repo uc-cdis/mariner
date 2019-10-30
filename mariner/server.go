@@ -95,6 +95,9 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 		router.ServeHTTP(w, r)
 	})
 
+	// unsure if this is the/a logging solution that we want
+	// but it seems to be a standard, and arborist uses it
+	// keeping it for now - TODO: design and implement logging for server
 	return handlers.CombinedLoggingHandler(out, handler)
 }
 

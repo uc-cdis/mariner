@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -58,17 +59,19 @@ func listRuns(userID string) ([]string, error) {
 	}
 	svc := s3.New(sess)
 	prefix := fmt.Sprintf("%v/workflowRuns/", userID)
-	query := &s3.ListObjectsInput{
-		Bucket: aws.String("workflow-engine-garvin"),
-		Prefix: aws.String(prefix),
+	query := &s3.ListObjectsV2Input{
+		Bucket:    aws.String("workflow-engine-garvin"),
+		Prefix:    aws.String(prefix),
+		Delimiter: aws.String("/"),
 	}
-	result, err := svc.ListObjects(query)
+	result, err := svc.ListObjectsV2(query)
 	if err != nil {
 		return nil, err
 	}
 	runIDs := []string{}
-	for _, v := range result.Contents {
-		runIDs = append(runIDs, *v.Key)
+	for _, v := range result.CommonPrefixes {
+		runID := strings.Split(v.String(), "/")[1]
+		runIDs = append(runIDs, runID)
 	}
 	return runIDs, nil
 }
