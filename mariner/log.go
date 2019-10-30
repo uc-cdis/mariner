@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,7 +53,25 @@ func newS3Session() (*session.Session, error) {
 	return sess, nil
 }
 
-// FIXME - need to filter keys, pickup only the runIDs
+type RunIDList []string
+
+func (a RunIDList) Len() int      { return len(a) }
+func (a RunIDList) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a RunIDList) Less(i, j int) bool {
+	vi, vj := a[i], a[j]
+	ni, err := strconv.Atoi(strings.ReplaceAll(vi, "-", ""))
+	if err != nil {
+		fmt.Println("error converting string to int: ", err)
+	}
+	nj, err := strconv.Atoi(strings.ReplaceAll(vj, "-", ""))
+	if err != nil {
+		fmt.Println("error converting string to int: ", err)
+	}
+	// we want greatest (i.e., most recent) to smallest (i.e., oldest)
+	return nj < ni
+}
+
+// TODO - sort list - latest to oldest request
 func listRuns(userID string) ([]string, error) {
 	sess, err := newS3Session()
 	if err != nil {
@@ -73,6 +93,7 @@ func listRuns(userID string) ([]string, error) {
 		runID := strings.Split(v.String(), "/")[2]
 		runIDs = append(runIDs, runID)
 	}
+	sort.Sort(RunIDList(runIDs))
 	return runIDs, nil
 }
 
