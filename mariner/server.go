@@ -98,36 +98,42 @@ type RunLogJSON struct {
 	Log *MainLog `json:"log"`
 }
 
-func (j *RunLogJSON) fetchLog(userID, runID string) error {
+func (j *RunLogJSON) fetchLog(userID, runID string) (*RunLogJSON, error) {
 	runLog, err := fetchMainLog(userID, runID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	j.Log = runLog
-	return nil
+	return j, nil
 }
 
 // '/runs/{runID}' - GET
 func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
 	userID, runID := server.uniqueKey(r)
-	j := (&RunLogJSON{}).fetchLog(userID, runID)
+	j, err := (&RunLogJSON{}).fetchLog(userID, runID)
+	if err != nil {
+		// handle
+	}
 	json.NewEncoder(w).Encode(j)
 }
 
 // '/runs/{runID}/status' - GET
 func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request) {
 	userID, runID := server.uniqueKey(r)
-	j := (&StatusJSON{}).fetchStatus(userID, runID)
+	j, err := (&StatusJSON{}).fetchStatus(userID, runID)
+	if err != nil {
+		// handle
+	}
 	json.NewEncoder(w).Encode(j)
 }
 
-func (j *StatusJSON) fetchStatus(userID, runID string) error {
+func (j *StatusJSON) fetchStatus(userID, runID string) (*StatusJSON, error) {
 	runLog, err := fetchMainLog(userID, runID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	j.Status = runLog.Main.Status
-	return nil
+	return j, nil
 }
 
 type StatusJSON struct {
@@ -146,17 +152,20 @@ type ListRunsJSON struct {
 // '/runs' - GET
 func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
 	userID := server.userID(r)
-	j := (&ListRunsJSON{}).fetchRuns(userID)
+	j, err := (&ListRunsJSON{}).fetchRuns(userID)
+	if err != nil {
+		// handle
+	}
 	json.NewEncoder(w).Encode(j)
 }
 
-func (j *ListRunsJSON) fetchRuns(userID string) error {
+func (j *ListRunsJSON) fetchRuns(userID string) (*ListRunsJSON, error) {
 	runIDs, err := listRuns(userID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	j.RunIDs = runIDs
-	return nil
+	return j, nil
 }
 
 // `/runs` - POST - OKAY
