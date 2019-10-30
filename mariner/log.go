@@ -50,6 +50,7 @@ func newS3Session() (*session.Session, error) {
 	return sess, nil
 }
 
+// FIXME - need to filter keys, pickup only the runIDs
 func listRuns(userID string) ([]string, error) {
 	sess, err := newS3Session()
 	if err != nil {

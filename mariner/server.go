@@ -76,9 +76,9 @@ func server() (server *Server) {
 func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/runs", server.handleRunsPOST).Methods("POST")                     // OKAY
-	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // TEST
-	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // FIXME
-	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // FIXME
+	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // FIXME
+	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // OKAY
+	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // OKAY
 	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // TODO
 	router.HandleFunc("/_status", server.handleHealthCheck).Methods("GET")                // TO CHECK
 
@@ -115,7 +115,7 @@ func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("error fetching log: ", err)
 		// handle
 	}
-	json.NewEncoder(w).Encode(j)
+	writeJSON(w, j)
 }
 
 // '/runs/{runID}/status' - GET
@@ -126,7 +126,13 @@ func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request)
 		fmt.Println("error fetching status: ", err)
 		// handle
 	}
-	json.NewEncoder(w).Encode(j)
+	writeJSON(w, j)
+}
+
+func writeJSON(w http.ResponseWriter, j interface{}) {
+	e := json.NewEncoder(w)
+	e.SetIndent("", "    ")
+	e.Encode(j)
 }
 
 func (j *StatusJSON) fetchStatus(userID, runID string) (*StatusJSON, error) {
@@ -158,7 +164,7 @@ func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("error fetching runs: ", err)
 	}
-	json.NewEncoder(w).Encode(j)
+	writeJSON(w, j)
 }
 
 func (j *ListRunsJSON) fetchRuns(userID string) (*ListRunsJSON, error) {
@@ -185,7 +191,7 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	j := &RunIDJSON{RunID: runID}
-	json.NewEncoder(w).Encode(j)
+	writeJSON(w, j)
 }
 
 type RunIDJSON struct {
