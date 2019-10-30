@@ -10,8 +10,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 
 	"github.com/uc-cdis/go-authutils/authutils"
@@ -82,9 +84,18 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // TODO
 	router.HandleFunc("/_status", server.handleHealthCheck).Methods("GET")                // TO CHECK
 
+	// router.NotFoundHandler = http.HandlerFunc(handleNotFound) // TODO
+
 	router.Use(server.handleAuth)        // use auth middleware function - right now access to mariner API is all-or-nothing
 	router.Use(server.setResponseHeader) // set "Content-Type: application/json" header - every endpoint returns JSON
-	return router
+
+	// remove trailing slashes sent in URLs
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+		router.ServeHTTP(w, r)
+	})
+
+	return handlers.CombinedLoggingHandler(out, handler)
 }
 
 // a run's unique key is the pair (userID, runID)
