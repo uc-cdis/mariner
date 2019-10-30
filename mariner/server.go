@@ -72,22 +72,23 @@ func server() (server *Server) {
 	return &Server{}
 }
 
+// first just getting the endpoints to work, then will make nice and WES-ish
 func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/runs", server.handleRunsPOST).Methods("POST")                     // OKAY
 	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // TODO
-	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // TODO
+	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // OKAY
 	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // TODO
 	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // TODO
 	router.HandleFunc("/_status", server.handleHealthCheck).Methods("GET")                // TO CHECK
 
-	router.Use(server.handleAuth) // use auth middleware function - right now access to mariner API is all-or-nothing
+	router.Use(server.handleAuth)        // use auth middleware function - right now access to mariner API is all-or-nothing
+	router.Use(server.setResponseHeader) // set "Content-Type: application/json" header - every endpoint returns JSON
 	return router
 }
 
-// '/runs/{runID}' - GET - TEST
+// '/runs/{runID}' - GET - OKAY
 func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	runID := mux.Vars(r)["runID"]
 	userID := server.userID(r)
 	runLog, err := fetchMainLog(userID, runID)
@@ -128,7 +129,7 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Server runs the mariner server that listens for API calls
+// RunServer runs the mariner server that listens for API calls
 func RunServer() {
 	jwkEndpointEnv := os.Getenv("JWKS_ENDPOINT") // TODO - this is in cloud-automation branch feat/mariner_jwks - need to test, then merge to master
 
@@ -219,6 +220,14 @@ func (server *Server) handleAuth(next http.Handler) http.Handler {
 		}
 		fmt.Println("user does NOT have access")
 		http.Error(w, "user not authorized to access this resource", 403)
+	})
+}
+
+// all endpoints return JSON, so just set that response header here
+func (server *Server) setResponseHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
 	})
 }
 
