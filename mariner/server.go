@@ -76,10 +76,10 @@ func server() (server *Server) {
 func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/runs", server.handleRunsPOST).Methods("POST")                     // OKAY
-	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // OKAY
-	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // OKAY
+	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // TEST
+	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // FIXME
+	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // FIXME
 	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // TODO
-	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // OKAY
 	router.HandleFunc("/_status", server.handleHealthCheck).Methods("GET")                // TO CHECK
 
 	router.Use(server.handleAuth)        // use auth middleware function - right now access to mariner API is all-or-nothing
@@ -112,6 +112,7 @@ func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
 	userID, runID := server.uniqueKey(r)
 	j, err := (&RunLogJSON{}).fetchLog(userID, runID)
 	if err != nil {
+		fmt.Println("error fetching log: ", err)
 		// handle
 	}
 	json.NewEncoder(w).Encode(j)
@@ -122,6 +123,7 @@ func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request)
 	userID, runID := server.uniqueKey(r)
 	j, err := (&StatusJSON{}).fetchStatus(userID, runID)
 	if err != nil {
+		fmt.Println("error fetching status: ", err)
 		// handle
 	}
 	json.NewEncoder(w).Encode(j)
@@ -154,7 +156,7 @@ func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
 	userID := server.userID(r)
 	j, err := (&ListRunsJSON{}).fetchRuns(userID)
 	if err != nil {
-		// handle
+		fmt.Println("error fetching runs: ", err)
 	}
 	json.NewEncoder(w).Encode(j)
 }
