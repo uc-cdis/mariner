@@ -87,10 +87,16 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 	return router
 }
 
+// a run's unique key is the pair (userID, runID)
+func (server *Server) uniqueKey(r *http.Request) (userID, runID string) {
+	runID = mux.Vars(r)["runID"]
+	userID = server.userID(r)
+	return userID, runID
+}
+
 // '/runs/{runID}' - GET - OKAY
 func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
-	runID := mux.Vars(r)["runID"]
-	userID := server.userID(r)
+	userID, runID := server.uniqueKey(r)
 	runLog, err := fetchMainLog(userID, runID)
 	if err != nil {
 		fmt.Println("error fetching main log: ", err)
