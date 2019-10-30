@@ -22,7 +22,7 @@ import (
 ////// ENGINE -> //////
 
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
-func workflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, err error) {
+func workflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, ID string, err error) {
 	// presently this is just a timestamp - unique key is the pair (userID, runID)
 	runID := runID()
 
@@ -39,7 +39,7 @@ func workflowJob(workflowRequest *WorkflowRequest) (workflowJob *batchv1.Job, er
 	// runID (timestamp) is generated here! can just generate it at the very beginning of this function
 	// can use it to name the job
 	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, runID)
-	return workflowJob, nil
+	return workflowJob, ID, nil
 }
 
 // NOTE: probably can come up with a better ID for a workflow, but for now this will work

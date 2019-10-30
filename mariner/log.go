@@ -34,9 +34,7 @@ type awsCredentials struct {
 
 // for fetching sub-paths of a key, probably - https://docs.aws.amazon.com/sdk-for-go/api/service/s3/#S3.ListObjects
 
-// split this out into smaller, more atomic functions as soon as it's working - refactor
-// most API endpoint handlers will call this function
-func fetchMainLog(userID, runID string) (*MainLog, error) {
+func newS3Session() (*session.Session, error) {
 	secret := []byte(os.Getenv("AWSCREDS")) // probably make this a constant
 	creds := &awsCredentials{}
 	err := json.Unmarshal(secret, creds)
@@ -48,10 +46,39 @@ func fetchMainLog(userID, runID string) (*MainLog, error) {
 		Region:      aws.String("us-east-1"), // only here for initial testing - do NOT leave this hardcoded here - put in manifest/config
 		Credentials: credsConfig,
 	}
-
-	// The session the S3 Downloader will use
 	sess := session.Must(session.NewSession(awsConfig))
+	return sess, nil
+}
 
+func listRuns(userID string) ([]string, error) {
+	sess, err := newS3Session()
+	if err != nil {
+		return nil, err
+	}
+	svc := s3.New(sess)
+	prefix := fmt.Sprintf("%v/workflowRuns/", userID)
+	query := &s3.ListObjectsInput{
+		Bucket: aws.String("workflow-engine-garvin"),
+		Prefix: aws.String(prefix),
+	}
+	result, err := svc.ListObjects(query)
+	if err != nil {
+		return nil, err
+	}
+	runIDs := []string{}
+	for _, v := range result.Contents {
+		runIDs = append(runIDs, *v.Key)
+	}
+	return runIDs, nil
+}
+
+// split this out into smaller, more atomic functions as soon as it's working - refactor
+// most API endpoint handlers will call this function
+func fetchMainLog(userID, runID string) (*MainLog, error) {
+	sess, err := newS3Session()
+	if err != nil {
+		return nil, err
+	}
 	// Create a downloader with the session and default options
 	downloader := s3manager.NewDownloader(sess)
 

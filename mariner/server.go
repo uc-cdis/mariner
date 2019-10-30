@@ -76,10 +76,10 @@ func server() (server *Server) {
 func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/runs", server.handleRunsPOST).Methods("POST")                     // OKAY
-	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // TODO
+	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // OKAY
 	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // OKAY
 	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // TODO
-	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // TODO
+	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // OKAY
 	router.HandleFunc("/_status", server.handleHealthCheck).Methods("GET")                // TO CHECK
 
 	router.Use(server.handleAuth)        // use auth middleware function - right now access to mariner API is all-or-nothing
@@ -94,44 +94,72 @@ func (server *Server) uniqueKey(r *http.Request) (userID, runID string) {
 	return userID, runID
 }
 
-// '/runs/{runID}' - GET - OKAY
-func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
-	userID, runID := server.uniqueKey(r)
-	runLog, err := fetchMainLog(userID, runID)
-	if err != nil {
-		fmt.Println("error fetching main log: ", err)
-	}
-	json.NewEncoder(w).Encode(runLog)
+type RunLogJSON struct {
+	Log *MainLog `json:"log"`
 }
 
-// '/runs/{runID}/status' - GET - TODO
-func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request) {
-	userID, runID := server.uniqueKey(r)
+func (j *RunLogJSON) fetchLog(userID, runID string) error {
 	runLog, err := fetchMainLog(userID, runID)
 	if err != nil {
-		fmt.Println("error fetching main log: ", err)
+		return err
 	}
-	status := &StatusJSON{
-		Status: runLog.Main.Status,
+	j.Log = runLog
+	return nil
+}
+
+// '/runs/{runID}' - GET
+func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
+	userID, runID := server.uniqueKey(r)
+	j := (&RunLogJSON{}).fetchLog(userID, runID)
+	json.NewEncoder(w).Encode(j)
+}
+
+// '/runs/{runID}/status' - GET
+func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request) {
+	userID, runID := server.uniqueKey(r)
+	j := (&StatusJSON{}).fetchStatus(userID, runID)
+	json.NewEncoder(w).Encode(j)
+}
+
+func (j *StatusJSON) fetchStatus(userID, runID string) error {
+	runLog, err := fetchMainLog(userID, runID)
+	if err != nil {
+		return err
 	}
-	json.NewEncoder(w).Encode(status)
+	j.Status = runLog.Main.Status
+	return nil
 }
 
 type StatusJSON struct {
 	Status string `json:"status"`
 }
 
-// '/runs/{runID}/cancel' - POST - TODO
+// '/runs/{runID}/cancel' - POST
 func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// '/runs' - GET - TODO
-func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
-
+type ListRunsJSON struct {
+	RunIDs []string `json:"runIDs"`
 }
 
-// `/runs` - POST - TODO
+// '/runs' - GET
+func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
+	userID := server.userID(r)
+	j := (&ListRunsJSON{}).fetchRuns(userID)
+	json.NewEncoder(w).Encode(j)
+}
+
+func (j *ListRunsJSON) fetchRuns(userID string) error {
+	runIDs, err := listRuns(userID)
+	if err != nil {
+		return err
+	}
+	j.RunIDs = runIDs
+	return nil
+}
+
+// `/runs` - POST - OKAY
 // handles a POST request to run a workflow by dispatching the workflow job
 // see "../testdata/request_body.json" for an example of a valid request body
 // also see above description of the fields of the WorkflowRequest struct
@@ -140,11 +168,17 @@ func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
 func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 	workflowRequest := unmarshalBody(r, &WorkflowRequest{}).(*WorkflowRequest)
 	workflowRequest.UserID = server.userID(r)
-	err := dispatchWorkflowJob(workflowRequest)
+	runID, err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
+	j := &RunIDJSON{RunID: runID}
+	json.NewEncoder(w).Encode(j)
+}
+
+type RunIDJSON struct {
+	RunID string `json:"runID"`
 }
 
 // RunServer runs the mariner server that listens for API calls
