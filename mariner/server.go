@@ -85,27 +85,34 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 	return router
 }
 
-// '/runs/{runID}' - GET
+// '/runs/{runID}' - GET - TEST
 func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
-
+	w.Header().Set("Content-Type", "application/json")
+	runID := mux.Vars(r)["runID"]
+	userID := server.userID(r)
+	runLog, err := fetchMainLog(userID, runID)
+	if err != nil {
+		fmt.Println("error fetching main log: ", err)
+	}
+	json.NewEncoder(w).Encode(runLog)
 }
 
-// '/runs/{runID}/status' - GET
+// '/runs/{runID}/status' - GET - TODO
 func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// '/runs/{runID}/cancel' - POST
+// '/runs/{runID}/cancel' - POST - TODO
 func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// '/runs' - GET
+// '/runs' - GET - TODO
 func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// `/runs` - POST
+// `/runs` - POST - TODO
 // handles a POST request to run a workflow by dispatching the workflow job
 // see "../testdata/request_body.json" for an example of a valid request body
 // also see above description of the fields of the WorkflowRequest struct
@@ -113,7 +120,7 @@ func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
 // NOTE: come up with uniform, sensible names for handler functions
 func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 	workflowRequest := unmarshalBody(r, &WorkflowRequest{}).(*WorkflowRequest)
-	workflowRequest.UserID = server.userID(r.Header.Get(AUTH_HEADER))
+	workflowRequest.UserID = server.userID(r)
 	err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)

@@ -3,15 +3,15 @@ package mariner
 import (
 	"errors"
 	"fmt"
+	"net/http"
 )
 
 type TokenInfo struct {
 	UserID string
 }
 
-func (server *Server) userID(token string) (userID string) {
-	aud := []string{"openid"}
-	info, err := server.decodeToken(token, aud)
+func (server *Server) userID(r *http.Request) (userID string) {
+	info, err := server.decodeToken(r.Header.Get(AUTH_HEADER))
 	if err != nil {
 		// log error
 		fmt.Println("error decoding token: ", err)
@@ -19,7 +19,7 @@ func (server *Server) userID(token string) (userID string) {
 	return info.UserID
 }
 
-func (server *Server) decodeToken(token string, aud []string) (*TokenInfo, error) {
+func (server *Server) decodeToken(token string) (*TokenInfo, error) {
 	missingRequiredField := func(field string) error {
 		msg := fmt.Sprintf(
 			"failed to decode token: missing required field `%s`",
