@@ -273,6 +273,7 @@ func (server *Server) authZ(r *http.Request) bool {
 		fmt.Println("error reading arborist response body: ", err)
 		return false
 	}
+	resp.Body.Close()
 	err = json.Unmarshal(b, authResponse)
 	if err != nil {
 		fmt.Println("error unmarshalling arborist response to struct: ", err)
