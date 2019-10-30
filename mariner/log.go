@@ -70,7 +70,7 @@ func listRuns(userID string) ([]string, error) {
 	}
 	runIDs := []string{}
 	for _, v := range result.CommonPrefixes {
-		runID := strings.Split(v.String(), "/")[1]
+		runID := strings.Split(v.String(), "/")[2]
 		runIDs = append(runIDs, runID)
 	}
 	return runIDs, nil
