@@ -171,7 +171,7 @@ func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.Job
 	if condition == RUNNING {
 		fmt.Println(" --- run cancellation - in deleteJobs() ---")
 	}
-	deleteOption := metav1.NewDeleteOptions(120)
+	deleteOption := metav1.NewDeleteOptions(120) // how long (seconds) should the grace period be?
 	var deletionPropagation metav1.DeletionPropagation = "Background"
 	deleteOption.PropagationPolicy = &deletionPropagation
 	for _, job := range jobs {
