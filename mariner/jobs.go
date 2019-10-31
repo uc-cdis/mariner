@@ -61,8 +61,13 @@ func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	fmt.Println("\tSuccessfully created job.")
 	fmt.Printf("\tNew job name: %v\n", newJob.Name)
 	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
+
+	// probably can make this nicer to look at
 	tool.JobID = string(newJob.GetUID())
 	tool.JobName = newJob.Name
+
+	tool.Task.Log.JobID = tool.JobID
+	tool.Task.Log.JobName = tool.JobName
 	return nil
 }
 
@@ -81,21 +86,41 @@ func jobClient() batchtypev1.JobInterface {
 	return jobsClient
 }
 
-func jobByID(jc batchtypev1.JobInterface, jobid string) (*batchv1.Job, error) {
-	jobs, err := jc.List(metav1.ListOptions{})
+func jobByID(jc batchtypev1.JobInterface, jobID string) (*batchv1.Job, error) {
+	jobs, err := listMarinerJobs(jc)
 	if err != nil {
 		return nil, err
 	}
-	for _, job := range jobs.Items {
-		if jobid == string(job.GetUID()) {
+	for _, job := range jobs {
+		if jobID == string(job.GetUID()) {
 			return &job, nil
 		}
 	}
-	return nil, fmt.Errorf("job with jobid %s not found", jobid)
+	return nil, fmt.Errorf("job with jobid %s not found", jobID)
 }
 
-func jobStatusByID(jobid string) (*JobInfo, error) {
-	job, err := jobByID(jobClient(), jobid)
+// trade engine jobName for engine jobID
+func engineJobID(jc batchtypev1.JobInterface, jobName string) string {
+	// FIXME - create "interface" for fetching particular sets of jobs
+	// i.e., listTaskJobs, listEngineJobs, etc.
+	// don't hardcode ListOptions here like this
+	engines, err := jc.List(metav1.ListOptions{LabelSelector: "app=mariner-engine"})
+	if err != nil {
+		// log
+		fmt.Println("error fetching engine job list: ", err)
+		return ""
+	}
+	for _, job := range engines.Items {
+		if jobName == string(job.GetName()) {
+			return string(job.GetUID())
+		}
+	}
+	fmt.Printf("error: job with jobName %s not found", jobName)
+	return ""
+}
+
+func jobStatusByID(jobID string) (*JobInfo, error) {
+	job, err := jobByID(jobClient(), jobID)
 	if err != nil {
 		return nil, err
 	}
@@ -109,18 +134,18 @@ func jobStatusByID(jobid string) (*JobInfo, error) {
 // see: https://kubernetes.io/docs/api-reference/batch/v1/definitions/#_v1_jobstatus
 func jobStatusToString(status *batchv1.JobStatus) string {
 	if status == nil {
-		return "Unknown"
+		return UNKNOWN
 	}
 	if status.Succeeded >= 1 {
-		return "Completed"
+		return COMPLETED
 	}
 	if status.Failed >= 1 {
-		return "Failed"
+		return FAILED
 	}
 	if status.Active >= 1 {
-		return "Running"
+		return RUNNING
 	}
-	return "Unknown"
+	return UNKNOWN
 }
 
 // background process that collects status of mariner jobs
@@ -128,9 +153,6 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 // ---> since all logs/other information are collected immmediately when the job finishes
 func deleteCompletedJobs() {
 	jobsClient := jobClient()
-	deleteOption := metav1.NewDeleteOptions(120)
-	var deletionPropagation metav1.DeletionPropagation = "Background"
-	deleteOption.PropagationPolicy = &deletionPropagation
 	for {
 		jobs, err := listMarinerJobs(jobsClient)
 		if err != nil {
@@ -138,21 +160,33 @@ func deleteCompletedJobs() {
 			time.Sleep(30 * time.Second)
 			continue
 		}
-		for _, job := range jobs {
-			k8sJob, err := jobStatusByID(string(job.GetUID()))
-			if err != nil {
-				fmt.Println("Can't get job status by UID: ", job.Name, err)
-			} else {
-				if k8sJob.Status == "Completed" {
-					fmt.Println("Deleting completed job: ", job.Name)
-					if err = jobsClient.Delete(job.Name, deleteOption); err != nil {
-						fmt.Println("Error deleting job : ", job.Name, err)
-					}
+		deleteJobs(jobs, COMPLETED, jobsClient)
+		time.Sleep(30 * time.Second)
+	}
+}
+
+// 'condition' is a jobStatus, as in a value returned by jobStatusToString()
+// NOTE: probably should pass a list of conditions, not a single string
+func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.JobInterface) error {
+	deleteOption := metav1.NewDeleteOptions(120)
+	var deletionPropagation metav1.DeletionPropagation = "Background"
+	deleteOption.PropagationPolicy = &deletionPropagation
+	for _, job := range jobs {
+		k8sJob, err := jobStatusByID(string(job.GetUID()))
+		if err != nil {
+			fmt.Println("Can't get job status by UID: ", job.Name, err)
+		} else {
+			if k8sJob.Status == condition {
+				fmt.Printf("Deleting job %v under condition %v", job.Name, condition)
+				err = jobsClient.Delete(job.Name, deleteOption)
+				if err != nil {
+					fmt.Println("Error deleting job : ", job.Name, err)
+					return err
 				}
 			}
 		}
-		time.Sleep(30 * time.Second)
 	}
+	return nil
 }
 
 func listMarinerJobs(jobsClient batchtypev1.JobInterface) ([]batchv1.Job, error) {

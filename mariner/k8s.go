@@ -32,6 +32,7 @@ func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, string, error)
 	// currently the only unique job names are engine within-user
 	// this needs to be fixed
 	workflowJob := jobSpec(ENGINE, runID)
+	workflowRequest.JobName = workflowJob.GetName()
 
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
@@ -115,12 +116,14 @@ func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVa
 			Name:  "GEN3FUSE_MANIFEST",
 			Value: manifest,
 		},
-		envVar_HOSTNAME,
+		{
+			Name:      "HOSTNAME",
+			ValueFrom: envVar_HOSTNAME,
+		},
 	}
 	return env
 }
 
-// k8s namespace in which to dispatch jobs
 func engineEnv(runID string) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{

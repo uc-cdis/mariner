@@ -49,11 +49,12 @@ const (
 	// only here for testing, of course
 	GEN3USERNAME = "mgarvin3@uchicago.edu"
 
-	// values for ProcessStatus field
-	NOT_STARTED = "NOT_STARTED" // 3
-	IN_PROGRESS = "IN_PROGRESS" // 2
-	FAILED      = "FAILED"      // 1
-	COMPLETE    = "COMPLETE"    // 0
+	NOT_STARTED = "not-started" // 3
+	RUNNING     = "running"     // 2
+	FAILED      = "failed"      // 1
+	COMPLETED   = "completed"   // 0
+	UNKNOWN     = "unknown"
+	SUCCESS     = "success"
 
 	// log levels
 	INFO    = "INFO"
@@ -74,16 +75,13 @@ var envVar_AWSCREDS = &k8sv1.EnvVarSource{
 	},
 }
 
-var envVar_HOSTNAME = k8sv1.EnvVar{
-	Name: "HOSTNAME",
-	ValueFrom: &k8sv1.EnvVarSource{
-		ConfigMapKeyRef: &k8sv1.ConfigMapKeySelector{
-			LocalObjectReference: k8sv1.LocalObjectReference{
-				Name: "global",
-			},
-			Key:      "hostname",
-			Optional: &falseVal,
+var envVar_HOSTNAME = &k8sv1.EnvVarSource{
+	ConfigMapKeyRef: &k8sv1.ConfigMapKeySelector{
+		LocalObjectReference: k8sv1.LocalObjectReference{
+			Name: "global",
 		},
+		Key:      "hostname",
+		Optional: &falseVal,
 	},
 }
 

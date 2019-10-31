@@ -66,7 +66,7 @@ func Engine(runID string) error {
 		return err
 	}
 	engine := engine(request, runID)
-	engine.runWorkflow(request.Workflow, request.Input)
+	engine.runWorkflow(request.Workflow, request.Input, request.JobName)
 	if err = done(runID); err != nil {
 		return err
 	}

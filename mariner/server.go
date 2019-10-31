@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	batchv1 "k8s.io/api/batch/v1"
 
 	"github.com/uc-cdis/go-authutils/authutils"
 )
@@ -35,6 +36,7 @@ type WorkflowRequest struct {
 	Input    json.RawMessage `json:"input"`
 	UserID   string          `json:"user"`
 	Manifest Manifest        `json:"manifest"`
+	JobName  string          `json:"jobName,omitempty"` // populated internally by server
 }
 
 // HERE - TODO - move to config.go
@@ -81,7 +83,7 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 	router.HandleFunc("/runs", server.handleRunsGET).Methods("GET")                       // FIXME
 	router.HandleFunc("/runs/{runID}", server.handleRunLogGET).Methods("GET")             // OKAY
 	router.HandleFunc("/runs/{runID}/status", server.handleRunStatusGET).Methods("GET")   // OKAY
-	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // TODO
+	router.HandleFunc("/runs/{runID}/cancel", server.handleCancelRunPOST).Methods("POST") // OKAY
 	router.HandleFunc("/_status", server.handleHealthCheck).Methods("GET")                // TO CHECK
 
 	// router.NotFoundHandler = http.HandlerFunc(handleNotFound) // TODO
@@ -162,9 +164,53 @@ type StatusJSON struct {
 	Status string `json:"status"`
 }
 
+type CancelRunJSON struct {
+	RunID  string `json:"runID"`
+	Result string `json:"result"` // success or failed
+}
+
 // '/runs/{runID}/cancel' - POST
 func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request) {
+	userID, runID := server.uniqueKey(r)
+	j, err := (&CancelRunJSON{}).cancelRun(userID, runID)
+	if err != nil {
+		fmt.Println("error cancelling run: ", err)
+	}
+	writeJSON(w, j)
+}
 
+func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) {
+	j.RunID = runID
+	j.Result = FAILED
+	runLog, err := fetchMainLog(userID, runID)
+	if err != nil {
+		return j, err
+	}
+	jc := jobClient()
+	engineJob, err := jobByID(jc, runLog.Main.JobID)
+	if err != nil {
+		return j, err
+	}
+	deleteJobs([]batchv1.Job{*engineJob}, RUNNING, jc)
+	time.Sleep(150)
+
+	taskJobs := []batchv1.Job{}
+	for _, task := range runLog.ByProcess {
+		if task.JobID != "" {
+			job, err := jobByID(jc, task.JobID)
+			if err != nil {
+				fmt.Println("failed to fetch job with ID ", task.JobID)
+				return j, err
+			}
+			taskJobs = append(taskJobs, *job)
+		}
+	}
+	err = deleteJobs(taskJobs, RUNNING, jc)
+	if err != nil {
+		return j, err
+	}
+	j.Result = SUCCESS
+	return j, nil
 }
 
 type ListRunsJSON struct {

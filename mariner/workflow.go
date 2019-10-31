@@ -86,7 +86,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 }
 
 // RunWorkflow parses a workflow and inputs and run it
-func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
+func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName string) error {
 	var root cwl.Root
 	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the request body
 	if err != nil {
@@ -133,6 +133,9 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte) error {
 	}
 
 	engine.Log.Main = mainTask.Log
+
+	mainTask.Log.JobName = jobName
+	mainTask.Log.JobID = engineJobID(jobClient(), jobName)
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
 	engine.resolveGraph(flatRoots, mainTask)

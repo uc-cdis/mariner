@@ -184,6 +184,8 @@ type Log struct {
 	CreatedObj     time.Time              `json:"-"`                     // okay
 	LastUpdated    string                 `json:"lastUpdated,omitempty"` // okay - timezone???
 	LastUpdatedObj time.Time              `json:"-"`                     // okay
+	JobID          string                 `json:"jobID,omitempty"`       // okay
+	JobName        string                 `json:"jobName,omitempty"`     // keeping for now, but might be redundant w jobID
 	Status         string                 `json:"status"`                // okay
 	Stats          Stats                  `json:"stats"`                 // TODO
 	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
@@ -210,7 +212,7 @@ func (log *Log) finish() {
 	log.LastUpdated = timef(log.LastUpdatedObj)
 	log.Stats.DurationObj = t.Sub(log.CreatedObj)
 	log.Stats.Duration = log.Stats.DurationObj.Minutes()
-	log.Status = COMPLETE
+	log.Status = COMPLETED
 }
 
 // called when a task is run
@@ -220,7 +222,7 @@ func (log *Log) start() {
 	log.Created = timef(t)
 	log.LastUpdatedObj = t
 	log.LastUpdated = timef(t)
-	log.Status = IN_PROGRESS
+	log.Status = RUNNING
 }
 
 func logger() *Log {

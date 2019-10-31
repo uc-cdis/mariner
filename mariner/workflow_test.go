@@ -17,7 +17,7 @@ func NotTestWorkflow(t *testing.T) {
 	engine := new(K8sEngine)
 	engine.FinishedProcs = make(map[string]interface{})
 	engine.UnfinishedProcs = make(map[string]interface{})
-	err := engine.runWorkflow(body, inputs)
+	err := engine.runWorkflow(body, inputs, "")
 	if err != nil {
 		t.Error(err.Error())
 	}
