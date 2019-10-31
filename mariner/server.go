@@ -212,8 +212,8 @@ type RunIDJSON struct {
 	RunID string `json:"runID"`
 }
 
-// RunServer runs the mariner server that listens for API calls
-func RunServer() {
+// runServer sets up and runs the mariner server
+func runServer() {
 	jwkEndpointEnv := os.Getenv("JWKS_ENDPOINT") // TODO - this is in cloud-automation branch feat/mariner_jwks - need to test, then merge to master
 
 	// Parse flags:
@@ -241,6 +241,12 @@ func RunServer() {
 	}
 	httpLogger.Println(fmt.Sprintf("mariner serving at %s", httpServer.Addr))
 	httpLogger.Fatal(httpServer.ListenAndServe())
+}
+
+// RunServer inits the mariner server
+func RunServer() {
+	go deleteCompletedJobs()
+	runServer()
 }
 
 // unmarshal the request body to the given go struct

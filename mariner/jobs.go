@@ -3,6 +3,7 @@ package mariner
 import (
 	"fmt"
 	"os"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -120,4 +121,51 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 		return "Running"
 	}
 	return "Unknown"
+}
+
+// background process that collects status of mariner jobs
+// jobs with status "Completed" are deleted
+// ---> since all logs/other information are collected immmediately when the job finishes
+func deleteCompletedJobs() {
+	jobsClient := jobClient()
+	deleteOption := metav1.NewDeleteOptions(120)
+	var deletionPropagation metav1.DeletionPropagation = "Background"
+	deleteOption.PropagationPolicy = &deletionPropagation
+	for {
+		jobs, err := listMarinerJobs(jobsClient)
+		if err != nil {
+			fmt.Println("Jobs monitoring error: ", err)
+			time.Sleep(30 * time.Second)
+			continue
+		}
+		for _, job := range jobs {
+			k8sJob, err := jobStatusByID(string(job.GetUID()))
+			if err != nil {
+				fmt.Println("Can't get job status by UID: ", job.Name, err)
+			} else {
+				if k8sJob.Status == "Completed" {
+					fmt.Println("Deleting completed job: ", job.Name)
+					if err = jobsClient.Delete(job.Name, deleteOption); err != nil {
+						fmt.Println("Error deleting job : ", job.Name, err)
+					}
+				}
+			}
+		}
+		time.Sleep(30 * time.Second)
+	}
+}
+
+func listMarinerJobs(jobsClient batchtypev1.JobInterface) ([]batchv1.Job, error) {
+	jobs := []batchv1.Job{}
+	tasks, err := jobsClient.List(metav1.ListOptions{LabelSelector: "app=mariner-task"})
+	if err != nil {
+		return nil, err
+	}
+	engines, err := jobsClient.List(metav1.ListOptions{LabelSelector: "app=mariner-engine"})
+	if err != nil {
+		return nil, err
+	}
+	jobs = append(jobs, tasks.Items...)
+	jobs = append(jobs, engines.Items...)
+	return jobs, nil
 }
