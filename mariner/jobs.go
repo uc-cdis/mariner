@@ -168,6 +168,9 @@ func deleteCompletedJobs() {
 // 'condition' is a jobStatus, as in a value returned by jobStatusToString()
 // NOTE: probably should pass a list of conditions, not a single string
 func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.JobInterface) error {
+	if condition == RUNNING {
+		fmt.Println(" --- run cancellation - in deleteJobs() ---")
+	}
 	deleteOption := metav1.NewDeleteOptions(120)
 	var deletionPropagation metav1.DeletionPropagation = "Background"
 	deleteOption.PropagationPolicy = &deletionPropagation
@@ -177,7 +180,7 @@ func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.Job
 			fmt.Println("Can't get job status by UID: ", job.Name, err)
 		} else {
 			if k8sJob.Status == condition {
-				fmt.Printf("Deleting job %v under condition %v", job.Name, condition)
+				fmt.Printf("Deleting job %v under condition %v\n", job.Name, condition)
 				err = jobsClient.Delete(job.Name, deleteOption)
 				if err != nil {
 					fmt.Println("Error deleting job : ", job.Name, err)

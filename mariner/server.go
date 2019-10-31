@@ -179,6 +179,9 @@ func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request
 	writeJSON(w, j)
 }
 
+// FIXME - try to kill as many processes as possible
+// i.e., don't return at each possible error - run the whole thing (attempt everything)
+// and return errors at end
 func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) {
 	j.RunID = runID
 	j.Result = FAILED
@@ -191,24 +194,36 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	if err != nil {
 		return j, err
 	}
-	deleteJobs([]batchv1.Job{*engineJob}, RUNNING, jc)
-	time.Sleep(150)
+	fmt.Println("deleting engine job..")
+	err = deleteJobs([]batchv1.Job{*engineJob}, RUNNING, jc)
+	if err != nil {
+		return j, err
+	}
+	fmt.Println("sleeping out grace period..")
+	time.Sleep(150 * time.Second)
 
+	fmt.Println("collecting tasks..")
 	taskJobs := []batchv1.Job{}
-	for _, task := range runLog.ByProcess {
+	for taskID, task := range runLog.ByProcess {
+		fmt.Println("handling task ", taskID)
 		if task.JobID != "" {
+			fmt.Println("nonempt jobID: ", task.JobName)
 			job, err := jobByID(jc, task.JobID)
 			if err != nil {
 				fmt.Println("failed to fetch job with ID ", task.JobID)
 				return j, err
 			}
+			fmt.Println("collected this job: ", task.JobName)
 			taskJobs = append(taskJobs, *job)
 		}
 	}
+	fmt.Println("deleting task jobs..")
 	err = deleteJobs(taskJobs, RUNNING, jc)
 	if err != nil {
+		fmt.Println("error deleting task jobs: ", err)
 		return j, err
 	}
+	fmt.Println("successfully deleted task jobs")
 	j.Result = SUCCESS
 	return j, nil
 }
