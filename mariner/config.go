@@ -104,26 +104,26 @@ var GEN3FUSE_PRESTOP = &k8sv1.Lifecycle{
 }
 
 type MarinerConfig struct {
-	Containers *Containers `json:"containers"`
-	Jobs       *Jobs       `json:"jobs"`
-	Secrets    *Secrets    `json:"secrets"`
+	Containers Containers `json:"containers"`
+	Jobs       Jobs       `json:"jobs"`
+	Secrets    Secrets    `json:"secrets"`
 }
 
 type Containers struct {
-	Engine    *Container `json:"engine"`
-	S3sidecar *Container `json:"s3sidecar"`
-	Task      *Container `json:"task"`
-	Gen3fuse  *Container `json:"gen3fusesidecar"`
+	Engine    Container `json:"engine"`
+	S3sidecar Container `json:"s3sidecar"`
+	Task      Container `json:"task"`
+	Gen3fuse  Container `json:"gen3fusesidecar"`
 }
 
 type Container struct {
-	Name            string           `json:"name"`
-	Image           string           `json:"image"`
-	PullPolicy      string           `json:"pull_policy"`
-	Command         []string         `json:"command"`
-	Lifecycle       *Lifecycle       `json:"lifecycle"`
-	SecurityContext *SecurityContext `json:"securitycontext"`
-	Resources       *Resources       `json:"resources"`
+	Name            string          `json:"name"`
+	Image           string          `json:"image"`
+	PullPolicy      string          `json:"pull_policy"`
+	Command         []string        `json:"command"`
+	Lifecycle       Lifecycle       `json:"lifecycle"`
+	SecurityContext SecurityContext `json:"securitycontext"`
+	Resources       Resources       `json:"resources"`
 }
 
 type Lifecycle struct {
@@ -131,8 +131,8 @@ type Lifecycle struct {
 }
 
 type Resources struct {
-	Limits   *Resource `json:"limits"`
-	Requests *Resource `json:"requests"`
+	Limits   Resource `json:"limits"`
+	Requests Resource `json:"requests"`
 }
 
 type Resource struct {
@@ -146,8 +146,8 @@ type SecurityContext struct {
 }
 
 type Jobs struct {
-	Engine *JobConfig `json:"engine"`
-	Task   *JobConfig `json:"task"`
+	Engine JobConfig `json:"engine"`
+	Task   JobConfig `json:"task"`
 }
 
 type JobConfig struct {
@@ -165,7 +165,7 @@ type AWSUserCreds struct {
 	Key  string `json:"key"`
 }
 
-func (config *MarinerConfig) jobConfig(component string) (jobConfig *JobConfig) {
+func (config *MarinerConfig) jobConfig(component string) (jobConfig JobConfig) {
 	switch component {
 	case ENGINE:
 		jobConfig = config.Jobs.Engine
