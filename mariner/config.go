@@ -85,6 +85,24 @@ var envVar_HOSTNAME = &k8sv1.EnvVarSource{
 	},
 }
 
+// could put in manifest
+var S3_PRESTOP = &k8sv1.Lifecycle{
+	PreStop: &k8sv1.Handler{
+		Exec: &k8sv1.ExecAction{
+			Command: []string{"fusermount", "-u", "-z", "/$ENGINE_WORKSPACE"},
+		},
+	},
+}
+
+// could put in manifest
+var GEN3FUSE_PRESTOP = &k8sv1.Lifecycle{
+	PreStop: &k8sv1.Handler{
+		Exec: &k8sv1.ExecAction{
+			Command: []string{"fusermount", "-u", "/$COMMONS_DATA"},
+		},
+	},
+}
+
 type MarinerConfig struct {
 	Containers Containers `json:"containers"`
 	Jobs       Jobs       `json:"jobs"`

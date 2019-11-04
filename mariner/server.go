@@ -196,11 +196,15 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	if err != nil {
 		return j, err
 	}
+
+	// first kill engine job
 	fmt.Println("deleting engine job..")
 	err = deleteJobs([]batchv1.Job{*engineJob}, RUNNING, jc)
 	if err != nil {
 		return j, err
 	}
+
+	// then wait til engine job is killed, and kill all associated task jobs
 	go func(runLog *MainLog, jc batchtypev1.JobInterface) {
 		fmt.Println("sleeping out grace period..")
 		time.Sleep(150 * time.Second)
