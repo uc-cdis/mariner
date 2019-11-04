@@ -160,8 +160,9 @@ func deleteCompletedJobs() {
 			time.Sleep(30 * time.Second)
 			continue
 		}
+		time.Sleep(300 * time.Second)
 		deleteJobs(jobs, COMPLETED, jobsClient)
-		time.Sleep(30 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
