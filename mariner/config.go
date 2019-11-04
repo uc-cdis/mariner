@@ -89,7 +89,7 @@ var envVar_HOSTNAME = &k8sv1.EnvVarSource{
 var S3_PRESTOP = &k8sv1.Lifecycle{
 	PreStop: &k8sv1.Handler{
 		Exec: &k8sv1.ExecAction{
-			Command: []string{"/bin/sh", "-c", "fusermount", "-u", "-z", "/$ENGINE_WORKSPACE"},
+			Command: []string{"/bin/sh", "-c", "fusermount -u -z /$ENGINE_WORKSPACE"},
 		},
 	},
 }
@@ -98,7 +98,7 @@ var S3_PRESTOP = &k8sv1.Lifecycle{
 var GEN3FUSE_PRESTOP = &k8sv1.Lifecycle{
 	PreStop: &k8sv1.Handler{
 		Exec: &k8sv1.ExecAction{
-			Command: []string{"/bin/bash", "-c", "fusermount", "-u", "/$COMMONS_DATA"},
+			Command: []string{"/bin/bash", "-c", "fusermount -u /$COMMONS_DATA"},
 		},
 	},
 }
