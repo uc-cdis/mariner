@@ -69,7 +69,7 @@ func engineContainers(workflowRequest *WorkflowRequest, runID string) (container
 }
 
 func engineContainer(runID string) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.Engine, ENGINE)
+	container = baseContainer(Config.Containers.Engine, ENGINE)
 	container.Env = engineEnv(runID)
 	container.Args = engineArgs(runID) // FIXME - TODO - put this in a bash script
 	return container
@@ -77,7 +77,7 @@ func engineContainer(runID string) (container *k8sv1.Container) {
 
 // for ENGINE job
 func s3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
+	container = baseContainer(Config.Containers.S3sidecar, S3SIDECAR)
 	container.Lifecycle = S3_PRESTOP
 	container.Env = s3SidecarEnv(request, runID) // for ENGINE-sidecar
 	return container
@@ -85,7 +85,7 @@ func s3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv
 
 // given a manifest, returns the complete gen3fuse container spec for k8s podSpec
 func gen3fuseContainer(manifest *Manifest, component string, runID string) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.Gen3fuse, GEN3FUSE)
+	container = baseContainer(Config.Containers.Gen3fuse, GEN3FUSE)
 	container.Lifecycle = GEN3FUSE_PRESTOP
 	container.Env = gen3fuseEnv(manifest, component, runID)
 	return container
@@ -240,7 +240,7 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 
 // for TASK job
 func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
+	container = baseContainer(Config.Containers.S3sidecar, S3SIDECAR)
 	container.Lifecycle = S3_PRESTOP
 	container.Env = engine.s3SidecarEnv(tool)
 	return container
