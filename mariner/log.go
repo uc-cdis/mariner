@@ -44,7 +44,7 @@ func newS3Session() (*session.Session, error) {
 	}
 	credsConfig := credentials.NewStaticCredentials(creds.ID, creds.Secret, "")
 	awsConfig := &aws.Config{
-		Region:      aws.String("us-east-1"), // only here for initial testing - do NOT leave this hardcoded here - put in manifest/config
+		Region:      aws.String(Config.Storage.S3.Region),
 		Credentials: credsConfig,
 	}
 	sess := session.Must(session.NewSession(awsConfig))
@@ -60,7 +60,7 @@ func listRuns(userID string) ([]string, error) {
 	svc := s3.New(sess)
 	prefix := fmt.Sprintf("%v/workflowRuns/", userID)
 	query := &s3.ListObjectsV2Input{
-		Bucket:    aws.String("workflow-engine-garvin"),
+		Bucket:    aws.String(Config.Storage.S3.Name),
 		Prefix:    aws.String(prefix),
 		Delimiter: aws.String("/"),
 	}
@@ -93,11 +93,10 @@ func fetchMainLog(userID, runID string) (*MainLog, error) {
 	// FIXME - again, make this path a constant, or combination of constants
 	// do NOT leave this path hardcoded here like this
 	objKey := fmt.Sprintf("%v/workflowRuns/%v/marinerLog.json", userID, runID)
-	bucket := "workflow-engine-garvin"
 
 	// Write the contents of S3 Object to the buffer
 	s3Obj := &s3.GetObjectInput{
-		Bucket: aws.String(bucket),
+		Bucket: aws.String(Config.Storage.S3.Name),
 		Key:    aws.String(objKey),
 	}
 	_, err = downloader.Download(buf, s3Obj)

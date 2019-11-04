@@ -107,6 +107,16 @@ type MarinerConfig struct {
 	Containers Containers `json:"containers"`
 	Jobs       Jobs       `json:"jobs"`
 	Secrets    Secrets    `json:"secrets"`
+	Storage    Storage    `json:"storage"`
+}
+
+type Storage struct {
+	S3 S3Config `json:"s3"`
+}
+
+type S3Config struct {
+	Name   string `json:"name"`
+	Region string `json:"region"`
 }
 
 type Containers struct {
