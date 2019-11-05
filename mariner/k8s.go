@@ -544,6 +544,17 @@ func jobSpec(component string, name string) (job *batchv1.Job) {
 	job.Name, job.Labels = name, jobConfig.Labels
 	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
+
+	// testing - once it works, put it in the config
+	job.Spec.Template.Spec.Tolerations = []k8sv1.Toleration{
+		k8sv1.Toleration{
+			Key:      "role",
+			Value:    "jupyer",
+			Operator: k8sv1.TolerationOpEqual,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+	}
+
 	if component == ENGINE {
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
