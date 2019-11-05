@@ -547,6 +547,33 @@ func jobSpec(component string, name string) (job *batchv1.Job) {
 
 	// testing - once it works, put it in the config
 	// only using jupyter asg for now - will have workflow asg in production
+	/*
+		NOTE:
+		Applying a taint to a node means that pods without the corresponding toleration
+		will not be scheduled to that node.
+		So, applying a taint to asg X means no pods will be scheduled there.
+		Now, when I apply a matching toleration to the mariner pods,
+		that means the mariner pods can be scheduled to that node.
+		BUT that just means that mariner pods can be scheduled anywhere,
+		but not necessarily that mariner pods will for sure be scheduled only to asg X.
+
+		So, with only a taint-toleration in place, we have the effect that
+		i) core services will not be scheduled to asg X
+		ii) mariner pods may (but need not) be scheduled to asg X
+
+		In order to ensure separation of processes in the cluster
+		we also need to apply a node affinity:
+		https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
+
+		"requiredDuringSchedulingIgnoredDuringExecution"
+
+		E.g., apply affinity label to asg X nodes
+		Then apply corresponding affinity to mariner pods
+
+		Finally mariner pods would for sure get scheduled only to asg X nodes
+		And no core services would get scheduled to asg X
+		--- this is the desired effect
+	*/
 	job.Spec.Template.Spec.Tolerations = []k8sv1.Toleration{
 		k8sv1.Toleration{
 			Key:      "role",
