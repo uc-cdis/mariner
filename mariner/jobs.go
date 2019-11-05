@@ -149,7 +149,7 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 }
 
 // background process that collects status of mariner jobs
-// jobs with status "Completed" are deleted
+// jobs with status COMPLETED are deleted
 // ---> since all logs/other information are collected immmediately when the job finishes
 func deleteCompletedJobs() {
 	jobsClient := jobClient()

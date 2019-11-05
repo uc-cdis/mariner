@@ -259,14 +259,14 @@ func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
 	return nil
 }
 
-// ListenForDone listens to k8s until the job status is "Completed"
+// ListenForDone listens to k8s until the job status is COMPLETED
 // once that happens, calls a function to collect output and update engine's proc stacks
 // TODO: implement error handling, listen for errors and failures, retries as well
-// ----- handle the cases where the job status is not "Completed" or "Running"
+// ----- handle the cases where the job status is not COMPLETED or RUNNING
 func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	fmt.Println("\tListening for job to finish..")
 	status := ""
-	for status != "Completed" {
+	for status != COMPLETED {
 		jobInfo, err := jobStatusByID(tool.JobID)
 		if err != nil {
 			return err
