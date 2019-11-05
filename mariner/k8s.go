@@ -549,7 +549,7 @@ func jobSpec(component string, name string) (job *batchv1.Job) {
 	job.Spec.Template.Spec.Tolerations = []k8sv1.Toleration{
 		k8sv1.Toleration{
 			Key:      "role",
-			Value:    "jupyer",
+			Value:    "jupyter",
 			Operator: k8sv1.TolerationOpEqual,
 			Effect:   k8sv1.TaintEffectNoSchedule,
 		},
