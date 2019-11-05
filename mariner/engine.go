@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -120,6 +121,7 @@ func done(runID string) error {
 	if _, err := os.Create(fmt.Sprintf("/%v/workflowRuns/%v/done", ENGINE_WORKSPACE, runID)); err != nil {
 		return err
 	}
+	time.Sleep(15 * time.Second)
 	return nil
 }
 
