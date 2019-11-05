@@ -546,6 +546,7 @@ func jobSpec(component string, name string) (job *batchv1.Job) {
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
 
 	// testing - once it works, put it in the config
+	// only using jupyter asg for now - will have workflow asg in production
 	job.Spec.Template.Spec.Tolerations = []k8sv1.Toleration{
 		k8sv1.Toleration{
 			Key:      "role",
