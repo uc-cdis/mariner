@@ -67,7 +67,5 @@ func (server *Server) decodeToken(token string) (*TokenInfo, error) {
 	info := TokenInfo{
 		UserID: username,
 	}
-	fmt.Println("here is token info:")
-	printJSON(info)
 	return &info, nil
 }

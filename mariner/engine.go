@@ -102,6 +102,9 @@ func engine(request *WorkflowRequest, runID string) *K8sEngine {
 // tell sidecar containers the workflow is done running so the engine job can finish
 func done(runID string) error {
 	if _, err := os.Create(fmt.Sprintf(pathToDonef, runID)); err != nil {
+		fmt.Println("error writing done flag: ", err)
+		fmt.Println("runID: ", runID)
+		fmt.Println("pathToDonef: ", pathToDonef)
 		return err
 	}
 	time.Sleep(15 * time.Second)
