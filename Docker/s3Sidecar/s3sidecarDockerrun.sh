@@ -12,7 +12,7 @@ export AWS_SECRET_ACCESS_KEY=$(echo $AWSCREDS | jq .secret | tr -d '"')
 # FIXME this script in general - don't split out common execution flows
 
 # conditional here
-if [ $MARINER_COMPONENT == "ENGINE" ]; then
+if [ $MARINER_COMPONENT == "engine" ]; then
   echo "setting up for the engine.."
   echo "mounting prefix $USER_ID"
   goofys --stat-cache-ttl 0 --type-cache-ttl 0 $S3_BUCKET_NAME:$USER_ID /$ENGINE_WORKSPACE
@@ -27,7 +27,7 @@ if [ $MARINER_COMPONENT == "ENGINE" ]; then
   while [[ ! -f /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/done ]]; do
     :
   done
-else # $MARINER_COMPONENT is "TASK"
+else # $MARINER_COMPONENT is "task"
   echo "setting up for a task.."
   echo "mounting prefix $USER_ID"
   goofys --stat-cache-ttl 0 --type-cache-ttl 0 $S3_BUCKET_NAME:$USER_ID /$ENGINE_WORKSPACE
