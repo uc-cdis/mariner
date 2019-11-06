@@ -198,17 +198,21 @@ type TokenUser struct {
 // and just write some empty "done" flag in the engine workspace
 // ---> to indicate the sidecar is done setting up and the engine container can run
 func engineArgs(runID string) []string {
-	args := []string{
-		"-c",
-		fmt.Sprintf(`
-    while [[ ! -f /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/request.json ]]; do
-      echo "Waiting for mariner-engine-sidecar to finish setting up..";
-      sleep 1
-    done
-		echo "Sidecar setup complete! Running mariner-engine now.."
-		/mariner run $RUN_ID
-		`),
-	}
+	args := []string{"/engineDockerrun.sh"}
+
+	/*
+			args := []string{
+				"-c",
+				fmt.Sprintf(`
+		    while [[ ! -f /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/request.json ]]; do
+		      echo "Waiting for mariner-engine-sidecar to finish setting up..";
+		      sleep 1
+		    done
+				echo "Sidecar setup complete! Running mariner-engine now.."
+				/mariner run $RUN_ID
+				`),
+			}
+	*/
 	return args
 }
 
