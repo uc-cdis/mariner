@@ -16,3 +16,5 @@ FROM scratch
 # FROM alpine
 
 COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /go/src/github.com/uc-cdis/mariner/Docker/engine/engineDockerrun.sh /bin/sh /
+
+ENTRYPOINT [ "/sh", "/engineDockerrun.sh" ]
