@@ -10,10 +10,10 @@ ADD . .
 
 RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
 
-# Set up small scratch image, and copy necessary things over
-# FROM scratch
+FROM scratch
 
 # using alpine because need /bin/sh or bash, and copying /bin/sh over to scratch doesn't seem to work
-FROM alpine
+# FROM alpine
 
-COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /mariner
+COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /
+COPY --from=build /bin/sh /bin/
