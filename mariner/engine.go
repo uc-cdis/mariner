@@ -28,18 +28,8 @@ type K8sEngine struct {
 	UserID          string                 // the userID for the user who requested the workflow run
 	RunID           string                 // the workflow timestamp
 	Manifest        *Manifest              // to pass the manifest to the gen3fuse container of each task pod
-	// ---- NEW FIELD ----
-	Log *MainLog
+	Log             *MainLog
 }
-
-// lots of room for better design here
-// Tool interface
-// CLT type
-// ET type
-// Workflow interface (?)
-// Scatter interface (?)
-//
-// it should make sense! it should simplify things, not make things more complicated.
 
 // Tool represents a leaf in the graph of a workflow
 // i.e., a Tool is either a CommandLineTool or an ExpressionTool
@@ -53,7 +43,7 @@ type K8sEngine struct {
 type Tool struct {
 	JobName          string // if a k8s job (i.e., if a CommandLineTool)
 	JobID            string // if a k8s job (i.e., if a CommandLineTool)
-	WorkingDir       string // e.g., /engine-workspace/workflowRuns/runID/taskID/
+	WorkingDir       string
 	Command          *exec.Cmd
 	StepInputMap     map[string]*cwl.StepInput
 	ExpressionResult map[string]interface{}
@@ -77,7 +67,7 @@ func Engine(runID string) error {
 // get WorkflowRequest object
 func request(runID string) (*WorkflowRequest, error) {
 	request := &WorkflowRequest{}
-	f, err := os.Open(fmt.Sprintf("/%v/workflowRuns/%v/request.json", ENGINE_WORKSPACE, runID))
+	f, err := os.Open(fmt.Sprintf(pathToRequestf, runID))
 	if err != nil {
 		return request, err
 	}
@@ -93,7 +83,6 @@ func request(runID string) (*WorkflowRequest, error) {
 }
 
 // instantiate a K8sEngine object
-// FIXME
 func engine(request *WorkflowRequest, runID string) *K8sEngine {
 	e := &K8sEngine{
 		FinishedProcs:   make(map[string]interface{}),
@@ -103,22 +92,16 @@ func engine(request *WorkflowRequest, runID string) *K8sEngine {
 		RunID:           runID,
 	}
 
-	// FIXME make this cleaner, less janky
-	// HERE check if log already exists! if yes, then this is a 'restart'
-	// definitely make this a constant, or combination of constants - not just hardcoded in-line like this
-	pathToLog := fmt.Sprintf("/%v/workflowRuns/%v/marinerLog.json", ENGINE_WORKSPACE, runID)
+	// check if log already exists! if yes, then this is a 'restart'
+	pathToLog := fmt.Sprintf(pathToLogf, runID)
 	e.Log = mainLog(pathToLog, request)
-
-	fmt.Println("in engine()")
-	fmt.Println("here is engine log:")
-	printJSON(e.Log)
 
 	return e
 }
 
 // tell sidecar containers the workflow is done running so the engine job can finish
 func done(runID string) error {
-	if _, err := os.Create(fmt.Sprintf("/%v/workflowRuns/%v/done", ENGINE_WORKSPACE, runID)); err != nil {
+	if _, err := os.Create(fmt.Sprintf(pathToDonef, runID)); err != nil {
 		return err
 	}
 	time.Sleep(15 * time.Second)
@@ -161,9 +144,7 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 	return err
 }
 
-// GetTool returns a Tool object
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
-// NOTE: tool looks like mostly a subset of task -> code needs to be polished/organized/refactored
 func (task *Task) tool(runID string) *Tool {
 	task.Outputs = make(cwl.Parameters)
 	task.Log.Output = task.Outputs
@@ -181,7 +162,7 @@ func (task *Task) tool(runID string) *Tool {
 // ----- could come up with a better/more uniform naming scheme
 func (task *Task) workingDir(runID string) string {
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
-	dir := fmt.Sprintf("/%v/workflowRuns/%v/%v", ENGINE_WORKSPACE, runID, safeID)
+	dir := fmt.Sprintf(pathToWorkingDirf, runID, safeID)
 	if task.ScatterIndex > 0 {
 		dir = fmt.Sprintf("%v-scatter-%v", dir, task.ScatterIndex)
 	}
@@ -268,7 +249,7 @@ func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
 func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	fmt.Println("\tListening for job to finish..")
 	status := ""
-	for status != COMPLETED {
+	for status != completed {
 		jobInfo, err := jobStatusByID(tool.JobID)
 		if err != nil {
 			return err

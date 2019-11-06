@@ -58,7 +58,7 @@ func listRuns(userID string) ([]string, error) {
 		return nil, err
 	}
 	svc := s3.New(sess)
-	prefix := fmt.Sprintf("%v/workflowRuns/", userID)
+	prefix := fmt.Sprintf(pathToUserRunsf, userID)
 	query := &s3.ListObjectsV2Input{
 		Bucket:    aws.String(Config.Storage.S3.Name),
 		Prefix:    aws.String(prefix),
@@ -90,9 +90,7 @@ func fetchMainLog(userID, runID string) (*MainLog, error) {
 	// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
 	buf := &aws.WriteAtBuffer{}
 
-	// FIXME - again, make this path a constant, or combination of constants
-	// do NOT leave this path hardcoded here like this
-	objKey := fmt.Sprintf("%v/workflowRuns/%v/marinerLog.json", userID, runID)
+	objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
 
 	// Write the contents of S3 Object to the buffer
 	s3Obj := &s3.GetObjectInput{
@@ -211,7 +209,7 @@ func (log *Log) finish() {
 	log.LastUpdated = timef(log.LastUpdatedObj)
 	log.Stats.DurationObj = t.Sub(log.CreatedObj)
 	log.Stats.Duration = log.Stats.DurationObj.Minutes()
-	log.Status = COMPLETED
+	log.Status = completed
 }
 
 // called when a task is run
@@ -221,12 +219,12 @@ func (log *Log) start() {
 	log.Created = timef(t)
 	log.LastUpdatedObj = t
 	log.LastUpdated = timef(t)
-	log.Status = RUNNING
+	log.Status = running
 }
 
 func logger() *Log {
 	logger := &Log{
-		Status: NOT_STARTED,
+		Status: notStarted,
 		Input:  make(map[string]interface{}),
 	}
 	return logger
@@ -261,7 +259,7 @@ func (log *EventLog) infof(f string, v ...interface{}) {
 }
 
 func (log *EventLog) info(m string) {
-	log.write(INFO, m)
+	log.write(infoLogLevel, m)
 }
 
 func (log *EventLog) warnf(f string, v ...interface{}) {
@@ -270,7 +268,7 @@ func (log *EventLog) warnf(f string, v ...interface{}) {
 }
 
 func (log *EventLog) warn(m string) {
-	log.write(WARNING, m)
+	log.write(warningLogLevel, m)
 }
 
 func (log *EventLog) errorf(f string, v ...interface{}) {
@@ -279,7 +277,7 @@ func (log *EventLog) errorf(f string, v ...interface{}) {
 }
 
 func (log *EventLog) error(m string) {
-	log.write(ERROR, m)
+	log.write(errorLogLevel, m)
 }
 
 // get string timestamp for right now

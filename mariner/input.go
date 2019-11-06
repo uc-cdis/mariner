@@ -168,7 +168,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// ---- USER/<path> -> /user-data/<path> // not implemented yet
 		// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
 		switch {
-		case strings.HasPrefix(path, COMMONS_PREFIX):
+		case strings.HasPrefix(path, commonsPrefix):
 			/*
 				~ Path represenations/handling for commons-data ~
 
@@ -184,9 +184,9 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				so the mapping that happens in this path processing step is this:
 				"COMMONS/<guid>" -> "/commons-data/data/by-guid/<guid>"
 			*/
-			GUID := strings.TrimPrefix(path, COMMONS_PREFIX)
-			path = strings.Join([]string{PATH_TO_COMMONS_DATA, GUID}, "")
-		case strings.HasPrefix(path, USER_PREFIX):
+			GUID := strings.TrimPrefix(path, commonsPrefix)
+			path = strings.Join([]string{pathToCommonsData, GUID}, "")
+		case strings.HasPrefix(path, userPrefix):
 			/*
 				~ Path representations/handling for user-data ~
 
@@ -199,9 +199,9 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				so the mapping that happens in this path processing step is this:
 				"USER/path/to/file" -> "/engine-workspace/path/to/file"
 			*/
-			trimmedPath := strings.TrimPrefix(path, USER_PREFIX)
+			trimmedPath := strings.TrimPrefix(path, userPrefix)
 			// FIXME make this path joining cleaner - ideally uniform  with the other path join in the above case
-			path = strings.Join([]string{"/", ENGINE_WORKSPACE, "/", trimmedPath}, "")
+			path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
 		}
 		out = fileObject(path)
 	} else {

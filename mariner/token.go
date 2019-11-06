@@ -11,7 +11,7 @@ type TokenInfo struct {
 }
 
 func (server *Server) userID(r *http.Request) (userID string) {
-	info, err := server.decodeToken(r.Header.Get(AUTH_HEADER))
+	info, err := server.decodeToken(r.Header.Get(authHeader))
 	if err != nil {
 		// log error
 		fmt.Println("error decoding token: ", err)

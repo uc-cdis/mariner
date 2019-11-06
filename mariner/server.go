@@ -238,7 +238,7 @@ func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request
 // TODO - LOG this event
 func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) {
 	j.RunID = runID
-	j.Result = FAILED
+	j.Result = failed
 	runLog, err := fetchMainLog(userID, runID)
 	if err != nil {
 		return j, err
@@ -251,7 +251,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 
 	// first kill engine job
 	fmt.Println("deleting engine job..")
-	err = deleteJobs([]batchv1.Job{*engineJob}, RUNNING, jc)
+	err = deleteJobs([]batchv1.Job{*engineJob}, running, jc)
 	if err != nil {
 		return j, err
 	}
@@ -276,14 +276,14 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 			}
 		}
 		fmt.Println("deleting task jobs..")
-		err = deleteJobs(taskJobs, RUNNING, jc)
+		err = deleteJobs(taskJobs, running, jc)
 		if err != nil {
 			fmt.Println("error deleting task jobs: ", err)
 		}
 		fmt.Println("successfully deleted task jobs")
 	}(runLog, jc)
 
-	j.Result = SUCCESS
+	j.Result = success
 	return j, nil
 }
 
@@ -348,7 +348,7 @@ func (server *Server) handleAuth(next http.Handler) http.Handler {
 
 // polish this
 func authHTTPRequest(r *http.Request) (*AuthHTTPRequest, error) {
-	token := r.Header.Get(AUTH_HEADER)
+	token := r.Header.Get(authHeader)
 	if token == "" {
 		return nil, fmt.Errorf("no token in Authorization header")
 	}

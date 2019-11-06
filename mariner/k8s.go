@@ -19,7 +19,7 @@ import (
 // it means to dispatch a job which runs an instance of the mariner-engine,
 // where the engine runs the workflow
 
-////// ENGINE -> //////
+////// marinerEngine -> //////
 
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, string, error) {
@@ -31,7 +31,7 @@ func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, string, error)
 	// actually task job names are not unique within-user either
 	// currently the only unique job names are engine within-user
 	// this needs to be fixed
-	workflowJob := jobSpec(ENGINE, runID)
+	workflowJob := jobSpec(marinerEngine, runID, workflowRequest.UserID)
 	workflowRequest.JobName = workflowJob.GetName()
 
 	// fill in the rest of the spec
@@ -63,30 +63,30 @@ func engineVolumes() (volumes []k8sv1.Volume) {
 func engineContainers(workflowRequest *WorkflowRequest, runID string) (containers []k8sv1.Container) {
 	engine := engineContainer(runID)
 	s3sidecar := s3SidecarContainer(workflowRequest, runID)
-	gen3fuse := gen3fuseContainer(&workflowRequest.Manifest, ENGINE, runID)
+	gen3fuse := gen3fuseContainer(&workflowRequest.Manifest, marinerEngine, runID)
 	containers = []k8sv1.Container{*engine, *s3sidecar, *gen3fuse}
 	return containers
 }
 
 func engineContainer(runID string) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.Engine, ENGINE)
+	container = baseContainer(&Config.Containers.Engine, marinerEngine)
 	container.Env = engineEnv(runID)
 	container.Args = engineArgs(runID) // FIXME - TODO - put this in a bash script
 	return container
 }
 
-// for ENGINE job
+// for marinerEngine job
 func s3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
-	container.Lifecycle = S3_PRESTOP
-	container.Env = s3SidecarEnv(request, runID) // for ENGINE-sidecar
+	container = baseContainer(&Config.Containers.S3sidecar, s3sidecar)
+	container.Lifecycle = s3PrestopHook
+	container.Env = s3SidecarEnv(request, runID) // for marinerEngine-sidecar
 	return container
 }
 
 // given a manifest, returns the complete gen3fuse container spec for k8s podSpec
 func gen3fuseContainer(manifest *Manifest, component string, runID string) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.Gen3fuse, GEN3FUSE)
-	container.Lifecycle = GEN3FUSE_PRESTOP
+	container = baseContainer(&Config.Containers.Gen3fuse, gen3fuse)
+	container.Lifecycle = gen3fusePrestopHook
 	container.Env = gen3fuseEnv(manifest, component, runID)
 	return container
 }
@@ -99,8 +99,8 @@ func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVa
 			Value: os.Getenv("GEN3_NAMESPACE"),
 		},
 		{
-			Name:  "ENGINE_WORKSPACE",
-			Value: ENGINE_WORKSPACE,
+			Name:  "marinerEngine_WORKSPACE",
+			Value: engineWorkspaceVolumeName,
 		},
 		{
 			Name:  "RUN_ID",
@@ -108,19 +108,19 @@ func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVa
 		},
 		{
 			Name:  "COMMONS_DATA",
-			Value: COMMONS_DATA,
+			Value: commonsDataVolumeName,
 		},
 		{
 			Name:  "MARINER_COMPONENT",
 			Value: component,
 		},
 		{
-			Name:  "GEN3FUSE_MANIFEST",
+			Name:  "gen3fuse_MANIFEST",
 			Value: manifest,
 		},
 		{
 			Name:      "HOSTNAME",
-			ValueFrom: envVar_HOSTNAME,
+			ValueFrom: envVarHostname,
 		},
 	}
 	return env
@@ -133,8 +133,8 @@ func engineEnv(runID string) (env []k8sv1.EnvVar) {
 			Value: os.Getenv("GEN3_NAMESPACE"),
 		},
 		{
-			Name:  "ENGINE_WORKSPACE",
-			Value: ENGINE_WORKSPACE,
+			Name:  "marinerEngine_WORKSPACE",
+			Value: engineWorkspaceVolumeName,
 		},
 		{
 			Name:  "RUN_ID",
@@ -144,13 +144,13 @@ func engineEnv(runID string) (env []k8sv1.EnvVar) {
 	return env
 }
 
-// for ENGINE job
+// for marinerEngine job
 func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 	workflowRequest := struct2String(r)
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
-			ValueFrom: envVar_AWSCREDS,
+			ValueFrom: envVarAWSUserCreds,
 		},
 		{
 			Name:  "RUN_ID",
@@ -162,15 +162,15 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "MARINER_COMPONENT",
-			Value: ENGINE,
+			Value: marinerEngine,
 		},
 		{
 			Name:  "WORKFLOW_REQUEST", // body of POST http request made to api
 			Value: workflowRequest,
 		},
 		{
-			Name:  "ENGINE_WORKSPACE",
-			Value: ENGINE_WORKSPACE,
+			Name:  "marinerEngine_WORKSPACE",
+			Value: engineWorkspaceVolumeName,
 		},
 		{
 			Name:  "S3_BUCKET_NAME",
@@ -201,7 +201,7 @@ func engineArgs(runID string) []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
-    while [[ ! -f /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/request.json ]]; do
+    while [[ ! -f /$marinerEngine_WORKSPACE/workflowRuns/$RUN_ID/request.json ]]; do
       echo "Waiting for mariner-engine-sidecar to finish setting up..";
       sleep 1
     done
@@ -212,12 +212,12 @@ func engineArgs(runID string) []string {
 	return args
 }
 
-////// TASK -> ///////
+////// marinerTask -> ///////
 
 func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
 	jobName := tool.jobName()
 	tool.JobName = jobName
-	job = jobSpec(TASK, jobName)
+	job = jobSpec(marinerTask, jobName, engine.UserID)
 	job.Spec.Template.Spec.Volumes = workflowVolumes()
 	job.Spec.Template.Spec.Containers, err = engine.taskContainers(tool)
 	if err != nil {
@@ -232,7 +232,7 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 		return nil, err
 	}
 	s3sidecar := engine.s3SidecarContainer(tool)
-	gen3fuse := gen3fuseContainer(engine.Manifest, TASK, engine.RunID)
+	gen3fuse := gen3fuseContainer(engine.Manifest, marinerTask, engine.RunID)
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
 		Value: tool.WorkingDir,
@@ -242,10 +242,10 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	return containers, nil
 }
 
-// for TASK job
+// for marinerTask job
 func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.S3sidecar, S3SIDECAR)
-	container.Lifecycle = S3_PRESTOP
+	container = baseContainer(&Config.Containers.S3sidecar, s3sidecar)
+	container.Lifecycle = s3PrestopHook
 	container.Env = engine.s3SidecarEnv(tool)
 	return container
 }
@@ -258,7 +258,7 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 	conf := Config.Containers.Task
 	container = new(k8sv1.Container)
 	container.Name = conf.Name
-	container.VolumeMounts = volumeMounts(TASK)
+	container.VolumeMounts = volumeMounts(marinerTask)
 	container.ImagePullPolicy = conf.pullPolicy()
 
 	// if not specified use config
@@ -349,12 +349,12 @@ func (tool *Tool) env() (env []k8sv1.EnvVar) {
 	return env
 }
 
-// for TASK job
+// for marinerTask job
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
-			ValueFrom: envVar_AWSCREDS,
+			ValueFrom: envVarAWSUserCreds,
 		},
 		{
 			Name:  "USER_ID",
@@ -366,7 +366,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "MARINER_COMPONENT", // flag to tell setup sidecar script this is a task, not an engine job
-			Value: TASK,
+			Value: marinerTask,
 		},
 		{
 			Name:  "TOOL_COMMAND", // the command from the commandlinetool to actually execute
@@ -377,8 +377,8 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 			Value: tool.WorkingDir,
 		},
 		{
-			Name:  "ENGINE_WORKSPACE",
-			Value: ENGINE_WORKSPACE,
+			Name:  "marinerEngine_WORKSPACE",
+			Value: engineWorkspaceVolumeName,
 		},
 		{
 			Name:  "S3_BUCKET_NAME",
@@ -388,7 +388,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	return env
 }
 
-// for TASK job
+// for marinerTask job
 // replace disallowed job name characters
 // Q: is there a better job-naming scheme?
 // -- should every mariner task job have `mariner` as a prefix, for easy identification?
@@ -497,7 +497,7 @@ func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
 	return resourceReqs
 }
 
-/////// General purpose - for TASK & ENGINE -> ///////
+/////// General purpose - for marinerTask & marinerEngine -> ///////
 
 // for info, see: https://godoc.org/k8s.io/api/core/v1#Container
 func baseContainer(conf *Container, component string) (container *k8sv1.Container) {
@@ -518,22 +518,22 @@ func baseContainer(conf *Container, component string) (container *k8sv1.Containe
 // 2. commons data
 func workflowVolumes() []k8sv1.Volume {
 	vols := []k8sv1.Volume{}
-	for _, volName := range WORKFLOW_VOLUMES {
+	for _, volName := range workflowVolumeList {
 		vol := namedVolume(volName)
 		vols = append(vols, *vol)
 	}
 	return vols
 }
 
-// returns ENGINE/TASK job spec with all fields populated EXCEPT volumes and containers
-func jobSpec(component string, name string) (job *batchv1.Job) {
+// returns marinerEngine/marinerTask job spec with all fields populated EXCEPT volumes and containers
+func jobSpec(component string, name string, userID string) (job *batchv1.Job) {
 
 	// probably need a prefix of some kind on job names
 	// some hash of the userID maybe
 	// can get from token
 
-	// if ENGINE, then `name` is the runID (i.e., timestamp)
-	if component == ENGINE {
+	// if marinerEngine, then `name` is the runID (i.e., timestamp)
+	if component == marinerEngine {
 		name = fmt.Sprintf("mariner.%v", name)
 	}
 
@@ -544,54 +544,15 @@ func jobSpec(component string, name string) (job *batchv1.Job) {
 	job.Name, job.Labels = name, jobConfig.Labels
 	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
+	job.Spec.Template.Spec.Tolerations = k8sTolerations
 
-	// testing - once it works, put it in the config
-	// only using jupyter asg for now - will have workflow asg in production
-	/*
-		NOTE:
-		Applying a taint to a node means that pods without the corresponding toleration
-		will not be scheduled to that node.
-		So, applying a taint to asg X means no pods will be scheduled there.
-		Now, when I apply a matching toleration to the mariner pods,
-		that means the mariner pods can be scheduled to that node.
-		BUT that just means that mariner pods can be scheduled anywhere,
-		but not necessarily that mariner pods will for sure be scheduled only to asg X.
-
-		So, with only a taint-toleration in place, we have the effect that
-		i) core services will not be scheduled to asg X
-		ii) mariner pods may (but need not) be scheduled to asg X
-
-		In order to ensure separation of processes in the cluster
-		we also need to apply a node affinity:
-		https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity
-
-		"requiredDuringSchedulingIgnoredDuringExecution"
-
-		E.g., apply affinity label to asg X nodes
-		Then apply corresponding affinity to mariner pods
-
-		Finally mariner pods would for sure get scheduled only to asg X nodes
-		And no core services would get scheduled to asg X
-		--- this is the desired effect
-	*/
-	job.Spec.Template.Spec.Tolerations = []k8sv1.Toleration{
-		k8sv1.Toleration{
-			Key:      "role",
-			Value:    "jupyter",
-			Operator: k8sv1.TolerationOpEqual,
-			Effect:   k8sv1.TaintEffectNoSchedule,
-		},
-	}
-
-	if component == ENGINE {
+	if component == marinerEngine {
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
 
-	// HERE - TODO - get username from token, make this annotation on the pods for this workflow
-	// so that workspace-token-service works
 	// wts depends on this particular annotation
 	job.Spec.Template.Annotations = make(map[string]string)
-	job.Spec.Template.Annotations["gen3username"] = GEN3USERNAME
+	job.Spec.Template.Annotations["gen3username"] = userID
 
 	return job
 }

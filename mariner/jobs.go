@@ -134,18 +134,18 @@ func jobStatusByID(jobID string) (*JobInfo, error) {
 // see: https://kubernetes.io/docs/api-reference/batch/v1/definitions/#_v1_jobstatus
 func jobStatusToString(status *batchv1.JobStatus) string {
 	if status == nil {
-		return UNKNOWN
+		return unknown
 	}
 	if status.Succeeded >= 1 {
-		return COMPLETED
+		return completed
 	}
 	if status.Failed >= 1 {
-		return FAILED
+		return failed
 	}
 	if status.Active >= 1 {
-		return RUNNING
+		return running
 	}
-	return UNKNOWN
+	return unknown
 }
 
 // background process that collects status of mariner jobs
@@ -161,7 +161,7 @@ func deleteCompletedJobs() {
 			continue
 		}
 		time.Sleep(30 * time.Second)
-		deleteJobs(jobs, COMPLETED, jobsClient)
+		deleteJobs(jobs, completed, jobsClient)
 		time.Sleep(30 * time.Second)
 	}
 }
@@ -169,7 +169,7 @@ func deleteCompletedJobs() {
 // 'condition' is a jobStatus, as in a value returned by jobStatusToString()
 // NOTE: probably should pass a list of conditions, not a single string
 func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.JobInterface) error {
-	if condition == RUNNING {
+	if condition == running {
 		fmt.Println(" --- run cancellation - in deleteJobs() ---")
 	}
 	deleteOption := metav1.NewDeleteOptions(120) // how long (seconds) should the grace period be?
