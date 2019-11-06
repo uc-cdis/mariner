@@ -99,7 +99,7 @@ func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVa
 			Value: os.Getenv("GEN3_NAMESPACE"),
 		},
 		{
-			Name:  "marinerEngine_WORKSPACE",
+			Name:  "ENGINE_WORKSPACE",
 			Value: engineWorkspaceVolumeName,
 		},
 		{
@@ -115,7 +115,7 @@ func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVa
 			Value: component,
 		},
 		{
-			Name:  "gen3fuse_MANIFEST",
+			Name:  "GEN3FUSE_MANIFEST",
 			Value: manifest,
 		},
 		{
@@ -133,7 +133,7 @@ func engineEnv(runID string) (env []k8sv1.EnvVar) {
 			Value: os.Getenv("GEN3_NAMESPACE"),
 		},
 		{
-			Name:  "marinerEngine_WORKSPACE",
+			Name:  "ENGINE_WORKSPACE",
 			Value: engineWorkspaceVolumeName,
 		},
 		{
@@ -169,7 +169,7 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 			Value: workflowRequest,
 		},
 		{
-			Name:  "marinerEngine_WORKSPACE",
+			Name:  "ENGINE_WORKSPACE",
 			Value: engineWorkspaceVolumeName,
 		},
 		{
@@ -377,7 +377,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 			Value: tool.WorkingDir,
 		},
 		{
-			Name:  "marinerEngine_WORKSPACE",
+			Name:  "ENGINE_WORKSPACE",
 			Value: engineWorkspaceVolumeName,
 		},
 		{
