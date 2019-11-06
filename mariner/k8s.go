@@ -72,7 +72,7 @@ func engineContainer(runID string) (container *k8sv1.Container) {
 	container = baseContainer(&Config.Containers.Engine, marinerEngine)
 	container.Env = engineEnv(runID)
 	// container.Args = engineArgs(runID) // FIXME - TODO - put this in a bash script
-	container.Command = []string{"ls /"}
+	container.Command = []string{"/bin/sh", "/engineDockerrun.sh"}
 	return container
 }
 
