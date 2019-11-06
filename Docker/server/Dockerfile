@@ -11,3 +11,5 @@ RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
 
 FROM scratch
 COPY --from=build /mariner /
+
+ENTRYPOINT ["/mariner", "listen"]
