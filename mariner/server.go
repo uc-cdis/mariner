@@ -333,15 +333,13 @@ func (server *Server) setResponseHeader(next http.Handler) http.Handler {
 // if arborist says 'okay', then process the request
 // if arborist says 'not okay', then http error 'not authorized'
 func (server *Server) handleAuth(next http.Handler) http.Handler {
-	fmt.Println("in auth middleware function..")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("checking auth..")
 		if server.authZ(r) {
-			fmt.Println("user has access")
+			// fmt.Println("user has access") // log
 			next.ServeHTTP(w, r)
 			return
 		}
-		fmt.Println("user does NOT have access")
+		// fmt.Println("user does NOT have access") // log
 		http.Error(w, "user not authorized to access this resource", 403)
 	})
 }
@@ -407,8 +405,6 @@ func (server *Server) authZ(r *http.Request) bool {
 		fmt.Println("error unmarshalling arborist response to struct: ", err)
 		return false
 	}
-	fmt.Println("here is the arborist response:")
-	printJSON(authResponse)
 	return authResponse.Auth
 }
 
