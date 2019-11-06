@@ -15,5 +15,4 @@ FROM scratch
 # using alpine because need /bin/sh or bash, and copying /bin/sh over to scratch doesn't seem to work
 # FROM alpine
 
-COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /
-COPY --from=build /bin/sh /bin/
+COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /go/src/github.com/uc-cdis/mariner/Docker/engine/engineDockerrun.sh /bin/sh /
