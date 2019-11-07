@@ -19,7 +19,7 @@ ADD . .
 # WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
 FROM alpine
-COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /aws /
+COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /aws /
 RUN apk update && apk add --no-cache fuse jq
 
 ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
