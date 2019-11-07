@@ -14,7 +14,7 @@ RUN go get github.com/kahing/goofys
 # RUN ./awscli-bundle/install -i /aws
 
 RUN mkdir /awscli && \
-    pip install -U -t=/awscli/ awscli
+    pip install -U -t=/awscli/aws awscli
 
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
