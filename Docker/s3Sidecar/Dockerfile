@@ -25,6 +25,7 @@ ADD . .
 
 FROM alpine
 COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /
-RUN apk update && apk add --no-cache fuse jq aws-cli
+RUN apk update && apk add --no-cache fuse jq python py-pip && \
+    pip install --only-binary=all awscli
 
 ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
