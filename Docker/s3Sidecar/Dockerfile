@@ -23,9 +23,9 @@ WORKDIR /go/src/github.com/uc-cdis/mariner
 ADD . .
 # WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
-FROM alpine
+FROM python:alpine
 COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /
-RUN apk update && apk add --no-cache fuse jq python py-pip && \
-    pip install awscli
+RUN apk update && apk add --no-cache fuse jq
+RUN pip install awscli
 
 ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
