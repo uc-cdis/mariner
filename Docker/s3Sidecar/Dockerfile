@@ -22,7 +22,7 @@ ADD . .
 # WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
 FROM python:alpine
-COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /awscli/aws /
+COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /
 RUN apk update && apk add --no-cache fuse jq && \
     pip install --no-case-dir awscli
 
