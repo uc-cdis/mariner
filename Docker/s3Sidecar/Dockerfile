@@ -1,6 +1,6 @@
 FROM golang:1.12-alpine as build
 
-RUN apk update && apk add --no-cache git curl python
+RUN apk update && apk add --no-cache git curl python py-pip
 
 # install goofys
 RUN go get github.com/kahing/goofys
@@ -8,10 +8,12 @@ RUN go get github.com/kahing/goofys
 # WORKDIR /root/
 
 # install aws cli
-RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
-RUN unzip awscli-bundle.zip
+# RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
+# RUN unzip awscli-bundle.zip
 # RUN ./awscli-bundle/install -b ~/bin/aws
-RUN ./awscli-bundle/install -i /aws
+# RUN ./awscli-bundle/install -i /aws
+
+RUN pip install --upgrade --install-option="--prefix=/" awscli
 
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
