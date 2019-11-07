@@ -24,6 +24,6 @@ ADD . .
 FROM python:alpine
 COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /
 RUN apk update && apk add --no-cache fuse jq && \
-    pip install --no-case-dir awscli
+    pip install --no-cache-dir awscli
 
 ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
