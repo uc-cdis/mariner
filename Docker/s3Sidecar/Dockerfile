@@ -13,7 +13,8 @@ RUN go get github.com/kahing/goofys
 # RUN ./awscli-bundle/install -b ~/bin/aws
 # RUN ./awscli-bundle/install -i /aws
 
-RUN pip install -U -t=/aws awscli
+RUN mkdir /awscli && \
+    pip install -U -t=/awscli/ awscli
 
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
@@ -21,7 +22,7 @@ ADD . .
 # WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
 FROM alpine
-COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /aws /
+COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /awscli/aws /
 RUN apk update && apk add --no-cache fuse jq
 
 ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
