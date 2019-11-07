@@ -10,7 +10,8 @@ WORKDIR /root/
 # install aws cli
 RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip"
 RUN unzip awscli-bundle.zip
-RUN ./awscli-bundle/install -b ~/bin/aws
+# RUN ./awscli-bundle/install -b ~/bin/aws
+RUN ./awscli-bundle/install -i /aws -b ~/bin/aws
 
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
@@ -18,6 +19,6 @@ ADD . .
 # WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
 FROM alpine
-COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh ~/bin/aws /
+COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /aws /
 
 ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
