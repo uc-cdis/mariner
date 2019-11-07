@@ -1,6 +1,6 @@
 FROM golang:1.12-alpine as build
 
-RUN apk update && apk add --no-cache git
+RUN apk update && apk add --no-cache git python py-pip
 
 # install goofys
 RUN go get github.com/kahing/goofys
@@ -16,14 +16,15 @@ RUN go get github.com/kahing/goofys
 # RUN mkdir /awscli && \
 #  pip install -U -t=/awscli/aws awscli
 
+RUN pip install --no-cache-dir awscli
+
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
 ADD . .
 # WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
-FROM python:alpine
-COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /
-RUN apk update && apk add --no-cache fuse jq && \
-    pip install --no-cache-dir awscli
+FROM alpine
+COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /usr/local/bin/aws /
+RUN apk update && apk add --no-cache fuse jq
 
 ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]

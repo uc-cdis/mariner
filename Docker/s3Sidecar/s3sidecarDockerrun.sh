@@ -2,8 +2,8 @@
 # common to engine and task ->
 
 # NOTE: configuring the AWS CLI this way, without setting envVars, gives errors and doesn't work
-aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id | tr -d '"')
-aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret | tr -d '"')
+/aws configure set aws_access_key_id $(echo $AWSCREDS | jq .id | tr -d '"')
+/aws configure set aws_secret_access_key $(echo $AWSCREDS | jq .secret | tr -d '"')
 
 # so we set these variables to allow the AWS CLI to work
 export AWS_ACCESS_KEY_ID=$(echo $AWSCREDS | jq .id | tr -d '"')
