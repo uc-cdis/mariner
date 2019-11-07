@@ -12,19 +12,12 @@ RUN curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.
 RUN unzip awscli-bundle.zip
 RUN ./awscli-bundle/install -b ~/bin/aws
 
-# create dir which will be mount point for bucket - pretty sure this will already exist actually
-# see the mounted volume/mount point for container in k8s job spec
-RUN mkdir -p /data
-
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
 ADD . .
-WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
-
-# clone mariner repo to get setup bash script
-# RUN mkdir -p /go/src/github.com/uc-cdis
-# WORKDIR /go/src/github.com/uc-cdis
-# RUN git clone -b feat/k8s --single-branch https://github.com/uc-cdis/mariner/
 # WORKDIR /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/
 
-# NOTE: work from a scratch image
+FROM alpine
+COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh ~/bin/aws /
+
+ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
