@@ -13,7 +13,7 @@ RUN go get github.com/kahing/goofys
 # RUN ./awscli-bundle/install -b ~/bin/aws
 # RUN ./awscli-bundle/install -i /aws
 
-RUN pip install --upgrade --install-option="--prefix=/" awscli
+RUN pip install -U -t=/aws awscli
 
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
