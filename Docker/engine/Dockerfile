@@ -10,6 +10,7 @@ ADD . .
 RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
 
 FROM alpine
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /go/src/github.com/uc-cdis/mariner/Docker/engine/engineDockerrun.sh /
 
 ENTRYPOINT [ "/bin/sh", "/engineDockerrun.sh" ]
