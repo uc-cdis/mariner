@@ -13,6 +13,11 @@
       "location": "USER/user-data.txt"
     }
   },
+  "tags": {
+    "author": "matt",
+    "type": "test",
+    "dataformat": "text"
+  },
   "manifest": [
     {
       "object_id": "8bc9f306-5b5d-4b6b-b34e-f90680824b17"
