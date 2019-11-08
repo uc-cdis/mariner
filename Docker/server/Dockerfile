@@ -10,6 +10,7 @@ ADD . .
 RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
 
 FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /mariner /
 
 ENTRYPOINT ["/mariner", "listen"]
