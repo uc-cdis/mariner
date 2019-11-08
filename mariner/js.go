@@ -66,6 +66,10 @@ func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 	return result, nil
 }
 
+func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
+	return evalExpression(exp, tool.Task.Root.InputsVM)
+}
+
 // resolveExpressions processes a text field which may or may not be
 // - one expression
 // - a string literal
