@@ -27,11 +27,12 @@ import (
 // NOTE: server is modeled after arborist
 
 type WorkflowRequest struct {
-	Workflow json.RawMessage `json:"workflow"`
-	Input    json.RawMessage `json:"input"`
-	UserID   string          `json:"user"`
-	Manifest Manifest        `json:"manifest"`
-	JobName  string          `json:"jobName,omitempty"` // populated internally by server
+	Workflow json.RawMessage   `json:"workflow"`
+	Input    json.RawMessage   `json:"input"`
+	UserID   string            `json:"user"`
+	Tags     map[string]string `json:"tags,omitempty"` // optional set of key:val pairs provided by user to annotate workflow run - NOTE: val is a string
+	Manifest Manifest          `json:"manifest"`
+	JobName  string            `json:"jobName,omitempty"` // populated internally by server
 }
 
 type Manifest []ManifestEntry
