@@ -244,8 +244,8 @@ type Stats struct {
 
 // ResourceStat is for logging resource requests vs. actual usage
 type ResourceStat struct {
-	Min    int64 `json:"min"`
-	Max    int64 `json:"max"`
+	Min    int64 `json:"min"` // 0 is nil value (i.e., not provided)
+	Max    int64 `json:"max"` // 0 is nil value
 	Actual int64 `json:"actual,omitempty"`
 }
 
