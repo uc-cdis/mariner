@@ -71,8 +71,6 @@ func engineContainers(workflowRequest *WorkflowRequest, runID string) (container
 func engineContainer(runID string) (container *k8sv1.Container) {
 	container = baseContainer(&Config.Containers.Engine, marinerEngine)
 	container.Env = engineEnv(runID)
-	// container.Args = engineArgs(runID) // FIXME - TODO - put this in a bash script
-	// container.Command = []string{"/bin/sh", "/engineDockerrun.sh"}
 	return container
 }
 
@@ -191,30 +189,6 @@ type TokenContext struct {
 
 type TokenUser struct {
 	Name string `json:"name"`
-}
-
-// FIXME - TODO - put it in a bash script
-// also - why am I passing the request to the s3sidecar container?
-// seems like I can just pass the request directly to the engine
-// and just write some empty "done" flag in the engine workspace
-// ---> to indicate the sidecar is done setting up and the engine container can run
-func engineArgs(runID string) []string {
-	args := []string{"/engineDockerrun.sh"}
-
-	/*
-			args := []string{
-				"-c",
-				fmt.Sprintf(`
-		    while [[ ! -f /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/request.json ]]; do
-		      echo "Waiting for mariner-engine-sidecar to finish setting up..";
-		      sleep 1
-		    done
-				echo "Sidecar setup complete! Running mariner-engine now.."
-				/mariner run $RUN_ID
-				`),
-			}
-	*/
-	return args
 }
 
 ////// marinerTask -> ///////
