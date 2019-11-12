@@ -1,7 +1,6 @@
 package mariner
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,10 +57,16 @@ func (tool *Tool) initWorkDir() (err error) {
 					// presently not supporting this case - will implement this feature once I find an example to work with
 					panic("feature not supported: entry expression returned a file object")
 				} else {
-					jContents, err := json.Marshal(contents)
-					if err != nil {
-						return err
-					}
+					/*
+						// there's a problem here
+						// marshalling due to no_input test case
+						// where writing a JSON file object
+						// definitely need to handle general case of just writing whatever bytes I get
+						jContents, err := json.Marshal(contents)
+						if err != nil {
+							return err
+						}
+					*/
 
 					// create tool working dir if it doesn't already exist
 					// might be unnecessary to put here if dir already created earlier in processing this tool - need to check
@@ -71,7 +76,13 @@ func (tool *Tool) initWorkDir() (err error) {
 						fmt.Println("failed to create file in initworkdir req")
 						return err
 					}
-					f.Write(jContents)
+					// f.Write(jContents)
+
+					// FIXME - script chokes here - need general handling
+					// so whatever I get here, gets written
+
+					b := []byte(contents.(string)) // this is also a problem, because not everything is convertible to a string
+					f.Write(b)
 					f.Close()
 				}
 			}
