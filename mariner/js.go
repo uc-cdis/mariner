@@ -77,8 +77,9 @@ func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
 // presently writing simple case to return a string only for use in the argument valueFrom case
 // can easily extend in the future to be used for any field, to return any kind of value
 // NOTE: should work - needs to be tested more
+// NOTE: successful output is one of (text, nil, nil) or ("", *f, nil)
 // algorithm works in goplayground: https://play.golang.org/p/YOv-K-qdL18
-func (tool *Tool) resolveExpressions(inText string) (outText string, err error) {
+func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *File, err error) {
 	r := bufio.NewReader(strings.NewReader(inText))
 	var c0, c1, c2 string
 	var done bool
@@ -89,7 +90,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 			if err == io.EOF {
 				done = true
 			} else {
-				return "", err
+				return "", nil, err
 			}
 		}
 		c0, c1, c2 = c1, c2, string(nextRune)
@@ -99,7 +100,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 			// read through to the end of this expression block
 			expression, err := r.ReadString(')')
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 
 			// get full $(...) expression
@@ -108,20 +109,23 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 			// eval that thing
 			result, err := evalExpression(expression, tool.Task.Root.InputsVM)
 			if err != nil {
-				return "", err
+				return "", outFile, err
 			}
 
-			// result ought to be a string
-			val, ok := result.(string)
-			if !ok {
-				return "", fmt.Errorf("js embedded in string did not return a string")
+			// result ought to be a string (edit: OR a file)
+			switch result.(type) {
+			case string:
+				val := result.(string)
+
+				// cut off trailing "$" that had already been collected
+				image = image[:len(image)-1]
+
+				// collect resulting string
+				image = append(image, val)
+			case File:
+				f := result.(File)
+				return "", &f, nil
 			}
-
-			// cut off trailing "$" that had already been collected
-			image = image[:len(image)-1]
-
-			// collect resulting string
-			image = append(image, val)
 		} else {
 			if !done {
 				// checking done so as to not collect null value
@@ -131,7 +135,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 	}
 	// get resolved string value
 	outText = strings.Join(image, "")
-	return outText, nil
+	return outText, nil, nil
 }
 
 /*

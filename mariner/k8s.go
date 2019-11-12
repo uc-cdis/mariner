@@ -339,7 +339,7 @@ func (tool *Tool) env() (env []k8sv1.EnvVar) {
 	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "EnvVarRequirement" {
 			for _, envDef := range requirement.EnvDef {
-				varValue, err := tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
+				varValue, _, err := tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
 				if err != nil {
 					panic("failed to resolve expressions in envVar def")
 				}

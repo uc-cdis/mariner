@@ -94,9 +94,9 @@ func (tool *Tool) stdElts(i int) (cmdElts CommandElements, err error) {
 	var f string
 	switch i {
 	case 1:
-		f, err = tool.resolveExpressions(tool.Task.Root.Stdout)
+		f, _, err = tool.resolveExpressions(tool.Task.Root.Stdout)
 	case 2:
-		f, err = tool.resolveExpressions(tool.Task.Root.Stderr)
+		f, _, err = tool.resolveExpressions(tool.Task.Root.Stderr)
 	}
 	if err != nil {
 		return nil, err
@@ -439,7 +439,7 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 	} else {
 		fmt.Println("resolving valueFrom..")
 		// get value from `valueFrom` field which may itself be a string literal, an expression, or a string which contains one or more expressions
-		resolvedText, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
+		resolvedText, _, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
 		if err != nil {
 			return nil, err
 		}
