@@ -125,6 +125,7 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 		return err
 	}
 	if err = engine.collectOutput(tool); err != nil {
+		fmt.Printf("\tError collecting output from tool: %v\n", err)
 		return err
 	}
 	engine.updateStack(tool)
