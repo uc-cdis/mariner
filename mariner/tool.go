@@ -28,7 +28,17 @@ func (tool *Tool) initWorkDir() (err error) {
 					return err
 				}
 				contents = result
-				// PrintJSON(contents)
+
+				// begin debugging
+				fmt.Println("here is contents:")
+				printJSON(contents)
+
+				_, yes := contents.(string)
+				fmt.Println("contents is string: ", yes)
+				_, yes = contents.(File)
+				fmt.Println("contents is file: ", yes)
+
+				// end debugging
 
 				// `entryName` for sure is a string literal or an expression which evaluates to a string
 				// `entryName` is the name of the file to be created
