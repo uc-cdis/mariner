@@ -234,18 +234,18 @@ func logger() *Log {
 // recorded for tasks as well as workflows
 // Runtime for a workflow is the sum of runtime of that workflow's steps
 type Stats struct {
-	CPU         ResourceStat  `json:"cpu"`       // in-progress
-	Memory      ResourceStat  `json:"memory"`    // in-progress
-	Duration    float64       `json:"duration"`  // okay - currently measured in minutes
-	DurationObj time.Duration `json:"-"`         // okay
-	NFailures   int           `json:"nfailures"` // TODO
-	NRetries    int           `json:"nretries"`  // TODO
+	CPU         ResourceStat  `json:"cpu,omitempty"`      // in-progress
+	Memory      ResourceStat  `json:"memory,omitempty"`   // in-progress
+	Duration    float64       `json:"duration,omitempty"` // okay - currently measured in minutes
+	DurationObj time.Duration `json:"-"`                  // okay
+	NFailures   int           `json:"nfailures"`          // TODO
+	NRetries    int           `json:"nretries"`           // TODO
 }
 
 // ResourceStat is for logging resource requests vs. actual usage
 type ResourceStat struct {
-	Min    int64 `json:"min"` // 0 is nil value (i.e., not provided)
-	Max    int64 `json:"max"` // 0 is nil value
+	Min    int64 `json:"min,omitempty"`
+	Max    int64 `json:"max,omitempty"`
 	Actual int64 `json:"actual,omitempty"`
 }
 
