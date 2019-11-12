@@ -35,6 +35,7 @@ func (tool *Tool) collectOutput() (err error) {
 		}
 	case "ExpressionTool":
 		if err = tool.handleETOutput(); err != nil {
+			fmt.Printf("Error handling ET output: %v\n", err)
 			return err
 		}
 	default:
