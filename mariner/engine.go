@@ -118,8 +118,8 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 	}
 
 	// {Q: when should the process get pushed onto the stack?}
-	// push newly started process onto the engine's stack of running processes
-	engine.UnfinishedProcs[tool.Task.Root.ID] = nil
+
+	// engine.UnfinishedProcs[tool.Task.Root.ID] = nil
 	if err = engine.runTool(tool); err != nil {
 		fmt.Printf("\tError running tool: %v\n", err)
 		return err
@@ -128,15 +128,23 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 		fmt.Printf("\tError collecting output from tool: %v\n", err)
 		return err
 	}
-	engine.updateStack(tool)
+	// engine.updateStack(task) // tools AND workflows need to be updated in the stack
 	return nil
 }
 
 // move proc from unfinished to finished stack
-func (engine *K8sEngine) updateStack(tool *Tool) {
-	delete(engine.UnfinishedProcs, tool.Task.Root.ID)
-	engine.FinishedProcs[tool.Task.Root.ID] = nil
-	tool.Task.Done = &trueVal
+func (engine *K8sEngine) finishTask(task *Task) {
+	delete(engine.UnfinishedProcs, task.Root.ID)
+	engine.FinishedProcs[task.Root.ID] = nil
+	engine.Log.finish(task)
+	task.Done = &trueVal
+}
+
+// push newly started process onto the engine's stack of running processes
+// initialize log
+func (engine *K8sEngine) startTask(task *Task) {
+	engine.UnfinishedProcs[task.Root.ID] = nil
+	engine.Log.start(task)
 }
 
 // maybe this is a pointless wrapper?

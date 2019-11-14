@@ -168,22 +168,23 @@ concurrency notes:
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
-	engine.Log.start(task)
+	engine.startTask(task)
 	if task.Scatter != nil {
 		engine.runScatter(task)
 		engine.gatherScatterOutputs(task)
-		return nil // does this mean final log doesn't get written for scattered tasks?
+		return nil // Q. does this mean final log doesn't get written for scattered tasks?
 	}
 	if task.Root.Class == "Workflow" {
+		// this is not a leaf in the graph
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
 		engine.mergeChildParams(task)
 	} else {
-		// this process is not a workflow - it is a leaf in the graph (a Tool) and gets dispatched to the task engine
+		// this is a leaf in the graph
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		engine.dispatchTask(task)
 	}
-	engine.Log.finish(task)
+	engine.finishTask(task)
 	return nil
 }
 
