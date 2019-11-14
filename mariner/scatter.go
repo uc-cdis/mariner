@@ -177,6 +177,8 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
 			OriginalStep: task.OriginalStep,
+			Done:         &falseVal,
+			Log:          logger(),
 			ScatterIndex: i + 1, // count starts from 1, not 0, so that we can check if the ScatterIndex is nil (0 if nil)
 		}
 		// assign the i'th element of each input array as input to this scatter subtask
@@ -208,6 +210,8 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
 			OriginalStep: task.OriginalStep,
+			Done:         &falseVal,
+			Log:          logger(),
 			ScatterIndex: scatterIndex, // count starts from 1, not 0, so that we can check if the ScatterIndex is nil (0 if nil)
 		}
 		for j, k := range ix {
