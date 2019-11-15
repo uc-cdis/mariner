@@ -228,7 +228,7 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 
 		// currently logging scattered tasks this way
 		// the subtask logs are beneath/within the scatter task log object
-		task.Log.Scatter[i] = subtask.Log
+		task.Log.Scatter[scatterIndex] = subtask.Log
 
 		scatterIndex++
 	}
