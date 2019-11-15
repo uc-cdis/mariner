@@ -169,17 +169,16 @@ concurrency notes:
 func (engine *K8sEngine) run(task *Task) error {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
 	engine.startTask(task)
-	if task.Scatter != nil {
+	switch {
+	case task.Scatter != nil:
 		engine.runScatter(task)
-		engine.gatherScatterOutputs(task)
-		return nil // Q. does this mean final log doesn't get written for scattered tasks?
-	}
-	if task.Root.Class == "Workflow" {
+		engine.gatherScatterOutputs(task) // Q. does this mean final log doesn't get written for scattered tasks?
+	case task.Root.Class == "Workflow":
 		// this is not a leaf in the graph
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
 		engine.mergeChildParams(task)
-	} else {
+	default:
 		// this is a leaf in the graph
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		engine.dispatchTask(task)
