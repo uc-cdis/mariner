@@ -72,7 +72,7 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	fmt.Println("gathering scatter outputs..")
-	task.Outputs = make(cwl.Parameters)
+	// task.Outputs = make(cwl.Parameters)
 	totalOutput := make([]cwl.Parameters, len(task.ScatterTasks))
 	var wg sync.WaitGroup
 	for _, scatterTask := range task.ScatterTasks {
