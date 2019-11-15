@@ -70,9 +70,10 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 	return true, initLen
 }
 
+// Additionally, TODO - log input for parent scatter task
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	fmt.Println("gathering scatter outputs..")
-	// task.Outputs = make(cwl.Parameters)
+	task.Outputs = make(cwl.Parameters)
 	totalOutput := make([]cwl.Parameters, len(task.ScatterTasks))
 	var wg sync.WaitGroup
 	for _, scatterTask := range task.ScatterTasks {
@@ -88,6 +89,7 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	}
 	wg.Wait()
 	task.Outputs[task.Root.Outputs[0].ID] = totalOutput // not sure what output ID to use here (?)
+	task.Log.Output = task.Outputs
 	return nil
 }
 
@@ -188,6 +190,10 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 		// assign values to all non-scattered parameters
 		subtask.fillNonScatteredParams(task)
 		task.ScatterTasks[i] = subtask
+
+		// currently logging scattered tasks this way
+		// the subtask logs are beneath/within the scatter task log object
+		task.Log.Scatter[i] = subtask.Log
 	}
 	return nil
 }
@@ -219,6 +225,11 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 		}
 		subtask.fillNonScatteredParams(task)
 		task.ScatterTasks[scatterIndex] = subtask
+
+		// currently logging scattered tasks this way
+		// the subtask logs are beneath/within the scatter task log object
+		task.Log.Scatter[i] = subtask.Log
+
 		scatterIndex++
 	}
 	return nil

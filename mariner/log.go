@@ -188,6 +188,7 @@ type Log struct {
 	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
 	Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
 	Output         cwl.Parameters         `json:"output"`                // okay
+	Scatter        map[int]*Log           `json:"scatter,omitempty"`
 }
 
 // called when a task is run
