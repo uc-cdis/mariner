@@ -51,7 +51,8 @@ type Task struct {
 	OriginalStep  cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool    // false until all output for this task has been collected, then true
 	// --- New Fields ---
-	Log *Log // contains Status, Stats, Event
+	Log           *Log           // contains Status, Stats, Event
+	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
 }
 
 // recursively populates `mainTask` (the task object for the top level workflow with all downstream task objects)
@@ -263,8 +264,13 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 
 // concurrently run steps of a workflow
 func (engine *K8sEngine) runSteps(task *Task) {
-	// store a map of {outputID: stepID} pairs to trace step i/o dependency
+	// store a map of {outputID: stepID} pairs to trace step i/o dependency (edit: AND create CleanupByStep field)
 	task.setupOutputMap()
+
+	// dev'ing
+	// task.setupCleanupByStep()
+	// Q. where to initiate the monitoring processes?
+
 	task.InputIDMap = make(map[string]string)
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
 	for curStepID, subtask := range task.Children {
@@ -291,6 +297,7 @@ func (task *Task) mergeChildOutputs() error {
 	}
 	for _, output := range task.Root.Outputs {
 		if len(output.Source) == 1 {
+			// FIXME - again, here assuming len(source) is exactly 1
 			source := output.Source[0]
 			stepID, ok := task.OutputIDMap[source]
 			if !ok {
@@ -321,8 +328,8 @@ func (task *Task) mergeChildOutputs() error {
 func (task *Task) setupOutputMap() error {
 	task.OutputIDMap = make(map[string]string)
 	for _, step := range task.Root.Steps {
-		for _, output := range step.Out {
-			task.OutputIDMap[output.ID] = step.ID
+		for _, stepOutput := range step.Out {
+			task.OutputIDMap[stepOutput.ID] = step.ID
 		}
 	}
 	return nil
