@@ -155,7 +155,7 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 func (task *Task) tool(runID string) *Tool {
-	task.Outputs = make(cwl.Parameters)
+	task.Outputs = make(map[string]interface{})
 	task.Log.Output = task.Outputs
 	tool := &Tool{
 		Task:       task,

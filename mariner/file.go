@@ -130,8 +130,8 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 }
 
 // loads contents of file into the File.Contents field
-func (fileObj *File) loadContents() (err error) {
-	r, err := os.Open(fileObj.Location) // Location field stores full path, no need to handle prefix here
+func (f *File) loadContents() (err error) {
+	r, err := os.Open(f.Location) // Location field stores full path, no need to handle prefix here
 	if err != nil {
 		return err
 	}
@@ -147,8 +147,13 @@ func (fileObj *File) loadContents() (err error) {
 	contents = bytes.TrimRight(contents, "\u0000")
 
 	// populate File.Contents field with contents
-	fileObj.Contents = string(contents)
+	f.Contents = string(contents)
 	return nil
+}
+
+func (f *File) delete() error {
+	err := os.Remove(f.Location)
+	return err
 }
 
 // determines whether a map i represents a CWL file object

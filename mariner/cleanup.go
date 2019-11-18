@@ -1,6 +1,10 @@
 package mariner
 
-import "time"
+import (
+	"time"
+
+	cwl "github.com/uc-cdis/cwl.go"
+)
 
 // CleanupByStep exists per workflow
 // it's a collection of (stepID, CleanupByParam)
@@ -47,12 +51,17 @@ func (task *Task) setupCleanupByStep() error {
 
 			// 5A. collect the IDs of all the other steps of this workflow
 			// --- which will use files associated with this output param
-			for _, input := range step.In {
-				// FIXME - assuming one source specified here - certainly require case handling
-				// I *think* every input should have at least one source specified though
-				if input.Source[0] == stepOutput.ID {
-					deleteCondition.DependentSteps[input.ID] = nil
-					deleteCondition.Queue[input.ID] = nil
+			for _, otherStep := range task.Root.Steps {
+				if otherStep.ID != step.ID {
+					for _, input := range otherStep.In {
+						// FIXME - assuming one source specified here - certainly require case handling
+						// I *think* every input should have at least one source specified though
+						if input.Source[0] == stepOutput.ID {
+							deleteCondition.DependentSteps[otherStep.ID] = nil
+							deleteCondition.Queue[otherStep.ID] = nil
+							break
+						}
+					}
 				}
 			}
 
@@ -66,15 +75,15 @@ func (task *Task) setupCleanupByStep() error {
 				}
 			}
 
-			//// --- ////
-
-			// HERE - probably need to restructure this
-			// TODO:
-			// i) update deleteCondition queue when a corresponding step finishes running
-			// ii) delete action upon condition met
+			// HERE:
+			//
+			// i) (TODO) update deleteCondition queue when a corresponding step finishes running
+			//
+			// i.5) (DONE) launch monitoring per step
+			// ii) (DONE) delete action upon condition met
 
 			// 6. monitor delete condition -> delete when condition == true
-			go deleteCondition.monitor()
+			go task.deleteFilesAtCondition(step, stepOutput.ID)
 		}
 	}
 	return nil
@@ -83,19 +92,48 @@ func (task *Task) setupCleanupByStep() error {
 // delete condition: !WorkflowOutput && len(Queue) == 0
 // if the conditional will eventually be met, monitor the condition
 // as soon as it evaluates to 'true' -> delete the files associated with this output parameter
-func (deleteCondition *DeleteCondition) monitor() {
-	if !deleteCondition.WorkflowOutput {
+//
+// BIG NOTE: only need to monitor params of type FILE
+// -------- FIXME - need to check param type, ensure that it is 'file', before monitoring/deleting
+func (task *Task) deleteFilesAtCondition(step cwl.Step, outputParam string) {
+	condition := (*task.CleanupByStep)[step.ID][outputParam]
+	if !condition.WorkflowOutput {
 		for {
-			if len(deleteCondition.Queue) == 0 {
-				// delete files! somehow
-				// just need to access the [files]
-				// which is the val to this output param key
-				// in task.Outputs map
+			if len(condition.Queue) == 0 {
+				task.deleteIntermediateFiles(step, outputParam)
 			}
-
-			// refresh every 30s
-			// (30s is an arbitrary choice - probably there's a better refresh-window)
+			// 30s is an arbitrary choice for initial development - can be optimized/changed moving forward
 			time.Sleep(30 * time.Second)
+		}
+	}
+}
+
+// this function gets called iff
+// 1. this step has finished running, and
+// 2. all other steps of the parent workflow which use these files have all finished running
+// 3. these files do not correspond to output params of the parent workflow
+//
+// i.e., the files are there and we know it's safe to delete them
+func (task *Task) deleteIntermediateFiles(step cwl.Step, outputParam string) {
+	childTask := task.Children[step.ID]
+	subtaskOutputID := step2taskID(&task.Children[step.ID].OriginalStep, outputParam)
+	fileOutput := childTask.Outputs[subtaskOutputID]
+	// 'files' is either type *File or []*File
+	var err error
+	switch fileOutput.(type) {
+	case *File:
+		f := fileOutput.(*File)
+		err = f.delete()
+		if err != nil {
+			// log
+		}
+	case []*File:
+		files := fileOutput.([]*File)
+		for _, f := range files {
+			err := f.delete()
+			if err != nil {
+				// log; attempt delete on all files, even if some fail
+			}
 		}
 	}
 }

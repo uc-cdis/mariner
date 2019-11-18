@@ -78,7 +78,6 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		// 2. Load Contents
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
-
 		if output.Binding.LoadContents {
 			fmt.Println("load contents is true")
 			for _, fileObj := range results {
@@ -169,6 +168,7 @@ func (tool *Tool) handleCLTOutput() (err error) {
 
 		// at this point we have file results captured in `results`
 		// output should be a "File" or "array of Files"
+		// FIXME - make this case handling more specific in the else condition - don't just catch anything
 		if output.Types[0].Type == "File" {
 			// fmt.Println("output type is file")
 

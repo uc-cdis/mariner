@@ -13,8 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-
-	cwl "github.com/uc-cdis/cwl.go"
 )
 
 // TODO - write json encodings for all this AFTER implementing it
@@ -187,7 +185,7 @@ type Log struct {
 	Stats          Stats                  `json:"stats"`                 // TODO
 	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
 	Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
-	Output         cwl.Parameters         `json:"output"`                // okay
+	Output         map[string]interface{} `json:"output"`                // okay
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
 }
 

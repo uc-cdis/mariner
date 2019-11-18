@@ -38,15 +38,15 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 	task.Children is a map, where keys are the taskIDs and values are the Task objects of the workflow steps
 */
 type Task struct {
-	Parameters    cwl.Parameters    // input parameters of this task
-	Root          *cwl.Root         // "root" of the "namespace" of the cwl file for this task
-	Outputs       cwl.Parameters    // output parameters of this task
-	Scatter       []string          // if task is a step in a workflow and requires scatter; input parameters to scatter are stored here
-	ScatterMethod string            // if task is step in a workflow and requires scatter; scatter method specified - "dotproduct" or "flatcrossproduct" or ""
-	ScatterTasks  map[int]*Task     // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
-	ScatterIndex  int               // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
-	Children      map[string]*Task  // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
-	OutputIDMap   map[string]string // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
+	Parameters    cwl.Parameters         // input parameters of this task
+	Root          *cwl.Root              // "root" of the "namespace" of the cwl file for this task
+	Outputs       map[string]interface{} // output parameters of this task
+	Scatter       []string               // if task is a step in a workflow and requires scatter; input parameters to scatter are stored here
+	ScatterMethod string                 // if task is step in a workflow and requires scatter; scatter method specified - "dotproduct" or "flatcrossproduct" or ""
+	ScatterTasks  map[int]*Task          // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
+	ScatterIndex  int                    // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
+	Children      map[string]*Task       // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
+	OutputIDMap   map[string]string      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	InputIDMap    map[string]string
 	OriginalStep  cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool    // false until all output for this task has been collected, then true
@@ -144,11 +144,13 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// run the workflow
 	engine.run(mainTask)
 
+	// not sure if this should be dangling here
 	engine.Log.write()
 
-	// if this works I'm gonna be stoked in all aspects
-	fmt.Println("Here's the log file!")
-	showLog(engine.Log.Path)
+	/*
+		fmt.Println("Here's the log file!")
+		showLog(engine.Log.Path)
+	*/
 
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
@@ -291,7 +293,7 @@ func step2taskID(step *cwl.Step, stepVarID string) string {
 // and outputValue is the value for that output parameter for the workflow step
 // -> this outputValue gets mapped from the workflow step's outputs to the output of the workflow itself
 func (task *Task) mergeChildOutputs() error {
-	task.Outputs = make(cwl.Parameters)
+	task.Outputs = make(map[string]interface{})
 	if task.Children == nil {
 		panic(fmt.Sprintf("Can't call merge child outputs without childs %v \n", task.Root.ID))
 	}
