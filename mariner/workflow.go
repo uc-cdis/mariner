@@ -206,6 +206,11 @@ func (task *Task) mergeChildInputs() {
 	}
 }
 
+// FIXME - this function needs to be refactored - there's too much going on here
+// ---- need to break it down into smaller parts
+// ---- also should make these processes run concurrently
+// ---- i.e., concurrently wait for each input parameter - not in sequence
+// ---- because files should be deleted as soon as they become unnecessary
 // for concurrent processing of steps of a workflow
 // key point: the task does not get Run() until its input params are populated - that's how/where the dependencies get handled
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
@@ -235,6 +240,17 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 					fmt.Println("\tDependency task complete!")
 					task.Parameters[taskInput] = depTask.Outputs[outputID]
 					fmt.Println("\tSuccessfully collected output from dependency task.")
+
+					// update corresponding param Queues
+					for cleanupStepID, byParam := range *parentTask.CleanupByStep {
+						if cleanupStepID != depStepID {
+							for _, deleteCondition := range byParam {
+								if _, ok = deleteCondition.Queue[depStepID]; ok {
+									delete(deleteCondition.Queue, depStepID)
+								}
+							}
+						}
+					}
 				}
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {
