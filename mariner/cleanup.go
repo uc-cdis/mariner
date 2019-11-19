@@ -131,7 +131,7 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 				return
 			}
 			// 30s is an arbitrary choice for initial development - can be optimized/changed moving forward
-			time.Sleep(30 * time.Second)
+			time.Sleep(15 * time.Second)
 		}
 	}
 	fmt.Println("\tnot deleting files because parent workflow dependency: ", step.ID, outputParam)
