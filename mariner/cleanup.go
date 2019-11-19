@@ -26,10 +26,12 @@ type DeleteCondition struct {
 
 // dev'ing this feature
 // need to refactor and make nice
+// also need to add logging for this process
 func (task *Task) cleanupByStep() error {
 
 	// 0. create the by-step map
-	task.CleanupByStep = new(CleanupByStep)
+	byStep := make(CleanupByStep)
+	task.CleanupByStep = &byStep
 
 	// 1. then, for each step
 	for _, step := range task.Root.Steps {
