@@ -163,7 +163,7 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 		fmt.Println("\tnot parent workflow outputs; waiting to delete files: ", step.ID, outputParam)
 		for {
 			fmt.Println("\tlength of queue: ", len(condition.Queue.Map), step.ID, outputParam)
-			printJSON(condition.Queue)
+			printJSON(condition.Queue.Map)
 			if len(condition.Queue.Map) == 0 {
 				fmt.Println("\tdelete condition met! deleting files..")
 				engine.deleteIntermediateFiles(task, step, outputParam)
@@ -190,7 +190,7 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 	fileOutput := childTask.Outputs[subtaskOutputID]
 	fmt.Println("\there is fileOutput:")
 	printJSON(fileOutput)
-	fmt.Printf("\t(%v, %T)\n", fileOutput, fileOutput)
+	fmt.Printf("\t(%T)\n", fileOutput)
 	// 'files' is either type *File or []*File
 	var err error
 	switch fileOutput.(type) {
@@ -202,6 +202,8 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 			fmt.Println("failed to delete single file: ", err)
 			// log
 		}
+	// NOTE: an array of files had this type: '[]map[string]interface{}' - why? in any case, need to iterate over this and delete each file
+	// edit: reason for this is (?) 'Task' field 'Outputs' is 'map[string]interface{}' - need to sort this out
 	case []*File:
 		fmt.Println("\tdeleting array of files..")
 		files := fileOutput.([]*File)
