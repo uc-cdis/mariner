@@ -25,10 +25,16 @@ type DeleteCondition struct {
 	Queue          map[string]interface{} // each time a dependent step finishes, remove it from the Queue
 }
 
+// CleanupKey uniquely identifies (within a workflow) a set of files to monitor/delete
+type CleanupKey struct {
+	StepID string
+	Param  string
+}
+
 // dev'ing this feature
 // need to refactor and make nice
 // also need to add logging for this process
-func (task *Task) cleanupByStep() error {
+func (engine *K8sEngine) cleanupByStep(task *Task) error {
 
 	fmt.Println("\tin cleanupByStep..")
 
@@ -91,14 +97,16 @@ func (task *Task) cleanupByStep() error {
 
 			// HERE:
 			//
-			// i) (TODO) update deleteCondition queue when a corresponding step finishes running
+			// i) (DONE) update deleteCondition queue when a corresponding step finishes running
 			//
 			// i.5) (DONE) launch monitoring per step
 			// ii) (DONE) delete action upon condition met
 
 			// 6. monitor delete condition -> delete when condition == true
 			fmt.Println("\tlaunching go routine to delete files at condition")
-			go task.deleteFilesAtCondition(step, stepOutput.ID)
+			key := CleanupKey{step.ID, stepOutput.ID}
+			engine.CleanupProcs[key] = nil
+			go engine.deleteFilesAtCondition(task, step, stepOutput.ID)
 		}
 	}
 	return nil
@@ -110,7 +118,7 @@ func (task *Task) cleanupByStep() error {
 //
 // BIG NOTE: only need to monitor params of type FILE
 // -------- FIXME - need to check param type, ensure that it is 'file', before monitoring/deleting
-func (task *Task) deleteFilesAtCondition(step cwl.Step, outputParam string) {
+func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteFilesAtCondition for: ", step.ID, outputParam)
 	condition := (*task.CleanupByStep)[step.ID][outputParam]
 	if !condition.WorkflowOutput {
@@ -119,7 +127,7 @@ func (task *Task) deleteFilesAtCondition(step cwl.Step, outputParam string) {
 			fmt.Println("\tlength of queue: ", len(condition.Queue), step.ID, outputParam)
 			if len(condition.Queue) == 0 {
 				fmt.Println("\tdelete condition met! deleting files..")
-				task.deleteIntermediateFiles(step, outputParam)
+				engine.deleteIntermediateFiles(task, step, outputParam)
 				return
 			}
 			// 30s is an arbitrary choice for initial development - can be optimized/changed moving forward
@@ -127,6 +135,8 @@ func (task *Task) deleteFilesAtCondition(step cwl.Step, outputParam string) {
 		}
 	}
 	fmt.Println("\tnot deleting files because parent workflow dependency: ", step.ID, outputParam)
+	fmt.Println("\tupdating cleanupProc stack..")
+	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam}) // maybe just put this in one place, not have it twice
 }
 
 // this function gets called iff
@@ -135,7 +145,7 @@ func (task *Task) deleteFilesAtCondition(step cwl.Step, outputParam string) {
 // 3. these files do not correspond to output params of the parent workflow
 //
 // i.e., the files are there and we know it's safe to delete them
-func (task *Task) deleteIntermediateFiles(step cwl.Step, outputParam string) {
+func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteIntermediateFiles for: ", step.ID, outputParam)
 	childTask := task.Children[step.ID]
 	subtaskOutputID := step2taskID(&task.Children[step.ID].OriginalStep, outputParam)
@@ -147,8 +157,8 @@ func (task *Task) deleteIntermediateFiles(step cwl.Step, outputParam string) {
 	var err error
 	switch fileOutput.(type) {
 	case *File:
-		fmt.Println("\tdeleting single file..")
 		f := fileOutput.(*File)
+		fmt.Println("\tdeleting single file: ", f.Location)
 		err = f.delete()
 		if err != nil {
 			fmt.Println("failed to delete single file: ", err)
@@ -158,6 +168,7 @@ func (task *Task) deleteIntermediateFiles(step cwl.Step, outputParam string) {
 		fmt.Println("\tdeleting array of files..")
 		files := fileOutput.([]*File)
 		for _, f := range files {
+			fmt.Println("\tdeleting file: ", f.Location)
 			err := f.delete()
 			if err != nil {
 				fmt.Println("\tfailed to delete file: ", f.Location, err)
@@ -165,4 +176,6 @@ func (task *Task) deleteIntermediateFiles(step cwl.Step, outputParam string) {
 			}
 		}
 	}
+	fmt.Println("\tfinished deleting files, updating cleanupProc stack..")
+	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam})
 }

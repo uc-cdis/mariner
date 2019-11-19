@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -147,10 +148,13 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// not sure if this should be dangling here
 	engine.Log.write()
 
-	/*
-		fmt.Println("Here's the log file!")
-		showLog(engine.Log.Path)
-	*/
+	// wait for cleanup processes to finish before ending engine job
+	fmt.Println("\tworkflow tasks finished; deleting intermediate files..")
+	for len(engine.CleanupProcs) > 0 {
+		fmt.Printf("\twaiting on %v cleanup processes to finish..", len(engine.CleanupProcs))
+		time.Sleep(30 * time.Second) // same refresh period as the deleteCondition monitoring period
+	}
+	fmt.Println("\tall cleanup processes finished!")
 
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
@@ -287,7 +291,7 @@ func (engine *K8sEngine) runSteps(task *Task) {
 
 	// dev'ing
 	fmt.Println("\trunning steps..")
-	task.cleanupByStep()
+	engine.cleanupByStep(task)
 	// Q. where to initiate the monitoring processes?
 
 	task.InputIDMap = make(map[string]string)

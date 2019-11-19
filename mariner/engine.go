@@ -22,12 +22,13 @@ import (
 // NOTE: engine object code store all the logs/event-monitoring/statistics for the workflow run
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
-	TaskSequence    []string               // for testing purposes
-	UnfinishedProcs map[string]interface{} // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
-	FinishedProcs   map[string]interface{} // engine's stack of completed processes; (task.Root.ID, Process) pairs
-	UserID          string                 // the userID for the user who requested the workflow run
-	RunID           string                 // the workflow timestamp
-	Manifest        *Manifest              // to pass the manifest to the gen3fuse container of each task pod
+	TaskSequence    []string                   // for testing purposes
+	UnfinishedProcs map[string]interface{}     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
+	FinishedProcs   map[string]interface{}     // engine's stack of completed processes; (task.Root.ID, Process) pairs
+	CleanupProcs    map[CleanupKey]interface{} // engine's stack of running cleanup processes
+	UserID          string                     // the userID for the user who requested the workflow run
+	RunID           string                     // the workflow timestamp
+	Manifest        *Manifest                  // to pass the manifest to the gen3fuse container of each task pod
 	Log             *MainLog
 }
 
@@ -87,6 +88,7 @@ func engine(request *WorkflowRequest, runID string) *K8sEngine {
 	e := &K8sEngine{
 		FinishedProcs:   make(map[string]interface{}),
 		UnfinishedProcs: make(map[string]interface{}),
+		CleanupProcs:    make(map[CleanupKey]interface{}),
 		Manifest:        &request.Manifest,
 		UserID:          request.UserID,
 		RunID:           runID,
