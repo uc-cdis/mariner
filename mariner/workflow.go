@@ -151,7 +151,7 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// wait for cleanup processes to finish before ending engine job
 	fmt.Println("\tworkflow tasks finished; deleting intermediate files..")
 	for len(engine.CleanupProcs) > 0 {
-		fmt.Printf("\twaiting on %v cleanup processes to finish..", len(engine.CleanupProcs))
+		fmt.Printf("\twaiting on %v cleanup processes to finish..\n", len(engine.CleanupProcs))
 		time.Sleep(30 * time.Second) // same refresh period as the deleteCondition monitoring period
 	}
 	fmt.Println("\tall cleanup processes finished!")
