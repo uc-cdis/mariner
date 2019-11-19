@@ -125,6 +125,7 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 		fmt.Println("\tnot parent workflow outputs; waiting to delete files: ", step.ID, outputParam)
 		for {
 			fmt.Println("\tlength of queue: ", len(condition.Queue), step.ID, outputParam)
+			printJSON(condition.Queue)
 			if len(condition.Queue) == 0 {
 				fmt.Println("\tdelete condition met! deleting files..")
 				engine.deleteIntermediateFiles(task, step, outputParam)
