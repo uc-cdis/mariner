@@ -286,7 +286,7 @@ func (engine *K8sEngine) runSteps(task *Task) {
 	task.setupOutputMap()
 
 	// dev'ing
-	// task.setupCleanupByStep()
+	task.cleanupByStep()
 	// Q. where to initiate the monitoring processes?
 
 	task.InputIDMap = make(map[string]string)

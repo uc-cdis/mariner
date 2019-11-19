@@ -25,7 +25,8 @@ type DeleteCondition struct {
 }
 
 // dev'ing this feature
-func (task *Task) setupCleanupByStep() error {
+// need to refactor and make nice
+func (task *Task) cleanupByStep() error {
 
 	// 0. create the by-step map
 	task.CleanupByStep = new(CleanupByStep)
