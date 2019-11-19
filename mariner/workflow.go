@@ -246,22 +246,24 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 					task.Parameters[taskInput] = depTask.Outputs[outputID]
 					fmt.Println("\tSuccessfully collected output from dependency task.")
 
-					// update corresponding param Queues
-					fmt.Println("\tupdating cleanup dependency queues..")
-					for cleanupStepID, byParam := range *parentTask.CleanupByStep {
-						fmt.Println("\tcleanupStepID: ", cleanupStepID)
-						if cleanupStepID != depStepID {
-							for param, deleteCondition := range byParam {
-								fmt.Println("param: ", param)
-								fmt.Println("queue:")
-								printJSON(deleteCondition.Queue)
-								if _, ok = deleteCondition.Queue[depStepID]; ok {
-									fmt.Println("removing step from queue: ", depStepID)
-									delete(deleteCondition.Queue, depStepID)
+					/*
+						// update corresponding param Queues
+						fmt.Println("\tupdating cleanup dependency queues..")
+						for cleanupStepID, byParam := range *parentTask.CleanupByStep {
+							fmt.Println("\tcleanupStepID: ", cleanupStepID)
+							if cleanupStepID != depStepID {
+								for param, deleteCondition := range byParam {
+									fmt.Println("param: ", param)
+									fmt.Println("queue:")
+									printJSON(deleteCondition.Queue)
+									if _, ok = deleteCondition.Queue[depStepID]; ok {
+										fmt.Println("removing step from queue: ", depStepID)
+										delete(deleteCondition.Queue, depStepID)
+									}
 								}
 							}
 						}
-					}
+					*/
 				}
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {

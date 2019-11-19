@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -22,7 +23,25 @@ type CleanupByParam map[string]*DeleteCondition
 type DeleteCondition struct {
 	WorkflowOutput bool                   // this an output of the top-level workflow
 	DependentSteps map[string]interface{} // static collection of steps which depend on using this output parameter
-	Queue          map[string]interface{} // each time a dependent step finishes, remove it from the Queue
+	Queue          *GoMap                 // each time a dependent step finishes, remove it from the Queue
+}
+
+// GoMap is safe for concurrent read/write
+type GoMap struct {
+	Map  map[string]interface{}
+	Lock sync.RWMutex
+}
+
+func (m *GoMap) update(key string, val interface{}) {
+	m.Lock.Lock()
+	m.Map[key] = val
+	m.Lock.Unlock()
+}
+
+func (m *GoMap) delete(key string) {
+	m.Lock.Lock()
+	delete(m.Map, key)
+	m.Lock.Unlock()
 }
 
 // CleanupKey uniquely identifies (within a workflow) a set of files to monitor/delete
@@ -57,8 +76,12 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			(*task.CleanupByStep)[step.ID][stepOutput.ID] = &DeleteCondition{
 				WorkflowOutput: false,
 				DependentSteps: make(map[string]interface{}),
-				Queue:          make(map[string]interface{}),
+				Queue: &GoMap{
+					Map:  make(map[string]interface{}),
+					Lock: sync.RWMutex{},
+				},
 			}
+
 			deleteCondition := (*task.CleanupByStep)[step.ID][stepOutput.ID]
 
 			// 5. then, populate the delete condition struct:
@@ -75,7 +98,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 						if input.Source[0] == stepOutput.ID {
 							fmt.Println("\tfound step dependency!")
 							deleteCondition.DependentSteps[otherStep.ID] = nil
-							deleteCondition.Queue[otherStep.ID] = nil
+							deleteCondition.Queue.update(otherStep.ID, nil)
 							break
 						}
 					}
@@ -98,7 +121,6 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			// HERE:
 			//
 			// i) (DONE) update deleteCondition queue when a corresponding step finishes running
-			//
 			// i.5) (DONE) launch monitoring per step
 			// ii) (DONE) delete action upon condition met
 
@@ -106,10 +128,26 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			fmt.Println("\tlaunching go routine to delete files at condition")
 			key := CleanupKey{step.ID, stepOutput.ID}
 			engine.CleanupProcs[key] = nil
+			go engine.monitorParamDeps(task, step.ID, stepOutput.ID)
 			go engine.deleteFilesAtCondition(task, step, stepOutput.ID)
 		}
 	}
 	return nil
+}
+
+// 'task' is a workflow
+// monitors status of steps depending on files corresponding to the given output param of the given step; updates param queue appropriately
+func (engine *K8sEngine) monitorParamDeps(task *Task, stepID string, param string) {
+	condition := (*task.CleanupByStep)[stepID][param]
+	for depStepID := range condition.DependentSteps {
+		go func(task *Task, depStepID string, condition *DeleteCondition) {
+			// wait for depTask to finish
+			for !(*task.Children[depStepID].Done) {
+			}
+			// now depTask is done running - remove it from this param's dep queue
+			condition.Queue.delete(depStepID)
+		}(task, depStepID, condition)
+	}
 }
 
 // delete condition: !WorkflowOutput && len(Queue) == 0
@@ -124,14 +162,13 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 	if !condition.WorkflowOutput {
 		fmt.Println("\tnot parent workflow outputs; waiting to delete files: ", step.ID, outputParam)
 		for {
-			fmt.Println("\tlength of queue: ", len(condition.Queue), step.ID, outputParam)
+			fmt.Println("\tlength of queue: ", len(condition.Queue.Map), step.ID, outputParam)
 			printJSON(condition.Queue)
-			if len(condition.Queue) == 0 {
+			if len(condition.Queue.Map) == 0 {
 				fmt.Println("\tdelete condition met! deleting files..")
 				engine.deleteIntermediateFiles(task, step, outputParam)
 				return
 			}
-			// 30s is an arbitrary choice for initial development - can be optimized/changed moving forward
 			time.Sleep(15 * time.Second)
 		}
 	}
