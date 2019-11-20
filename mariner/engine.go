@@ -22,13 +22,13 @@ import (
 // NOTE: engine object code store all the logs/event-monitoring/statistics for the workflow run
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
-	TaskSequence    []string                   // for testing purposes
-	UnfinishedProcs map[string]interface{}     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
-	FinishedProcs   map[string]interface{}     // engine's stack of completed processes; (task.Root.ID, Process) pairs
-	CleanupProcs    map[CleanupKey]interface{} // engine's stack of running cleanup processes
-	UserID          string                     // the userID for the user who requested the workflow run
-	RunID           string                     // the workflow timestamp
-	Manifest        *Manifest                  // to pass the manifest to the gen3fuse container of each task pod
+	TaskSequence    []string            // for testing purposes
+	UnfinishedProcs map[string]bool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
+	FinishedProcs   map[string]bool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
+	CleanupProcs    map[CleanupKey]bool // engine's stack of running cleanup processes
+	UserID          string              // the userID for the user who requested the workflow run
+	RunID           string              // the workflow timestamp
+	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
 	Log             *MainLog
 }
 
@@ -86,9 +86,9 @@ func request(runID string) (*WorkflowRequest, error) {
 // instantiate a K8sEngine object
 func engine(request *WorkflowRequest, runID string) *K8sEngine {
 	e := &K8sEngine{
-		FinishedProcs:   make(map[string]interface{}),
-		UnfinishedProcs: make(map[string]interface{}),
-		CleanupProcs:    make(map[CleanupKey]interface{}),
+		FinishedProcs:   make(map[string]bool),
+		UnfinishedProcs: make(map[string]bool),
+		CleanupProcs:    make(map[CleanupKey]bool),
 		Manifest:        &request.Manifest,
 		UserID:          request.UserID,
 		RunID:           runID,
@@ -137,7 +137,7 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 // move proc from unfinished to finished stack
 func (engine *K8sEngine) finishTask(task *Task) {
 	delete(engine.UnfinishedProcs, task.Root.ID)
-	engine.FinishedProcs[task.Root.ID] = nil
+	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
 	task.Done = &trueVal
 }
@@ -145,7 +145,7 @@ func (engine *K8sEngine) finishTask(task *Task) {
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	engine.UnfinishedProcs[task.Root.ID] = nil
+	engine.UnfinishedProcs[task.Root.ID] = true
 	engine.Log.start(task)
 }
 

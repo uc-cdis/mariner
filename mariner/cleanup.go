@@ -21,12 +21,15 @@ type CleanupByParam map[string]*DeleteCondition
 // as soon as they become unnecessary to downstream processes
 // the condition for deletion is: !WorkflowOutput && len(Queue) == 0
 type DeleteCondition struct {
-	WorkflowOutput bool                   // this an output of the top-level workflow
-	DependentSteps map[string]interface{} // static collection of steps which depend on using this output parameter
-	Queue          *GoMap                 // each time a dependent step finishes, remove it from the Queue
+	WorkflowOutput bool            // this an output of the top-level workflow
+	DependentSteps map[string]bool // static collection of steps which depend on using this output parameter
+	Queue          *GoMap          // each time a dependent step finishes, remove it from the Queue
 }
 
 // GoMap is safe for concurrent read/write
+// FIXME - do NOT use an interface here
+// create separate types for different kinds of maps
+// there are only a few
 type GoMap struct {
 	sync.RWMutex
 	Map map[string]interface{}
@@ -75,7 +78,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			// 4. create the zero-value delete condition struct
 			(*task.CleanupByStep)[step.ID][stepOutput.ID] = &DeleteCondition{
 				WorkflowOutput: false,
-				DependentSteps: make(map[string]interface{}),
+				DependentSteps: make(map[string]bool),
 				Queue: &GoMap{
 					Map: make(map[string]interface{}),
 				},
@@ -96,8 +99,8 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 						// I *think* every input should have at least one source specified though
 						if input.Source[0] == stepOutput.ID {
 							fmt.Println("\tfound step dependency!")
-							deleteCondition.DependentSteps[otherStep.ID] = nil
-							deleteCondition.Queue.update(otherStep.ID, nil)
+							deleteCondition.DependentSteps[otherStep.ID] = true
+							deleteCondition.Queue.update(otherStep.ID, true)
 							break
 						}
 					}
@@ -126,7 +129,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			// 6. monitor delete condition -> delete when condition == true
 			fmt.Println("\tlaunching go routine to delete files at condition")
 			key := CleanupKey{step.ID, stepOutput.ID}
-			engine.CleanupProcs[key] = nil
+			engine.CleanupProcs[key] = true
 			go engine.monitorParamDeps(task, step.ID, stepOutput.ID)
 			go engine.deleteFilesAtCondition(task, step, stepOutput.ID)
 		}
