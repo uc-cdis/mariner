@@ -28,20 +28,20 @@ type DeleteCondition struct {
 
 // GoMap is safe for concurrent read/write
 type GoMap struct {
-	Map  map[string]interface{}
-	Lock sync.RWMutex
+	sync.RWMutex
+	Map map[string]interface{}
 }
 
 func (m *GoMap) update(key string, val interface{}) {
-	m.Lock.Lock()
+	m.Lock()
+	defer m.Unlock()
 	m.Map[key] = val
-	m.Lock.Unlock()
 }
 
 func (m *GoMap) delete(key string) {
-	m.Lock.Lock()
+	m.Lock()
+	defer m.Unlock()
 	delete(m.Map, key)
-	m.Lock.Unlock()
 }
 
 // CleanupKey uniquely identifies (within a workflow) a set of files to monitor/delete
@@ -77,8 +77,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 				WorkflowOutput: false,
 				DependentSteps: make(map[string]interface{}),
 				Queue: &GoMap{
-					Map:  make(map[string]interface{}),
-					Lock: sync.RWMutex{},
+					Map: make(map[string]interface{}),
 				},
 			}
 
