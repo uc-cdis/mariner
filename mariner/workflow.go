@@ -328,13 +328,13 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 
 // concurrently run steps of a workflow
 func (engine *K8sEngine) runSteps(task *Task) {
+	fmt.Println("\trunning steps..")
+
 	// store a map of {outputID: stepID} pairs to trace step i/o dependency (edit: AND create CleanupByStep field)
 	task.setupOutputMap()
 
 	// dev'ing
-	fmt.Println("\trunning steps..")
 	engine.cleanupByStep(task)
-	// Q. where to initiate the monitoring processes?
 
 	task.InputIDMap = make(map[string]string)
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one

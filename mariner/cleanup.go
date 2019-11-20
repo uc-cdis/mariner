@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -228,7 +229,7 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 			// log
 		}
 	// NOTE: an array of files had this type: '[]map[string]interface{}' - why? in any case, need to iterate over this and delete each file
-	// edit: reason for this is (?) 'Task' field 'Outputs' is 'map[string]interface{}' - need to sort this out
+	// works for a leaf in the graph, not a workflow
 	case []*File:
 		fmt.Println("\tdeleting array of files..")
 		files := fileOutput.([]*File)
@@ -240,6 +241,23 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 				// log; attempt delete on all files, even if some fail
 			}
 		}
+	// *maybe in general* catches workflow output of file array (?)
+	case []map[string]interface{}:
+		files := fileOutput.([]map[string]interface{})
+		var path string
+		for _, m := range files {
+			path, err = filePath(m)
+			if err != nil {
+				fmt.Println("error extracting path from 'file' in array:")
+				printJSON(m)
+				continue
+			}
+			err = os.Remove(path)
+			if err != nil {
+				fmt.Println("error deleting file: ", err)
+			}
+		}
+
 	}
 	fmt.Println("\tfinished deleting files, updating cleanupProc stack..")
 	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam})
