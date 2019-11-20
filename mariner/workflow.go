@@ -56,6 +56,47 @@ type Task struct {
 	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
 }
 
+// fileParam returns a bool indicating whether the given step-level input param corresponds to a set of files
+// 'task' here is a workflow
+// HERE
+func (task *Task) stepParamFile(step *cwl.Step, stepParam string) bool {
+	fmt.Println("in stepParamFile..")
+	childTaskParam := step2taskID(step, stepParam)
+	childTask := task.Children[step.ID]
+	for _, input := range childTask.Root.Inputs {
+		if input.ID == childTaskParam && inputParamFile(input) {
+			return true
+		}
+	}
+	return false
+}
+
+// for a given task input, return true if type File or []File, false otherwise
+// NOTE: this structuring of type information is pretty painful to look at and deal with
+// ----  could look into the cwl.go library again and maybe make it better
+// ----  also not nice that Root.Inputs is an array rather than a map
+// ----  could fix these things
+func inputParamFile(input *cwl.Input) bool {
+	fmt.Println("input.Types:")
+	printJSON(input.Types)
+	if input.Types[0].Type == "File" {
+		return true
+	}
+	// catch array of files
+	return false
+}
+
+// exact same function.. - maybe implement method in cwl.go library instead of here
+func outputParamFile(output cwl.Output) bool {
+	fmt.Println("output.Types:")
+	printJSON(output.Types)
+	if output.Types[0].Type == "File" {
+		return true
+	}
+	// catch array of files
+	return false
+}
+
 // recursively populates `mainTask` (the task object for the top level workflow with all downstream task objects)
 // see note describing the Task type for explanation of nested structure of Task
 // basically, if task is a workflow, the task objects for the workflow steps get stored in the Task.Children field
@@ -312,8 +353,8 @@ func (engine *K8sEngine) runSteps(task *Task) {
 
 // "#expressiontool_test.cwl" + "[#subworkflow_test.cwl]/test_expr/file_array"
 // returns "#expressiontool_test.cwl/test_expr/file_array"
-func step2taskID(step *cwl.Step, stepVarID string) string {
-	return step.Run.Value + strings.TrimPrefix(stepVarID, step.ID)
+func step2taskID(step *cwl.Step, stepParam string) string {
+	return step.Run.Value + strings.TrimPrefix(stepParam, step.ID)
 }
 
 // only called if task is a workflow

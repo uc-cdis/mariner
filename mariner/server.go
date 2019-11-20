@@ -178,6 +178,7 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 	// unsure if this is the/a logging solution that we want
 	// but it seems to be a standard, and arborist uses it
 	// keeping it for now - TODO: design and implement logging for server
+	// see: https://godoc.org/github.com/gorilla/handlers#CombinedLoggingHandler
 	return handlers.CombinedLoggingHandler(out, handler)
 }
 

@@ -53,6 +53,12 @@ type CleanupKey struct {
 	Param  string
 }
 
+// NOTE: only want to keep track of files - not any other kind of param
+// ----- the type information is not contained in the step-level params
+// ----- so if you want to check a param type, you must access the task object and check that param within the task struct
+
+// super straightforward - write a function: f(stepParam) -> paramType (in cwl terms)
+
 // dev'ing this feature
 // need to refactor and make nice
 // also need to add logging for this process
@@ -64,6 +70,9 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 	byStep := make(CleanupByStep)
 	task.CleanupByStep = &byStep
 
+	// flag indicates whether param correspons to a file(s)
+	var fileParam = false
+
 	// 1. then, for each step
 	for _, step := range task.Root.Steps {
 
@@ -73,6 +82,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 
 		// 3. then, for each output param
 		for _, stepOutput := range step.Out {
+			fileParam = false
 
 			fmt.Println("\tprocessing output param: ", stepOutput.ID)
 			// 4. create the zero-value delete condition struct
@@ -97,10 +107,15 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 						fmt.Println("\tlooking at input pararm: ", input.ID)
 						// FIXME - assuming one source specified here - certainly require case handling
 						// I *think* every input should have at least one source specified though
-						if input.Source[0] == stepOutput.ID {
+						// HERE - check that param corresponds to files
+						if input.Source[0] == stepOutput.ID && task.stepParamFile(&otherStep, input.ID) {
 							fmt.Println("\tfound step dependency!")
+
 							deleteCondition.DependentSteps[otherStep.ID] = true
 							deleteCondition.Queue.update(otherStep.ID, true)
+
+							fileParam = true
+
 							break
 						}
 					}
@@ -113,25 +128,30 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 				fmt.Println("\tlooking at workflow output: ", workflowOutput.ID)
 				// FIXME - again assuming exactly one source - need case handling
 				// also need to determine whether it should ever be the case that len(source) != 1
-				if workflowOutput.Source[0] == stepOutput.ID {
+				// HERE - check that param corresponds to files
+				if workflowOutput.Source[0] == stepOutput.ID && outputParamFile(workflowOutput) {
 					fmt.Println("\tfound parent dependency!")
+
+					fmt.Println("workflowOutput:")
+					printJSON(workflowOutput)
+
 					deleteCondition.WorkflowOutput = true
+
+					fileParam = true
+
 					break
 				}
 			}
 
-			// HERE:
-			//
-			// i) (DONE) update deleteCondition queue when a corresponding step finishes running
-			// i.5) (DONE) launch monitoring per step
-			// ii) (DONE) delete action upon condition met
-
 			// 6. monitor delete condition -> delete when condition == true
-			fmt.Println("\tlaunching go routine to delete files at condition")
-			key := CleanupKey{step.ID, stepOutput.ID}
-			engine.CleanupProcs[key] = true
-			go engine.monitorParamDeps(task, step.ID, stepOutput.ID)
-			go engine.deleteFilesAtCondition(task, step, stepOutput.ID)
+			// only launch these routines if param corresponds to files
+			if fileParam {
+				fmt.Println("\tlaunching go routine to delete files at condition")
+				key := CleanupKey{step.ID, stepOutput.ID}
+				engine.CleanupProcs[key] = true
+				go engine.monitorParamDeps(task, step.ID, stepOutput.ID)
+				go engine.deleteFilesAtCondition(task, step, stepOutput.ID)
+			}
 		}
 	}
 	return nil
@@ -185,6 +205,9 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 // 3. these files do not correspond to output params of the parent workflow
 //
 // i.e., the files are there and we know it's safe to delete them
+//
+// Q: what about secondaryFiles? probably those should be deleted as well
+// -- assuming an intermediate file's secondaryFiles are also "intermediate" and ultimately not needed
 func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteIntermediateFiles for: ", step.ID, outputParam)
 	childTask := task.Children[step.ID]
