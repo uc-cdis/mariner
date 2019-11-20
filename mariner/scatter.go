@@ -89,7 +89,7 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 				// wait for scattered task to finish
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
-			totalOutput[scatterTask.ScatterIndex] = scatterTask.Outputs
+			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note: scatter index starts at 1, not 0
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
