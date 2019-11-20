@@ -71,6 +71,10 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 }
 
 // Additionally, TODO - log input for parent scatter task
+// FIXME - pretty sure this function isn't built right
+// need to review scatter cwl spec - certain PARAMETERS are scattered
+// for the scatter task, need to collect scattered tasks *per scatter task output perameter*
+// i.e., iterate through the output params of the scattered STEP
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	fmt.Println("gathering scatter outputs..")
 	task.Outputs = make(map[string]interface{})
@@ -78,13 +82,14 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	var wg sync.WaitGroup
 	for _, scatterTask := range task.ScatterTasks {
 		wg.Add(1)
+		// HERE - add sync.Lock mechanism for safe concurrent writing to map
 		go func(scatterTask *Task, totalOutput []map[string]interface{}) {
 			defer wg.Done()
 			for !*scatterTask.Done {
 				// wait for scattered task to finish
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
-			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note: ScatterIndex begins at 1, not 0
+			totalOutput[scatterTask.ScatterIndex] = scatterTask.Outputs
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
