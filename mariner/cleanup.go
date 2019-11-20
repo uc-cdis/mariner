@@ -23,28 +23,28 @@ type CleanupByParam map[string]*DeleteCondition
 type DeleteCondition struct {
 	WorkflowOutput bool            // this an output of the top-level workflow
 	DependentSteps map[string]bool // static collection of steps which depend on using this output parameter
-	Queue          *GoMap          // each time a dependent step finishes, remove it from the Queue
+	Queue          *GoQueue        // each time a dependent step finishes, remove it from the Queue
 }
 
-// GoMap is safe for concurrent read/write
-// FIXME - do NOT use an interface here
-// create separate types for different kinds of maps
+// TODO - create separate concurrent-safe map types for different kinds of maps
 // there are only a few
-type GoMap struct {
+
+// GoQueue is safe for concurrent read/write
+type GoQueue struct {
 	sync.RWMutex
-	Map map[string]interface{}
+	Map map[string]bool
 }
 
-func (m *GoMap) update(key string, val interface{}) {
+func (m *GoQueue) update(k string, v bool) {
 	m.Lock()
 	defer m.Unlock()
-	m.Map[key] = val
+	m.Map[k] = v
 }
 
-func (m *GoMap) delete(key string) {
+func (m *GoQueue) delete(k string) {
 	m.Lock()
 	defer m.Unlock()
-	delete(m.Map, key)
+	delete(m.Map, k)
 }
 
 // CleanupKey uniquely identifies (within a workflow) a set of files to monitor/delete
@@ -79,8 +79,8 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			(*task.CleanupByStep)[step.ID][stepOutput.ID] = &DeleteCondition{
 				WorkflowOutput: false,
 				DependentSteps: make(map[string]bool),
-				Queue: &GoMap{
-					Map: make(map[string]interface{}),
+				Queue: &GoQueue{
+					Map: make(map[string]bool),
 				},
 			}
 
