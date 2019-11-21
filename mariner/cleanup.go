@@ -252,6 +252,7 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 				printJSON(m)
 				continue
 			}
+			fmt.Println("deleting file: ", path)
 			err = os.Remove(path)
 			if err != nil {
 				fmt.Println("error deleting file: ", err)
