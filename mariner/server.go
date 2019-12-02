@@ -262,7 +262,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	// update status of 'main' (i.e., the engine process, the top-level workflow process)
 	runLog.Main.Status = cancelled
 	// write to logdb
-	runLog.write()
+	runLog.serverWrite(userID, runID)
 
 	// then wait til engine job is killed, and kill all associated task jobs
 	go func(runLog *MainLog, jc batchtypev1.JobInterface) {
@@ -294,7 +294,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 		fmt.Println("successfully deleted task jobs")
 
 		// update logdb with cancelled tasks
-		runLog.write()
+		runLog.serverWrite(userID, runID)
 	}(runLog, jc)
 
 	j.Result = success

@@ -1,6 +1,7 @@
 package mariner
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -106,6 +107,36 @@ func fetchMainLog(userID, runID string) (*MainLog, error) {
 		return nil, fmt.Errorf("error unmarhsalling log: %v", err)
 	}
 	return log, nil
+}
+
+func (mainLog *MainLog) serverWrite(userID, runID string) error {
+	sess, err := newS3Session()
+	if err != nil {
+		return err
+	}
+	// Create an uploader with the session and default options
+	uploader := s3manager.NewUploader(sess)
+
+	fmt.Println("marshalling MainLog to json..")
+	j, err := json.Marshal(*mainLog)
+	check(err)
+
+	fmt.Println("writing data to s3..")
+
+	objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
+
+	// Upload the file to S3.
+	_, err = uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(Config.Storage.S3.Name),
+		Key:    aws.String(objKey),
+		Body:   bytes.NewReader(j),
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to upload file, %v", err)
+	}
+
+	return nil
 }
 
 func mainLog(path string, request *WorkflowRequest) *MainLog {
