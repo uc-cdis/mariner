@@ -269,21 +269,21 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 		fmt.Println("sleeping out grace period..")
 		time.Sleep(150 * time.Second)
 
-		fmt.Println("collecting tasks..")
+		fmt.Println("collecting running tasks..")
 		taskJobs := []batchv1.Job{}
 		for taskID, task := range runLog.ByProcess {
 			fmt.Println("handling task ", taskID)
-			if task.JobID != "" {
+			if task.JobID != "" || task.Status == running {
 				fmt.Println("nonempty jobID: ", task.JobName)
 				job, err := jobByID(jc, task.JobID)
 				if err != nil {
 					fmt.Println("failed to fetch job with ID ", task.JobID)
 				}
-				fmt.Println("collected this job: ", task.JobName)
+				fmt.Println("collected this running job: ", task.JobName)
 				taskJobs = append(taskJobs, *job)
 
 				// update status of each task process to be killed
-				runLog.ByProcess[taskID].Status = cancelled
+				task.Status = cancelled
 			}
 		}
 		fmt.Println("deleting task jobs..")
