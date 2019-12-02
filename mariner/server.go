@@ -258,6 +258,12 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 		return j, err
 	}
 
+	// log
+	// update status of 'main' (i.e., the engine process, the top-level workflow process)
+	runLog.Main.Status = cancelled
+	// write to logdb
+	runLog.write()
+
 	// then wait til engine job is killed, and kill all associated task jobs
 	go func(runLog *MainLog, jc batchtypev1.JobInterface) {
 		fmt.Println("sleeping out grace period..")
@@ -275,6 +281,9 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 				}
 				fmt.Println("collected this job: ", task.JobName)
 				taskJobs = append(taskJobs, *job)
+
+				// update status of each task process to be killed
+				runLog.ByProcess[taskID].Status = cancelled
 			}
 		}
 		fmt.Println("deleting task jobs..")
@@ -283,6 +292,9 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 			fmt.Println("error deleting task jobs: ", err)
 		}
 		fmt.Println("successfully deleted task jobs")
+
+		// update logdb with cancelled tasks
+		runLog.write()
 	}(runLog, jc)
 
 	j.Result = success

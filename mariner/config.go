@@ -37,6 +37,7 @@ const (
 	completed  = "completed"   // 0
 	unknown    = "unknown"
 	success    = "success"
+	cancelled  = "cancelled"
 
 	// log levels
 	infoLogLevel    = "INFO"
