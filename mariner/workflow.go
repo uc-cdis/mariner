@@ -333,8 +333,8 @@ func (engine *K8sEngine) runSteps(task *Task) {
 	// store a map of {outputID: stepID} pairs to trace step i/o dependency (edit: AND create CleanupByStep field)
 	task.setupOutputMap()
 
-	// dev'ing
-	engine.cleanupByStep(task)
+	// dev'ing - not implementing for now
+	// engine.cleanupByStep(task)
 
 	task.InputIDMap = make(map[string]string)
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
