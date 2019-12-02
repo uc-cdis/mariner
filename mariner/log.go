@@ -20,7 +20,7 @@ import (
 
 // MainLog is the interface for writing logs to workflowHistorydb
 type MainLog struct {
-	Path      string           `json:"-"` // path to log file to write/update
+	Path      string           `json:"path"` // tentative  - maybe can't write this - path to log file to write/update
 	Request   *WorkflowRequest `json:"request"`
 	Main      *Log             `json:"main"`
 	ByProcess map[string]*Log  `json:"byProcess"`
