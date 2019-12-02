@@ -245,6 +245,10 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	if err != nil {
 		return j, err
 	}
+
+	// log
+	runLog.Main.Event.info("cancelling run")
+
 	jc := jobClient()
 	engineJob, err := jobByID(jc, runLog.Main.JobID)
 	if err != nil {
@@ -255,12 +259,17 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	fmt.Println("deleting engine job..")
 	err = deleteJobs([]batchv1.Job{*engineJob}, running, jc)
 	if err != nil {
+		// log
+		runLog.Main.Event.errorf("error killing engine job: %v", err)
 		return j, err
 	}
 
 	// log
+	runLog.Main.Event.info("successfully killed engine job")
+
 	// update status of 'main' (i.e., the engine process, the top-level workflow process)
 	runLog.Main.Status = cancelled
+
 	// write to logdb
 	runLog.serverWrite(userID, runID)
 
@@ -281,6 +290,9 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 				}
 				fmt.Println("collected this running job: ", task.JobName)
 				taskJobs = append(taskJobs, *job)
+
+				// log
+				task.Event.info("task process killed")
 
 				// update status of each task process to be killed
 				task.Status = cancelled
