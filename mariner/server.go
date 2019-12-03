@@ -249,15 +249,15 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	// log
 	runLog.Main.Event.info("cancelling run")
 
-	jc := jobClient()
-	engineJob, err := jobByID(jc, runLog.Main.JobID)
+	jobsClient, _ := k8sClient(k8sJobAPI)
+	engineJob, err := jobByID(jobsClient, runLog.Main.JobID)
 	if err != nil {
 		return j, err
 	}
 
 	// first kill engine job
 	fmt.Println("deleting engine job..")
-	err = deleteJobs([]batchv1.Job{*engineJob}, running, jc)
+	err = deleteJobs([]batchv1.Job{*engineJob}, running, jobsClient)
 	if err != nil {
 		// log
 		runLog.Main.Event.errorf("error killing engine job: %v", err)
@@ -274,7 +274,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	runLog.serverWrite(userID, runID)
 
 	// then wait til engine job is killed, and kill all associated task jobs
-	go func(runLog *MainLog, jc batchtypev1.JobInterface) {
+	go func(runLog *MainLog, jobsClient batchtypev1.JobInterface) {
 		fmt.Println("sleeping out grace period..")
 		time.Sleep(150 * time.Second)
 
@@ -284,7 +284,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 			fmt.Println("handling task ", taskID)
 			if task.JobID != "" {
 				fmt.Println("nonempty jobID: ", task.JobName)
-				job, err := jobByID(jc, task.JobID)
+				job, err := jobByID(jobsClient, task.JobID)
 				if err != nil {
 					fmt.Println("failed to fetch job with ID ", task.JobID)
 				}
@@ -309,7 +309,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 			fmt.Print("no running task jobs to kill")
 		default:
 			fmt.Println("deleting task jobs..")
-			err = deleteJobs(taskJobs, running, jc)
+			err = deleteJobs(taskJobs, running, jobsClient)
 			if err != nil {
 				fmt.Println("error deleting task jobs: ", err)
 			}
@@ -317,7 +317,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 		}
 		// update logdb with cancelled tasks
 		runLog.serverWrite(userID, runID)
-	}(runLog, jc)
+	}(runLog, jobsClient)
 
 	j.Result = success
 	return j, nil

@@ -12,7 +12,7 @@ import (
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
 )
 
-// this file contains all the k8s details for creating job spec for mariner-engine and mariner-task jobs
+// this file contains code for creating job spec for mariner-engine and mariner-task jobs
 
 // unfortunate terminology thing: the "workflow job" and the "engine job" are the same thing
 // when I say "run a workflow job",

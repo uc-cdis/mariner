@@ -9,7 +9,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	// metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 // this file contains code for interacting with k8s cluster via k8s api
@@ -27,7 +29,7 @@ type JobInfo struct {
 // TODO - decide on an approach to error handling, and apply it uniformly
 func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err error) {
 	// get connection to cluster in order to dispatch jobs
-	jobsClient := jobClient()
+	jobsClient, _ := k8sClient(k8sJobAPI)
 
 	// create the workflow job spec (i.e., mariner-engine job spec)
 	jobSpec, runID, err := workflowJob(workflowRequest)
@@ -48,10 +50,35 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err er
 	return runID, nil
 }
 
+// dev'ing
+func (tool *Tool) collectResourceUsage() {
+	// podsClient := core.
+	// label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
+
+	// need to wait til pod exists
+	// til metrics become available
+	// as soon as they're available, log them as a time series
+
+	// Q. does resource usage vary over time, or is it sufficient to collect them once?
+	// A. resource usage is a TIME SERIES - for now, collect the whole thing
+	// -- maybe in the end will only want min/max/mean etc.
+
+	// HERE
+	//	_, podsClient := k8sClient(k8sPodAPI)
+	// ...
+	/*
+		var cpu, mem *ResourceStat = &tool.Task.Log.Stats.CPU, &tool.Task.Log.Stats.Memory
+		for cpu.Actual == 0 && mem.Actual == 0 {
+		}
+	*/
+
+	return
+}
+
 func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	fmt.Println("\tCreating k8s job spec..")
 	batchJob, nil := engine.taskJob(tool)
-	jobsClient := jobClient()
+	jobsClient, _ := k8sClient(k8sJobAPI)
 	fmt.Println("\tRunning k8s job..")
 	newJob, err := jobsClient.Create(batchJob)
 	if err != nil {
@@ -71,19 +98,20 @@ func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	return nil
 }
 
-func jobClient() batchtypev1.JobInterface {
+func k8sClient(k8sAPI string) (jobsClient batchtypev1.JobInterface, podsClient v1.PodInterface) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
 	}
 	clientset, err := kubernetes.NewForConfig(config)
-	batchClient := clientset.BatchV1()
-
-	// provide k8s namespace in which to dispatch jobs
-	// namespace is inherited from whatever namespace the mariner-server was deployed in
-	jobsClient := batchClient.Jobs(os.Getenv("GEN3_NAMESPACE"))
-
-	return jobsClient
+	namespace := os.Getenv("GEN3_NAMESPACE")
+	switch k8sAPI {
+	case k8sJobAPI:
+		jobsClient = clientset.BatchV1().Jobs(namespace)
+	case k8sPodAPI:
+		podsClient = clientset.CoreV1().Pods(namespace)
+	}
+	return jobsClient, podsClient
 }
 
 func jobByID(jc batchtypev1.JobInterface, jobID string) (*batchv1.Job, error) {
@@ -120,7 +148,8 @@ func engineJobID(jc batchtypev1.JobInterface, jobName string) string {
 }
 
 func jobStatusByID(jobID string) (*JobInfo, error) {
-	job, err := jobByID(jobClient(), jobID)
+	jobsClient, _ := k8sClient(k8sJobAPI)
+	job, err := jobByID(jobsClient, jobID)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +181,7 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 // jobs with status COMPLETED are deleted
 // ---> since all logs/other information are collected immmediately when the job finishes
 func deleteCompletedJobs() {
-	jobsClient := jobClient()
+	jobsClient, _ := k8sClient(k8sJobAPI)
 	for {
 		jobs, err := listMarinerJobs(jobsClient)
 		if err != nil {

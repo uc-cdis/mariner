@@ -39,6 +39,9 @@ const (
 	success    = "success"
 	cancelled  = "cancelled"
 
+	k8sJobAPI = "k8sJobAPI"
+	k8sPodAPI = "k8sPodAPI"
+
 	// log levels
 	infoLogLevel    = "INFO"
 	warningLogLevel = "WARNING"
