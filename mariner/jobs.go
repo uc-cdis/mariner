@@ -11,7 +11,6 @@ import (
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	// metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 // this file contains code for interacting with k8s cluster via k8s api
@@ -50,10 +49,9 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err er
 	return runID, nil
 }
 
-// dev'ing
+/*
+// dev'ing - split this out into smaller, modular bits
 func (tool *Tool) collectResourceUsage() {
-	// podsClient := core.
-	// label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
 	// need to wait til pod exists
 	// til metrics become available
@@ -63,17 +61,63 @@ func (tool *Tool) collectResourceUsage() {
 	// A. resource usage is a TIME SERIES - for now, collect the whole thing
 	// -- maybe in the end will only want min/max/mean etc.
 
-	// HERE
-	//	_, podsClient := k8sClient(k8sPodAPI)
-	// ...
-	/*
-		var cpu, mem *ResourceStat = &tool.Task.Log.Stats.CPU, &tool.Task.Log.Stats.Memory
-		for cpu.Actual == 0 && mem.Actual == 0 {
-		}
-	*/
+	// collect until job status is 'complete' (?)
 
+	_, podsClient := k8sClient(k8sPodAPI)
+	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
+
+	podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		fmt.Println("error fetching task pod: ", err)
+		// log
+	}
+
+	// here need to check length of list
+	// probably need to wait until pod exists
+	// i.e., until length(podList.Items) == 1
+	// length should never be bigger than 1 - should we cover for this?
+	taskPod := podList.Items[0]
+	podName := taskPod.Name
+
+	// probably wrap this bit into a function, or incorporate into the k8sClient function
+	// could create a k8sAPI interface
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	clientSet, err := metricsClient.NewForConfig(config)
+	// handle err
+	// HERE
+	namespace := os.Getenv("GEN3_NAMESPACE")
+	field := fmt.Sprintf("metadata.name=%v", podName)
+	podMetricsList, err := clientSet.MetricsV1alpha1().PodMetricses(namespace).List(metav1.ListOptions{FieldSelector: field})
+	// handle err
+
+	// again, make this more robust - don't assume len==1
+	containerMetricsList := podMetricsList.Items[0].Containers
+
+	// retrieve task container
+	var taskContainerMetrics metricsAlpha1.ContainerMetrics
+	for _, container := range containerMetricsList {
+		if container.Name == taskContainerName {
+			taskContainerMetrics = container
+		}
+	}
+
+	// extract resource usage
+	cpu := taskContainerMetrics.usage.cpu
+	mem := taskContainerMetrics.usage.mem
+
+	// HERE finish the function
+	// 1. put this in a loop
+	// 2. handle err's
+	// 3. make more robust
+	// 4. split out into smaller functions
+	// 5. update log struct definition to accommodate resource usage time series
+	// 6. match period of resource monitoring to k8s period (30s? - need to check)
 	return
 }
+*/
 
 func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	fmt.Println("\tCreating k8s job spec..")

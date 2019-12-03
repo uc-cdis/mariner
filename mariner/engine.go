@@ -261,7 +261,8 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	fmt.Println("\tListening for job to finish..")
 
 	// here collect resource metrics via k8s api
-	go tool.collectResourceUsage()
+	// dev'ing
+	// go tool.collectResourceUsage()
 
 	status := ""
 	for status != completed {

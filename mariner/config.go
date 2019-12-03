@@ -25,6 +25,9 @@ const (
 	commonsDataVolumeName     = "commons-data"
 	configVolumeName          = "mariner-config"
 
+	// container name
+	taskContainerName = "mariner-task"
+
 	// file path prefixes - used to differentiate COMMONS vs USER vs marinerEngine WORKSPACE file
 	// user specifies commons datafile by "COMMONS/<GUID>"
 	// user specifies user datafile by "USER/<path>"
