@@ -282,7 +282,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 		taskJobs := []batchv1.Job{}
 		for taskID, task := range runLog.ByProcess {
 			fmt.Println("handling task ", taskID)
-			if task.JobID != "" || task.Status == running {
+			if task.JobID != "" {
 				fmt.Println("nonempty jobID: ", task.JobName)
 				job, err := jobByID(jc, task.JobID)
 				if err != nil {
@@ -295,6 +295,12 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 				task.Event.info("task process killed")
 
 				// update status of each task process to be killed
+				task.Status = cancelled
+			} else if task.Status == running {
+				// some running tasks may finish in this grace period
+				// although those task processes finish, output is not collected from them
+				// because the engine process has already been killed
+				// so the most appropriate status for these tasks is 'cancelled'
 				task.Status = cancelled
 			}
 		}
