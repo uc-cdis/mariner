@@ -11,6 +11,8 @@ import (
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	metricsAlpha1 "k8s.io/metrics/pkg/apis/metrics/v1alpha1"
+	metricsClient "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 // this file contains code for interacting with k8s cluster via k8s api
@@ -49,9 +51,13 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err er
 	return runID, nil
 }
 
-/*
 // dev'ing - split this out into smaller, modular bits
+// REFACTOR
 func (tool *Tool) collectResourceUsage() {
+
+	// HERE finish the function
+	// 3. make more robust
+	// 4. split out into smaller functions
 
 	// need to wait til pod exists
 	// til metrics become available
@@ -66,58 +72,60 @@ func (tool *Tool) collectResourceUsage() {
 	_, podsClient := k8sClient(k8sPodAPI)
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
-	podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
-	if err != nil {
-		fmt.Println("error fetching task pod: ", err)
-		// log
-	}
+	cpuStats := tool.Task.Log.Stats.CPU.Actual
+	memStats := tool.Task.Log.Stats.Memory.Actual
 
-	// here need to check length of list
-	// probably need to wait until pod exists
-	// i.e., until length(podList.Items) == 1
-	// length should never be bigger than 1 - should we cover for this?
-	taskPod := podList.Items[0]
-	podName := taskPod.Name
-
-	// probably wrap this bit into a function, or incorporate into the k8sClient function
-	// could create a k8sAPI interface
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err.Error())
-	}
-	clientSet, err := metricsClient.NewForConfig(config)
-	// handle err
-	// HERE
-	namespace := os.Getenv("GEN3_NAMESPACE")
-	field := fmt.Sprintf("metadata.name=%v", podName)
-	podMetricsList, err := clientSet.MetricsV1alpha1().PodMetricses(namespace).List(metav1.ListOptions{FieldSelector: field})
-	// handle err
-
-	// again, make this more robust - don't assume len==1
-	containerMetricsList := podMetricsList.Items[0].Containers
-
-	// retrieve task container
-	var taskContainerMetrics metricsAlpha1.ContainerMetrics
-	for _, container := range containerMetricsList {
-		if container.Name == taskContainerName {
-			taskContainerMetrics = container
+	for !*tool.Task.Done {
+		podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
+		if err != nil {
+			fmt.Println("error fetching task pod: ", err)
+			// log
 		}
+		taskPod := podList.Items[0]
+		podName := taskPod.Name
+
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			panic(err.Error())
+		}
+		clientSet, err := metricsClient.NewForConfig(config)
+		if err != nil {
+			panic(err.Error())
+		}
+
+		namespace := os.Getenv("GEN3_NAMESPACE")
+		field := fmt.Sprintf("metadata.name=%v", podName)
+
+		podMetricsList, err := clientSet.MetricsV1alpha1().PodMetricses(namespace).List(metav1.ListOptions{FieldSelector: field})
+		if err != nil {
+			panic(err.Error())
+		}
+		containerMetricsList := podMetricsList.Items[0].Containers
+		var taskContainerMetrics metricsAlpha1.ContainerMetrics
+		for _, container := range containerMetricsList {
+			if container.Name == taskContainerName {
+				taskContainerMetrics = container
+			}
+		}
+
+		// extract cpu usage
+		cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
+		if !ok {
+			panic(err.Error())
+		}
+		cpuStats = append(cpuStats, cpu)
+
+		// extract memory usage
+		mem, ok := taskContainerMetrics.Usage.Memory().AsInt64()
+		if !ok {
+			panic(err.Error())
+		}
+		memStats = append(memStats, mem)
+
+		time.Sleep(30 * time.Second)
 	}
-
-	// extract resource usage
-	cpu := taskContainerMetrics.usage.cpu
-	mem := taskContainerMetrics.usage.mem
-
-	// HERE finish the function
-	// 1. put this in a loop
-	// 2. handle err's
-	// 3. make more robust
-	// 4. split out into smaller functions
-	// 5. update log struct definition to accommodate resource usage time series
-	// 6. match period of resource monitoring to k8s period (30s? - need to check)
 	return
 }
-*/
 
 func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	fmt.Println("\tCreating k8s job spec..")

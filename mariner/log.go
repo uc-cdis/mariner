@@ -274,9 +274,9 @@ type Stats struct {
 
 // ResourceStat is for logging resource requests vs. actual usage
 type ResourceStat struct {
-	Min    int64 `json:"min,omitempty"`
-	Max    int64 `json:"max,omitempty"`
-	Actual int64 `json:"actual,omitempty"`
+	Min    int64   `json:"min,omitempty"`
+	Max    int64   `json:"max,omitempty"`
+	Actual []int64 `json:"actual,omitempty"`
 }
 
 // EventLog is an event logger for a mariner component (i.e., engine or task)
