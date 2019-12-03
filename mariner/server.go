@@ -304,13 +304,17 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 				task.Status = cancelled
 			}
 		}
-		fmt.Println("deleting task jobs..")
-		err = deleteJobs(taskJobs, running, jc)
-		if err != nil {
-			fmt.Println("error deleting task jobs: ", err)
+		switch l := len(taskJobs); l {
+		case 0:
+			fmt.Print("no running task jobs to kill")
+		default:
+			fmt.Println("deleting task jobs..")
+			err = deleteJobs(taskJobs, running, jc)
+			if err != nil {
+				fmt.Println("error deleting task jobs: ", err)
+			}
+			fmt.Println("successfully deleted task jobs")
 		}
-		fmt.Println("successfully deleted task jobs")
-
 		// update logdb with cancelled tasks
 		runLog.serverWrite(userID, runID)
 	}(runLog, jc)
