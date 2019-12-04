@@ -98,6 +98,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 			fmt.Println("no pod found for task job ", tool.Task.Log.JobName)
 			// log
 		case 1:
+			fmt.Println("found pod for task job ", tool.Task.Log.JobName)
 			cpu, mem = containerResourceUsage(podList.Items[0], taskContainerName)
 		default:
 			// expecting exactly one pod - though maybe it's possible there will be multiple pods,
@@ -163,6 +164,7 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 		panic(err.Error())
 	}
 
+	// FIXME - case handling for len() != 1
 	containerMetricsList := podMetricsList.Items[0].Containers
 	var taskContainerMetrics metricsBeta1.ContainerMetrics
 	for _, container := range containerMetricsList {
@@ -170,6 +172,9 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 			taskContainerMetrics = container
 		}
 	}
+
+	fmt.Println("taskContainerMetrics:")
+	printJSON(taskContainerMetrics)
 
 	// extract cpu usage
 	cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
