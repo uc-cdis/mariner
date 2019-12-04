@@ -231,7 +231,7 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 
 		// here collect resource metrics via k8s api
 		// dev'ing
-		go tool.collectResourceUsage()
+		go engine.collectResourceMetrics(tool)
 
 		if err = engine.listenForDone(tool); err != nil {
 			return fmt.Errorf("error listening for done: %v", err)
