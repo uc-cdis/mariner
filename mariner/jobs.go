@@ -117,13 +117,15 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 		cpuStats = append(cpuStats, cpu)
 		memStats = append(memStats, mem)
 
+		fmt.Printf("collected (mem, cpu) of (%v, %v)\n", mem, cpu)
+
 		// update logdb
 		engine.Log.write()
 
 		// wait out 30s window to next sample
 		time.Sleep(30 * time.Second)
 	}
-	fmt.Printf("task %v complete, exiting metrics monitoring loop", tool.Task.Root.ID)
+	fmt.Printf("task %v complete, exiting metrics monitoring loop\n", tool.Task.Root.ID)
 	// log
 	return
 }
