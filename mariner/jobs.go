@@ -10,11 +10,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
-	metricsAlpha1 "k8s.io/metrics/pkg/apis/metrics/v1alpha1"
+	metricsBeta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	metricsClient "k8s.io/metrics/pkg/client/clientset/versioned"
-	metricsTyped "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1alpha1"
+	metricsTyped "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 )
 
 // this file contains code for interacting with k8s cluster via k8s api
@@ -142,7 +142,7 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	}
 
 	containerMetricsList := podMetricsList.Items[0].Containers
-	var taskContainerMetrics metricsAlpha1.ContainerMetrics
+	var taskContainerMetrics metricsBeta1.ContainerMetrics
 	for _, container := range containerMetricsList {
 		if container.Name == targetContainer {
 			taskContainerMetrics = container
@@ -165,7 +165,7 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	return cpu, mem
 }
 
-func k8sClient(k8sAPI string) (jobsClient batchtypev1.JobInterface, podsClient v1.PodInterface, podMetricsClient metricsTyped.PodMetricsInterface) {
+func k8sClient(k8sAPI string) (jobsClient batchtypev1.JobInterface, podsClient corev1.PodInterface, podMetricsClient metricsTyped.PodMetricsInterface) {
 	namespace := os.Getenv("GEN3_NAMESPACE")
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -176,7 +176,8 @@ func k8sClient(k8sAPI string) (jobsClient batchtypev1.JobInterface, podsClient v
 		if err != nil {
 			panic(err.Error())
 		}
-		podMetricsClient = clientSet.MetricsV1alpha1().PodMetricses(namespace)
+		// podMetricsClient = clientSet.MetricsV1alpha1().PodMetricses(namespace)
+		podMetricsClient = clientSet.MetricsV1beta1().PodMetricses(namespace)
 		return nil, nil, podMetricsClient
 	}
 	clientset, err := kubernetes.NewForConfig(config)
