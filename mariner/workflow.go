@@ -189,7 +189,7 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	engine.Log.Main = mainTask.Log
 
 	mainTask.Log.JobName = jobName
-	jobsClient, _ := k8sClient(k8sJobAPI)
+	jobsClient, _, _ := k8sClient(k8sJobAPI)
 	mainTask.Log.JobID = engineJobID(jobsClient, jobName)
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph

@@ -249,7 +249,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	// log
 	runLog.Main.Event.info("cancelling run")
 
-	jobsClient, _ := k8sClient(k8sJobAPI)
+	jobsClient, _, _ := k8sClient(k8sJobAPI)
 	engineJob, err := jobByID(jobsClient, runLog.Main.JobID)
 	if err != nil {
 		return j, err

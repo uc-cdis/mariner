@@ -228,6 +228,11 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 		if err = engine.runCommandLineTool(tool); err != nil {
 			return err
 		}
+
+		// here collect resource metrics via k8s api
+		// dev'ing
+		go tool.collectResourceUsage()
+
 		if err = engine.listenForDone(tool); err != nil {
 			return fmt.Errorf("error listening for done: %v", err)
 		}
@@ -259,11 +264,6 @@ func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
 // ----- handle the cases where the job status is not COMPLETED or RUNNING
 func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	fmt.Println("\tListening for job to finish..")
-
-	// here collect resource metrics via k8s api
-	// dev'ing
-	// go tool.collectResourceUsage()
-
 	status := ""
 	for status != completed {
 		jobInfo, err := jobStatusByID(tool.JobID)
