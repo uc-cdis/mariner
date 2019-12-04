@@ -61,14 +61,19 @@ func (tool *Tool) collectResourceUsage() {
 
 	// need to wait til pod exists
 	// til metrics become available
-	// as soon as they're available, log them as a time series
+	// as soon as they're available, begin logging them
 
-	// Q. does resource usage vary over time, or is it sufficient to collect them once?
-	// A. resource usage is a TIME SERIES - for now, collect the whole thing
-	// -- maybe in the end will only want min/max/mean etc.
+	// NOTE: resource usage is a TIME SERIES - for now, we collect the whole thing
+	// time points are every 30s (seems to be a k8s metrics monitoring default)
 
-	// collect until job status is 'complete' (?)
+	// Q. how to handle task retries for metrics monitoring?
+	// probably should keep the metrics for the failed attempt
+	// and then separately track the metrics for each retry
+	// this is to be handled when retry-logic is implemented
+	// question is, will the job name be the same?
+	// I believe so
 
+	// keep sampling resource usage until task finishes
 	_, podsClient := k8sClient(k8sPodAPI)
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
@@ -81,47 +86,61 @@ func (tool *Tool) collectResourceUsage() {
 			fmt.Println("error fetching task pod: ", err)
 			// log
 		}
-		taskPod := podList.Items[0]
-		podName := taskPod.Name
 
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			panic(err.Error())
-		}
-		clientSet, err := metricsClient.NewForConfig(config)
-		if err != nil {
-			panic(err.Error())
-		}
+		switch l := len(podList.Items); l {
+		case 0:
+			fmt.Println("no pod found for task job ", tool.Task.Log.JobName)
+			// log
+		case 1:
+			taskPod := podList.Items[0]
+			podName := taskPod.Name
 
-		namespace := os.Getenv("GEN3_NAMESPACE")
-		field := fmt.Sprintf("metadata.name=%v", podName)
-
-		podMetricsList, err := clientSet.MetricsV1alpha1().PodMetricses(namespace).List(metav1.ListOptions{FieldSelector: field})
-		if err != nil {
-			panic(err.Error())
-		}
-		containerMetricsList := podMetricsList.Items[0].Containers
-		var taskContainerMetrics metricsAlpha1.ContainerMetrics
-		for _, container := range containerMetricsList {
-			if container.Name == taskContainerName {
-				taskContainerMetrics = container
+			config, err := rest.InClusterConfig()
+			if err != nil {
+				panic(err.Error())
 			}
-		}
+			clientSet, err := metricsClient.NewForConfig(config)
+			if err != nil {
+				panic(err.Error())
+			}
 
-		// extract cpu usage
-		cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
-		if !ok {
-			panic(err.Error())
-		}
-		cpuStats = append(cpuStats, cpu)
+			namespace := os.Getenv("GEN3_NAMESPACE")
+			field := fmt.Sprintf("metadata.name=%v", podName)
 
-		// extract memory usage
-		mem, ok := taskContainerMetrics.Usage.Memory().AsInt64()
-		if !ok {
-			panic(err.Error())
-		}
-		memStats = append(memStats, mem)
+			podMetricsList, err := clientSet.MetricsV1alpha1().PodMetricses(namespace).List(metav1.ListOptions{FieldSelector: field})
+			if err != nil {
+				panic(err.Error())
+			}
+			containerMetricsList := podMetricsList.Items[0].Containers
+			var taskContainerMetrics metricsAlpha1.ContainerMetrics
+			for _, container := range containerMetricsList {
+				if container.Name == taskContainerName {
+					taskContainerMetrics = container
+				}
+			}
 
+			// extract cpu usage
+			cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
+			if !ok {
+				panic(err.Error())
+			}
+			cpuStats = append(cpuStats, cpu)
+
+			// extract memory usage
+			mem, ok := taskContainerMetrics.Usage.Memory().AsInt64()
+			if !ok {
+				panic(err.Error())
+			}
+			memStats = append(memStats, mem)
+
+		default:
+			// expecting exactly one pod - though maybe it's possible there will be multiple pods,
+			// if one pod is created but fails or errors, and the job controller creates a second pod
+			// while the other one is error'ing or terminating
+			// need to handle this case
+			fmt.Println("found an unexpected number of pods associated with task job ", tool.Task.Log.JobName)
+			// log
+		}
 		time.Sleep(30 * time.Second)
 	}
 	return
