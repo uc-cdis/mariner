@@ -165,14 +165,13 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	fmt.Println("in containerResourceUseage()..")
 	_, _, podMetrics := k8sClient(k8sMetricsAPI)
 
-	// FIXME - bug here - list returned not filtered by listOptions
-	// in the first place, just need to get any list that has the desired pod
-	// then apply a filter
-	/*
-		field := fmt.Sprintf("metadata.name=%v", pod.Name)
-		podMetricsList, err := podMetrics.List(metav1.ListOptions{FieldSelector: field})
-	*/
-	podMetricsList, err := podMetrics.List(metav1.ListOptions{})
+	fmt.Println("given this pod: ")
+	printJSON(pod)
+
+	// FIXME - bug here - listOptions
+	field := fmt.Sprintf("metadata.name=%v", pod.Name)
+	fmt.Println("fieldSelector: ", field)
+	podMetricsList, err := podMetrics.List(metav1.ListOptions{FieldSelector: field})
 	if err != nil {
 		panic(err.Error())
 	}
