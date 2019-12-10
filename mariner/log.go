@@ -213,7 +213,7 @@ type Log struct {
 	JobID          string                 `json:"jobID,omitempty"`       // okay
 	JobName        string                 `json:"jobName,omitempty"`     // keeping for now, but might be redundant w jobID
 	Status         string                 `json:"status"`                // okay
-	Stats          Stats                  `json:"stats"`                 // TODO
+	Stats          *Stats                 `json:"stats"`                 // TODO
 	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
 	Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
 	Output         map[string]interface{} `json:"output"`                // okay
@@ -256,6 +256,7 @@ func logger() *Log {
 	logger := &Log{
 		Status: notStarted,
 		Input:  make(map[string]interface{}),
+		Stats:  &Stats{},
 	}
 	return logger
 }

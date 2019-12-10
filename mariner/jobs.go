@@ -75,7 +75,6 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
 	tool.Task.Log.Stats.ResourceUsage = ResourceUsageSeries{}
-	stats := tool.Task.Log.Stats.ResourceUsage
 
 	fmt.Println("initiating metrics monitoring for task ", tool.Task.Root.ID)
 	// log
@@ -119,7 +118,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 			CPU:    cpu,
 			Memory: mem,
 		}
-		stats = append(stats, p)
+		tool.Task.Log.Stats.ResourceUsage = append(tool.Task.Log.Stats.ResourceUsage, p)
 
 		fmt.Printf("collected (mem, cpu) of (%v, %v)\n", mem, cpu)
 
