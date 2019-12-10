@@ -267,7 +267,7 @@ func logger() *Log {
 type Stats struct {
 	CPUReq        ResourceRequirement `json:"cpuReq"` // in-progress
 	MemoryReq     ResourceRequirement `json:"memReq"` // in-progress
-	ResourceUsage ResourceUsageSeries `json:"resourceUsage"`
+	ResourceUsage ResourceUsage       `json:"resourceUsage"`
 	Duration      float64             `json:"duration"`  // okay - currently measured in minutes
 	DurationObj   time.Duration       `json:"-"`         // okay
 	NFailures     int                 `json:"nfailures"` // TODO
@@ -278,6 +278,11 @@ type Stats struct {
 type ResourceRequirement struct {
 	Min int64 `json:"min"`
 	Max int64 `json:"max"`
+}
+
+type ResourceUsage struct {
+	Series         ResourceUsageSeries `json:"data"`
+	SamplingPeriod int                 `json:"samplingPeriod"`
 }
 
 type ResourceUsageSeries []ResourceUsageSamplePoint

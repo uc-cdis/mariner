@@ -74,7 +74,8 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 	_, podsClient, _ := k8sClient(k8sPodAPI)
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
-	tool.Task.Log.Stats.ResourceUsage = ResourceUsageSeries{}
+	tool.Task.Log.Stats.ResourceUsage.Series = ResourceUsageSeries{}
+	tool.Task.Log.Stats.ResourceUsage.SamplingPeriod = metricsSamplingPeriod
 
 	fmt.Println("initiating metrics monitoring for task ", tool.Task.Root.ID)
 	// log
@@ -118,7 +119,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 			CPU:    cpu,
 			Memory: mem,
 		}
-		tool.Task.Log.Stats.ResourceUsage = append(tool.Task.Log.Stats.ResourceUsage, p)
+		tool.Task.Log.Stats.ResourceUsage.Series = append(tool.Task.Log.Stats.ResourceUsage.Series, p)
 
 		fmt.Printf("collected (mem, cpu) of (%v, %v)\n", mem, cpu)
 
@@ -126,7 +127,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 		engine.Log.write()
 
 		// wait out 30s window to next sample
-		time.Sleep(30 * time.Second)
+		time.Sleep(metricsSamplingPeriod * time.Second)
 	}
 	fmt.Printf("task %v complete, exiting metrics monitoring loop\n", tool.Task.Root.ID)
 	// log

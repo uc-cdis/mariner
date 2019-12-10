@@ -63,6 +63,9 @@ const (
 	// HTTP
 	authHeader = "Authorization"
 
+	// metrics collection sampling period (in seconds)
+	metricsSamplingPeriod = 30
+
 	// paths for engine
 	pathToCommonsData = "/commons-data/data/by-guid/"
 	pathToRunf        = "/engine-workspace/workflowRuns/%v/" // fill with runID
