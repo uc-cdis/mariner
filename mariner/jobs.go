@@ -183,7 +183,8 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 
 	fmt.Println("pod names:")
 
-	var taskContainerMetrics metricsBeta1.ContainerMetrics
+	////// put this in a function
+	var containerMetrics metricsBeta1.ContainerMetrics
 	var containerMetricsList []metricsBeta1.ContainerMetrics
 	for _, i := range podMetricsList.Items {
 		fmt.Println(i.Name)
@@ -192,28 +193,35 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 			for _, container := range containerMetricsList {
 				fmt.Println("container name: ", container.Name)
 				if container.Name == targetContainer {
-					taskContainerMetrics = container
+					containerMetrics = container
 				}
 			}
 		}
-
 	}
 
 	fmt.Println("targetContainer: ", targetContainer)
 
-	fmt.Println("taskContainerMetrics:")
-	printJSON(taskContainerMetrics)
+	fmt.Println("containerMetrics:")
+	printJSON(containerMetrics)
 
+	if containerMetrics.Name == "" {
+		fmt.Println("container not found in list returned by metrics API")
+		return 0, 0
+	}
+	///////
+
+	// FIXME - failing to collect cpu - has to do with units..
+	// pick a unit/scale/datatype and stick to it
 	// extract cpu usage - fails to fetch as int64
 	// cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
-	cpu, ok := taskContainerMetrics.Usage.Cpu().ToDec().AsInt64()
+	cpu, ok := containerMetrics.Usage.Cpu().AsDec().Unscaled()
 	if !ok {
 		fmt.Println("failed to fetch cpu as int64")
 		// log
 	}
 
 	// extract memory usage
-	mem, ok := taskContainerMetrics.Usage.Memory().AsInt64()
+	mem, ok := containerMetrics.Usage.Memory().AsInt64()
 	if !ok {
 		fmt.Println("failed to fetch mem as int64")
 		// log
