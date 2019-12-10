@@ -98,6 +98,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 			fmt.Println("no pod found for task job ", tool.Task.Log.JobName)
 			// log
 		case 1:
+			// this looks fine
 			fmt.Println("found pod for task job ", tool.Task.Log.JobName)
 			fmt.Println("here is the podList:")
 			printJSON(podList)
@@ -164,9 +165,14 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	fmt.Println("in containerResourceUseage()..")
 	_, _, podMetrics := k8sClient(k8sMetricsAPI)
 
-	// does this work? looks like many different pods are getting returned
-	field := fmt.Sprintf("metadata.name=%v", pod.Name)
-	podMetricsList, err := podMetrics.List(metav1.ListOptions{FieldSelector: field})
+	// FIXME - bug here - list returned not filtered by listOptions
+	// in the first place, just need to get any list that has the desired pod
+	// then apply a filter
+	/*
+		field := fmt.Sprintf("metadata.name=%v", pod.Name)
+		podMetricsList, err := podMetrics.List(metav1.ListOptions{FieldSelector: field})
+	*/
+	podMetricsList, err := podMetrics.List(metav1.ListOptions{})
 	if err != nil {
 		panic(err.Error())
 	}
