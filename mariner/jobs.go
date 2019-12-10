@@ -169,9 +169,11 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	printJSON(pod)
 
 	// FIXME - bug here - listOptions
-	field := fmt.Sprintf("metadata.name=%v", pod.Name)
-	fmt.Println("fieldSelector: ", field)
-	podMetricsList, err := podMetrics.List(metav1.ListOptions{FieldSelector: field})
+	// field is "metadata.name=read-from-commons-and-user.cwl-cdtth" - doesn't work
+
+	// field := fmt.Sprintf("metadata.name=%v", pod.Name)
+	// fmt.Println("fieldSelector: ", field)
+	podMetricsList, err := podMetrics.List(metav1.ListOptions{})
 	if err != nil {
 		panic(err.Error())
 	}
@@ -180,22 +182,24 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	printJSON(podMetricsList)
 
 	fmt.Println("pod names:")
-	for _, retPod := range podMetricsList.Items {
-		fmt.Println(retPod.Name)
+
+	var taskContainerMetrics metricsBeta1.ContainerMetrics
+	var containerMetricsList []metricsBeta1.ContainerMetrics
+	for _, i := range podMetricsList.Items {
+		fmt.Println(i.Name)
+		if i.Name == pod.Name {
+			containerMetricsList = i.Containers
+			for _, container := range containerMetricsList {
+				fmt.Println("container name: ", container.Name)
+				if container.Name == targetContainer {
+					taskContainerMetrics = container
+				}
+			}
+		}
+
 	}
 
 	fmt.Println("targetContainer: ", targetContainer)
-
-	// FIXME - case handling for len() != 1
-	// HERE - looks like many pods are returned here
-	containerMetricsList := podMetricsList.Items[0].Containers
-	var taskContainerMetrics metricsBeta1.ContainerMetrics
-	for _, container := range containerMetricsList {
-		fmt.Println("container name: ", container.Name)
-		if container.Name == targetContainer {
-			taskContainerMetrics = container
-		}
-	}
 
 	fmt.Println("taskContainerMetrics:")
 	printJSON(taskContainerMetrics)
