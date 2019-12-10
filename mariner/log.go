@@ -276,8 +276,8 @@ type Stats struct {
 
 // ResourceStat is for logging resource requests vs. actual usage
 type ResourceRequirement struct {
-	Min int64 `json:"min,omitempty"`
-	Max int64 `json:"max,omitempty"`
+	Min int64 `json:"min"`
+	Max int64 `json:"max"`
 }
 
 type ResourceUsageSeries []ResourceUsageSamplePoint
