@@ -159,17 +159,28 @@ func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 
 // return (cpu, mem) for given (pod, container)
 func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int64) {
+	fmt.Println("in containerResourceUseage()..")
 	_, _, podMetrics := k8sClient(k8sMetricsAPI)
 
+	// does this work? looks like many different pods are getting returned
 	field := fmt.Sprintf("metadata.name=%v", pod.Name)
 	podMetricsList, err := podMetrics.List(metav1.ListOptions{FieldSelector: field})
 	if err != nil {
 		panic(err.Error())
 	}
 
+	fmt.Println("podMetricsList:")
+	printJSON(podMetricsList)
+
+	fmt.Println("pod names:")
+	for _, retPod := range podMetricsList.Items {
+		fmt.Println(retPod.Name)
+	}
+
 	fmt.Println("targetContainer: ", targetContainer)
 
 	// FIXME - case handling for len() != 1
+	// HERE - looks like many pods are returned here
 	containerMetricsList := podMetricsList.Items[0].Containers
 	var taskContainerMetrics metricsBeta1.ContainerMetrics
 	for _, container := range containerMetricsList {
