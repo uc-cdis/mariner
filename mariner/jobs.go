@@ -74,8 +74,8 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 	_, podsClient, _ := k8sClient(k8sPodAPI)
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
-	cpuStats := tool.Task.Log.Stats.CPU.Actual
-	memStats := tool.Task.Log.Stats.Memory.Actual
+	tool.Task.Log.Stats.ResourceUsage = ResourceUsageSeries{}
+	stats := tool.Task.Log.Stats.ResourceUsage
 
 	fmt.Println("initiating metrics monitoring for task ", tool.Task.Root.ID)
 	// log
@@ -115,8 +115,11 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 		// FIXME - update the type definition accordingly
 
 		// collect sample point
-		cpuStats = append(cpuStats, cpu)
-		memStats = append(memStats, mem)
+		p := ResourceUsageSamplePoint{
+			CPU:    cpu,
+			Memory: mem,
+		}
+		stats = append(stats, p)
 
 		fmt.Printf("collected (mem, cpu) of (%v, %v)\n", mem, cpu)
 
@@ -164,10 +167,13 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 		panic(err.Error())
 	}
 
+	fmt.Println("targetContainer: ", targetContainer)
+
 	// FIXME - case handling for len() != 1
 	containerMetricsList := podMetricsList.Items[0].Containers
 	var taskContainerMetrics metricsBeta1.ContainerMetrics
 	for _, container := range containerMetricsList {
+		fmt.Println("container name: ", container.Name)
 		if container.Name == targetContainer {
 			taskContainerMetrics = container
 		}

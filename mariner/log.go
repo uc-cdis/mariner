@@ -264,19 +264,26 @@ func logger() *Log {
 // recorded for tasks as well as workflows
 // Runtime for a workflow is the sum of runtime of that workflow's steps
 type Stats struct {
-	CPU         ResourceStat  `json:"cpu,omitempty"`      // in-progress
-	Memory      ResourceStat  `json:"memory,omitempty"`   // in-progress
-	Duration    float64       `json:"duration,omitempty"` // okay - currently measured in minutes
-	DurationObj time.Duration `json:"-"`                  // okay
-	NFailures   int           `json:"nfailures"`          // TODO
-	NRetries    int           `json:"nretries"`           // TODO
+	CPUReq        ResourceRequirement `json:"cpuReq,omitempty"` // in-progress
+	MemoryReq     ResourceRequirement `json:"memReq,omitempty"` // in-progress
+	ResourceUsage ResourceUsageSeries `json:"resourceUsage,omitempty"`
+	Duration      float64             `json:"duration,omitempty"` // okay - currently measured in minutes
+	DurationObj   time.Duration       `json:"-"`                  // okay
+	NFailures     int                 `json:"nfailures"`          // TODO
+	NRetries      int                 `json:"nretries"`           // TODO
 }
 
 // ResourceStat is for logging resource requests vs. actual usage
-type ResourceStat struct {
-	Min    int64   `json:"min,omitempty"`
-	Max    int64   `json:"max,omitempty"`
-	Actual []int64 `json:"actual,omitempty"`
+type ResourceRequirement struct {
+	Min int64 `json:"min,omitempty"`
+	Max int64 `json:"max,omitempty"`
+}
+
+type ResourceUsageSeries []ResourceUsageSamplePoint
+
+type ResourceUsageSamplePoint struct {
+	CPU    int64 `json:"cpu,omitempty"`
+	Memory int64 `json:"mem,omitempty"`
 }
 
 // EventLog is an event logger for a mariner component (i.e., engine or task)

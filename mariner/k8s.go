@@ -424,13 +424,13 @@ func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
 			// for info on quantities, see: https://godoc.org/k8s.io/apimachinery/pkg/api/resource#Quantity
 			if requirement.CoresMin > 0 {
 				cpuReq = int64(requirement.CoresMin)
-				tool.Task.Log.Stats.CPU.Min = cpuReq
+				tool.Task.Log.Stats.CPUReq.Min = cpuReq
 				requests[k8sv1.ResourceCPU] = *k8sResource.NewQuantity(cpuReq, k8sResource.DecimalSI)
 			}
 
 			if requirement.CoresMax > 0 {
 				cpuLim = int64(requirement.CoresMax)
-				tool.Task.Log.Stats.CPU.Max = cpuLim
+				tool.Task.Log.Stats.CPUReq.Max = cpuLim
 				limits[k8sv1.ResourceCPU] = *k8sResource.NewQuantity(cpuLim, k8sResource.DecimalSI)
 			}
 
@@ -438,13 +438,13 @@ func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
 			// here we convert mebibytes to bytes
 			if requirement.RAMMin > 0 {
 				memReq = int64(requirement.RAMMin * int(math.Pow(2, 20)))
-				tool.Task.Log.Stats.Memory.Min = memReq
+				tool.Task.Log.Stats.MemoryReq.Min = memReq
 				requests[k8sv1.ResourceMemory] = *k8sResource.NewQuantity(memReq, k8sResource.DecimalSI)
 			}
 
 			if requirement.RAMMax > 0 {
 				memLim = int64(requirement.RAMMax * int(math.Pow(2, 20)))
-				tool.Task.Log.Stats.Memory.Max = memLim
+				tool.Task.Log.Stats.MemoryReq.Max = memLim
 				limits[k8sv1.ResourceMemory] = *k8sResource.NewQuantity(memLim, k8sResource.DecimalSI)
 			}
 		}
