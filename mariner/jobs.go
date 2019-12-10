@@ -99,6 +99,8 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 			// log
 		case 1:
 			fmt.Println("found pod for task job ", tool.Task.Log.JobName)
+			fmt.Println("here is the podList:")
+			printJSON(podList)
 			cpu, mem = containerResourceUsage(podList.Items[0], taskContainerName)
 		default:
 			// expecting exactly one pod - though maybe it's possible there will be multiple pods,
