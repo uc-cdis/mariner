@@ -204,8 +204,9 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	fmt.Println("taskContainerMetrics:")
 	printJSON(taskContainerMetrics)
 
-	// extract cpu usage
-	cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
+	// extract cpu usage - fails to fetch as int64
+	// cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
+	cpu, ok := taskContainerMetrics.Usage.Cpu().ToDec().AsInt64()
 	if !ok {
 		fmt.Println("failed to fetch cpu as int64")
 		// log
