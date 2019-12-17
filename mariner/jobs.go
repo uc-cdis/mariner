@@ -210,6 +210,10 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	}
 	///////
 
+	// HERE - need to ensure that units and scale are uniform
+	// i.e., big and small values are faithfully captured in the logs
+	// like 1cpu and 1mcpu should not both be recorded as "1"
+
 	// FIXME - failing to collect cpu - has to do with units..
 	// pick a unit/scale/datatype and stick to it
 	// extract cpu usage - fails to fetch as int64
