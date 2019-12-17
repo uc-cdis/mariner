@@ -208,28 +208,14 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 		fmt.Println("container not found in list returned by metrics API")
 		return 0, 0
 	}
-	///////
 
-	// HERE - need to ensure that units and scale are uniform
-	// i.e., big and small values are faithfully captured in the logs
-	// like 1cpu and 1mcpu should not both be recorded as "1"
+	// extract cpu usage - measured in "millicpu", where: 1000 millicpu == 1cpu
+	// see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu
+	cpu := containerMetrics.Usage.Cpu().MilliValue()
 
-	// FIXME - failing to collect cpu - has to do with units..
-	// pick a unit/scale/datatype and stick to it
-	// extract cpu usage - fails to fetch as int64
-	// cpu, ok := taskContainerMetrics.Usage.Cpu().AsInt64()
-	cpu, ok := containerMetrics.Usage.Cpu().AsDec().Unscaled()
-	if !ok {
-		fmt.Println("failed to fetch cpu as int64")
-		// log
-	}
+	// extract memory usage - measured in Mi
+	mem := containerMetrics.Usage.Memory().Value() / int64(2^20)
 
-	// extract memory usage
-	mem, ok := containerMetrics.Usage.Memory().AsInt64()
-	if !ok {
-		fmt.Println("failed to fetch mem as int64")
-		// log
-	}
 	return cpu, mem
 }
 
