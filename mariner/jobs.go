@@ -7,6 +7,7 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sCore "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
@@ -213,8 +214,8 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 	// see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu
 	cpu := containerMetrics.Usage.Cpu().MilliValue()
 
-	// extract memory usage - measured in Mi
-	mem := containerMetrics.Usage.Memory().Value() / int64(2^20)
+	// extract memory usage - measured in MB
+	mem := containerMetrics.Usage.Memory().ScaledValue(resource.Mega)
 
 	return cpu, mem
 }
