@@ -69,24 +69,20 @@ func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label stri
 func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (cpu, mem int64) {
 	podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
 	if err != nil {
-		fmt.Println("error fetching task pod: ", err)
 		// log
+		fmt.Println("error fetching task pod: ", err)
+		return 0, 0
 	}
 
 	// nil value for a resource usage timepoint is (0, 0)
 	// maybe there's a better way to represent this
 	// I'd like to log every sampling interval
 	// i.e., still log the event where resource usage was not available, as a (0,0) value
-	cpu, mem = 0, 0
 	switch l := len(podList.Items); l {
 	case 0:
 		// log
 		fmt.Println("no pod found for task job ", tool.Task.Log.JobName)
 	case 1:
-		// this looks fine
-		fmt.Println("found pod for task job ", tool.Task.Log.JobName)
-		fmt.Println("here is the podList:")
-		printJSON(podList)
 		cpu, mem = containerResourceUsage(podList.Items[0], taskContainerName)
 	default:
 		// expecting exactly one pod - though maybe it's possible there will be multiple pods,
@@ -95,7 +91,6 @@ func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (c
 		// need to handle this case
 		fmt.Println("found an unexpected number of pods associated with task job ", tool.Task.Log.JobName, l)
 		// log
-
 	}
 
 	return cpu, mem
@@ -178,11 +173,6 @@ func metricsByPod() (*metricsBeta1.PodMetricsList, error) {
 }
 
 func containerMetrics(targetPod k8sCore.Pod, targetContainer string, pods *metricsBeta1.PodMetricsList) (*metricsBeta1.ContainerMetrics, error) {
-	fmt.Println("podMetricsList:")
-	printJSON(pods)
-
-	fmt.Println("pod names:")
-
 	var containerMetrics metricsBeta1.ContainerMetrics
 	var containerMetricsList []metricsBeta1.ContainerMetrics
 	for _, i := range pods.Items {
@@ -197,11 +187,6 @@ func containerMetrics(targetPod k8sCore.Pod, targetContainer string, pods *metri
 			}
 		}
 	}
-
-	fmt.Println("targetContainer: ", targetContainer)
-
-	fmt.Println("containerMetrics:")
-	printJSON(containerMetrics)
 
 	if containerMetrics.Name == "" {
 		fmt.Println("container not found in list returned by metrics API")
@@ -228,10 +213,6 @@ func resourceUsage(container *metricsBeta1.ContainerMetrics) (cpu, mem int64) {
 // if fail to collect, return (0,0)
 // so (0,0) is the nil value
 func containerResourceUsage(targetPod k8sCore.Pod, targetContainer string) (int64, int64) {
-	fmt.Println("in containerResourceUseage()..")
-	fmt.Println("given this pod: ")
-	printJSON(targetPod)
-
 	pods, err := metricsByPod()
 	if err != nil {
 		// log
