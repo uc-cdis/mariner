@@ -247,7 +247,7 @@ func (log *Log) finish() {
 	log.LastUpdatedObj = t
 	log.LastUpdated = timef(log.LastUpdatedObj)
 	log.Stats.DurationObj = t.Sub(log.CreatedObj)
-	log.Stats.Duration = log.Stats.DurationObj.Minutes()
+	log.Stats.Duration = log.Stats.DurationObj.Seconds()
 	log.Status = completed
 }
 
