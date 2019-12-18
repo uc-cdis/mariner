@@ -230,6 +230,8 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 		}
 
 		// collect resource metrics via k8s api
+		// NOTE: at present, metrics are NOT collected for expressionTools
+		// probably this should be fixed
 		go engine.collectResourceMetrics(tool)
 
 		if err = engine.listenForDone(tool); err != nil {

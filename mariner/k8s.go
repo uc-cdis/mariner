@@ -267,30 +267,29 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 // HERE - how to handle case of different possible bash, depending on CLT image specified in CWL?
 func (tool *Tool) cltArgs() []string {
 	// Uncomment after debugging
-	/*
-		args := []string{
-			"-c",
-			fmt.Sprintf(`
-						    while [[ ! -f %vrun.sh ]]; do
-						      echo "Waiting for sidecar to finish setting up..";
-						      sleep 5
-						    done
-							echo "Sidecar setup complete! Running command script now.."
-							cd %v
-							echo "running command $(cat %vrun.sh)"
-							%v %vrun.sh
-							echo "commandlinetool has finished running" > %vdone
-							`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
-		}
-	*/
-
-	// for debugging
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
+		while [[ ! -f %vrun.sh ]]; do
+			echo "Waiting for sidecar to finish setting up..";
+			sleep 5
+		done
+		echo "Sidecar setup complete! Running command script now.."
+		cd %v
+		echo "running command $(cat %vrun.sh)"
+		%v %vrun.sh
+		echo "commandlinetool has finished running" > %vdone
+		`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
+	}
+
+	// for debugging
+	/*
+		args := []string{
+		"-c",
+		fmt.Sprintf(`
 							while [[ ! -f %vrun.sh ]]; do
-							      echo "Waiting for sidecar to finish setting up..";
-							      sleep 5
+									echo "Waiting for sidecar to finish setting up..";
+									sleep 5
 							done
 							echo "side done setting up"
 							echo "staying alive"
@@ -298,7 +297,8 @@ func (tool *Tool) cltArgs() []string {
 								:
 							done
 							`, tool.WorkingDir),
-	}
+		}
+	*/
 
 	return args
 }
