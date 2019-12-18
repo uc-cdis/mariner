@@ -101,8 +101,7 @@ func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (c
 	return cpu, mem
 }
 
-// dev'ing - split this out into smaller, modular bits
-// REFACTOR - HERE - FIXME - Wednesday
+// routine for collecting (cpu, mem) usage over time per-task
 func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 	// need to wait til pod exists
 	// til metrics become available

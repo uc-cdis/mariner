@@ -229,8 +229,7 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 			return err
 		}
 
-		// here collect resource metrics via k8s api
-		// dev'ing
+		// collect resource metrics via k8s api
 		go engine.collectResourceMetrics(tool)
 
 		if err = engine.listenForDone(tool); err != nil {
