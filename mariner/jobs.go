@@ -54,8 +54,55 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err er
 	return runID, nil
 }
 
+func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label string) {
+	cpu, mem := tool.resourceUsage(podsClient, label)
+	p := ResourceUsageSamplePoint{
+		CPU:    cpu,
+		Memory: mem,
+	}
+	tool.Task.Log.Stats.ResourceUsage.Series.append(p)
+
+	// log
+	fmt.Printf("collected (cpu, mem) of (%v, %v)\n", cpu, mem)
+}
+
+func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (cpu, mem int64) {
+	podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
+	if err != nil {
+		fmt.Println("error fetching task pod: ", err)
+		// log
+	}
+
+	// nil value for a resource usage timepoint is (0, 0)
+	// maybe there's a better way to represent this
+	// I'd like to log every sampling interval
+	// i.e., still log the event where resource usage was not available, as a (0,0) value
+	cpu, mem = 0, 0
+	switch l := len(podList.Items); l {
+	case 0:
+		// log
+		fmt.Println("no pod found for task job ", tool.Task.Log.JobName)
+	case 1:
+		// this looks fine
+		fmt.Println("found pod for task job ", tool.Task.Log.JobName)
+		fmt.Println("here is the podList:")
+		printJSON(podList)
+		cpu, mem = containerResourceUsage(podList.Items[0], taskContainerName)
+	default:
+		// expecting exactly one pod - though maybe it's possible there will be multiple pods,
+		// if one pod is created but fails or errors, and the job controller creates a second pod
+		// while the other one is error'ing or terminating
+		// need to handle this case
+		fmt.Println("found an unexpected number of pods associated with task job ", tool.Task.Log.JobName, l)
+		// log
+
+	}
+
+	return cpu, mem
+}
+
 // dev'ing - split this out into smaller, modular bits
-// REFACTOR
+// REFACTOR - HERE - FIXME - Wednesday
 func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 	// need to wait til pod exists
 	// til metrics become available
@@ -75,66 +122,25 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) {
 	_, podsClient, _ := k8sClient(k8sPodAPI)
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
-	tool.Task.Log.Stats.ResourceUsage.Series = ResourceUsageSeries{}
-	tool.Task.Log.Stats.ResourceUsage.SamplingPeriod = metricsSamplingPeriod
+	tool.Task.Log.Stats.ResourceUsage.init()
 
-	fmt.Println("initiating metrics monitoring for task ", tool.Task.Root.ID)
 	// log
+	fmt.Println("initiating metrics monitoring for task ", tool.Task.Root.ID)
 
-	var cpu, mem int64
 	for !*tool.Task.Done {
-		podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
-		if err != nil {
-			fmt.Println("error fetching task pod: ", err)
-			// log
-		}
 
-		// nil value for a resource usage timepoint is (0, 0)
-		// maybe there's a better way to represent this
-		// I'd like to log every sampling interval
-		// i.e., still log the event where resource usage was not available, as a (0,0) value
-		cpu, mem = 0, 0
-		switch l := len(podList.Items); l {
-		case 0:
-			fmt.Println("no pod found for task job ", tool.Task.Log.JobName)
-			// log
-		case 1:
-			// this looks fine
-			fmt.Println("found pod for task job ", tool.Task.Log.JobName)
-			fmt.Println("here is the podList:")
-			printJSON(podList)
-			cpu, mem = containerResourceUsage(podList.Items[0], taskContainerName)
-		default:
-			// expecting exactly one pod - though maybe it's possible there will be multiple pods,
-			// if one pod is created but fails or errors, and the job controller creates a second pod
-			// while the other one is error'ing or terminating
-			// need to handle this case
-			fmt.Println("found an unexpected number of pods associated with task job ", tool.Task.Log.JobName, l)
-			// log
-		}
-
-		// NOTE: it makes more sense to put the actual cpu and memory usage in a single struct
-		// don't split the time series into lists in two different places
-		// have one list of pairs (cpu, mem)
-		// FIXME - update the type definition accordingly
-
-		// collect sample point
-		p := ResourceUsageSamplePoint{
-			CPU:    cpu,
-			Memory: mem,
-		}
-		tool.Task.Log.Stats.ResourceUsage.Series = append(tool.Task.Log.Stats.ResourceUsage.Series, p)
-
-		fmt.Printf("collected (mem, cpu) of (%v, %v)\n", mem, cpu)
+		// collect (cpu, mem) sample point
+		tool.sampleResourceUsage(podsClient, label)
 
 		// update logdb
 		engine.Log.write()
 
-		// wait out 30s window to next sample
+		// wait out sampling period duration to next sample
 		time.Sleep(metricsSamplingPeriod * time.Second)
 	}
-	fmt.Printf("task %v complete, exiting metrics monitoring loop\n", tool.Task.Root.ID)
+
 	// log
+	fmt.Printf("task %v complete, exiting metrics monitoring loop\n", tool.Task.Root.ID)
 	return
 }
 

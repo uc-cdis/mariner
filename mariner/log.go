@@ -220,6 +220,15 @@ type Log struct {
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
 }
 
+func (r *ResourceUsage) init() {
+	r.Series = ResourceUsageSeries{}
+	r.SamplingPeriod = metricsSamplingPeriod
+}
+
+func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
+	*s = append(*s, p)
+}
+
 // called when a task is run
 func (mainLog *MainLog) start(task *Task) {
 	task.Log.start()
