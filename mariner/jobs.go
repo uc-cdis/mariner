@@ -161,35 +161,28 @@ func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	return nil
 }
 
-// return (cpu, mem) for given (pod, container)
-func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int64) {
-	fmt.Println("in containerResourceUseage()..")
+func metricsByPod() (*metricsBeta1.PodMetricsList, error) {
 	_, _, podMetrics := k8sClient(k8sMetricsAPI)
 
-	fmt.Println("given this pod: ")
-	printJSON(pod)
-
-	// FIXME - bug here - listOptions
-	// field is "metadata.name=read-from-commons-and-user.cwl-cdtth" - doesn't work
-
-	// field := fmt.Sprintf("metadata.name=%v", pod.Name)
-	// fmt.Println("fieldSelector: ", field)
 	podMetricsList, err := podMetrics.List(metav1.ListOptions{})
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 
+	return podMetricsList, nil
+}
+
+func containerMetrics(targetPod k8sCore.Pod, targetContainer string, pods *metricsBeta1.PodMetricsList) (*metricsBeta1.ContainerMetrics, error) {
 	fmt.Println("podMetricsList:")
-	printJSON(podMetricsList)
+	printJSON(pods)
 
 	fmt.Println("pod names:")
 
-	////// put this in a function
 	var containerMetrics metricsBeta1.ContainerMetrics
 	var containerMetricsList []metricsBeta1.ContainerMetrics
-	for _, i := range podMetricsList.Items {
+	for _, i := range pods.Items {
 		fmt.Println(i.Name)
-		if i.Name == pod.Name {
+		if i.Name == targetPod.Name {
 			containerMetricsList = i.Containers
 			for _, container := range containerMetricsList {
 				fmt.Println("container name: ", container.Name)
@@ -207,16 +200,46 @@ func containerResourceUsage(pod k8sCore.Pod, targetContainer string) (int64, int
 
 	if containerMetrics.Name == "" {
 		fmt.Println("container not found in list returned by metrics API")
-		return 0, 0
+		return nil, fmt.Errorf("container %v of pod %v not found in list returned by metrics API", targetContainer, targetPod.Name)
 	}
+
+	return &containerMetrics, nil
+}
+
+// see: https://godoc.org/k8s.io/apimachinery/pkg/api/resource#Quantity.AsScale
+func resourceUsage(container *metricsBeta1.ContainerMetrics) (cpu, mem int64) {
 
 	// extract cpu usage - measured in "millicpu", where: 1000 millicpu == 1cpu
 	// see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu
-	cpu := containerMetrics.Usage.Cpu().MilliValue()
+	cpu = container.Usage.Cpu().MilliValue()
 
 	// extract memory usage - measured in MB
-	mem := containerMetrics.Usage.Memory().ScaledValue(resource.Mega)
+	mem = container.Usage.Memory().ScaledValue(resource.Mega)
 
+	return cpu, mem
+}
+
+// return (cpu, mem) for given (pod, container)
+// if fail to collect, return (0,0)
+// so (0,0) is the nil value
+func containerResourceUsage(targetPod k8sCore.Pod, targetContainer string) (int64, int64) {
+	fmt.Println("in containerResourceUseage()..")
+	fmt.Println("given this pod: ")
+	printJSON(targetPod)
+
+	pods, err := metricsByPod()
+	if err != nil {
+		// log
+		return 0, 0
+	}
+
+	container, err := containerMetrics(targetPod, targetContainer, pods)
+	if err != nil {
+		// log
+		return 0, 0
+	}
+
+	cpu, mem := resourceUsage(container)
 	return cpu, mem
 }
 
