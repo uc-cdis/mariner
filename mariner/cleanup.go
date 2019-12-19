@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -67,11 +68,34 @@ func (engine *K8sEngine) basicCleanup() {
 
 	// now recursively walk the runDir and delete all paths that are not in keepFiles
 	// dev'ing
+	// works - just need to recursively delete empty directories now
+	var parentDir *os.File
 	err = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		fmt.Println("handling this path: ", path)
+
+		// delete if this path is a file and is not in keepFiles
 		if !info.IsDir() && !keepFiles[path] {
 			fmt.Println("deleting file at path: ", path)
 			os.Remove(path)
+		}
+
+		// the parent directory is now empty, delete that path as well
+		parentDir, err = os.Open(filepath.Dir(path))
+		if err != nil {
+			// log
+			fmt.Println("error opening parentDir: ", err)
+		}
+		defer parentDir.Close()
+
+		// see if there are any names (files) in parent dir
+		_, err = parentDir.Readdirnames(1)
+		if err == io.EOF {
+			// means dir is empty and we can delete
+			err = os.Remove(parentDir.Name())
+			if err != nil {
+				// this shouldn't happen, because the dir should be empty
+				fmt.Println("error deleting parentDir: ", err)
+			}
 		}
 		return nil
 	})
