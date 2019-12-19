@@ -3,11 +3,92 @@ package mariner
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
+
+// dev'ing - REFACTOR
+func (engine *K8sEngine) basicCleanup() {
+	var err error
+	var path string
+
+	// collect all paths to be not deleted here
+	keepFiles := make(map[string]bool)
+
+	// be sure to not delete the logfile
+	pathToLog := fmt.Sprintf(pathToLogf, engine.RunID)
+	keepFiles[pathToLog] = true
+
+	// iterate through workflow outputs
+	// collect paths from all files
+	for _, output := range engine.Log.Main.Output {
+		// now, need to ascertain whether val is:
+		// 1) a file
+		// 2) an array of files
+		// if 1 or 2, then collect paths (and secondaryFiles paths) into keepFiles
+		fmt.Println("handling output:")
+		printJSON(output)
+		switch output.(type) {
+		case *File:
+			fmt.Println("is a file, keeping path")
+			path = output.(*File).Path
+			keepFiles[path] = true
+		case []*File:
+			fmt.Println("is a file array, keeping paths")
+			files := output.([]*File)
+			for _, f := range files {
+				keepFiles[f.Path] = true
+			}
+		case []map[string]interface{}:
+			fmt.Println("secretly is a file array, keeping paths")
+			files := output.([]map[string]interface{})
+			for _, f := range files {
+				path, err = filePath(f)
+				if err != nil {
+					fmt.Println("error extracting path from 'file' in array:")
+					printJSON(f)
+					continue
+				}
+				keepFiles[path] = true
+			}
+		}
+	}
+
+	// now have all protected paths in keepFiles
+
+	// get working directory for workflow run
+	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
+
+	fmt.Println("here are keepFiles:")
+	printJSON(keepFiles)
+
+	// now recursively walk the runDir and delete all paths that are not in keepFiles
+	// dev'ing
+	err = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
+		fmt.Println("handling this path: ", path)
+		if !info.IsDir() && !keepFiles[path] {
+			fmt.Println("deleting file at path: ", path)
+			os.Remove(path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		// log
+		fmt.Println("error walking runDir: ", err)
+	}
+
+	return
+}
+
+////////////////////////////////////////////////////////////////////////
+////////// "smart" intermediate file cleanup for deleting files
+////////// as they become no longer needed by downstream processes
+////////// presently not being used, because we need to revise the delete condition
+////////////////////////////////////////////////////////////////////////
 
 // CleanupByStep exists per workflow
 // it's a collection of (stepID, CleanupByParam)
@@ -258,7 +339,6 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 				fmt.Println("error deleting file: ", err)
 			}
 		}
-
 	}
 	fmt.Println("\tfinished deleting files, updating cleanupProc stack..")
 	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam})

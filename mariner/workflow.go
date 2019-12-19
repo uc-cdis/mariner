@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -201,14 +200,21 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// not sure if this should be dangling here
 	engine.Log.write()
 
-	// wait for cleanup processes to finish before ending engine job
-	fmt.Println("\tworkflow tasks finished; deleting intermediate files..")
-	for len(engine.CleanupProcs) > 0 {
-		fmt.Printf("\twaiting on %v cleanup processes to finish..\n", len(engine.CleanupProcs))
-		printJSON(engine.CleanupProcs)
-		time.Sleep(15 * time.Second) // same refresh period as the deleteCondition monitoring period
-	}
-	fmt.Println("\tall cleanup processes finished!")
+	// HERE - implement basic file cleanup function
+
+	/*
+		// if running intermediate file cleanup as workflow is running
+		// need some wait logic like this here to wait for all running cleanup processes to finish
+		// before the engine job completes
+		// wait for cleanup processes to finish before ending engine job
+		fmt.Println("\tworkflow tasks finished; deleting intermediate files..")
+		for len(engine.CleanupProcs) > 0 {
+			fmt.Printf("\twaiting on %v cleanup processes to finish..\n", len(engine.CleanupProcs))
+			printJSON(engine.CleanupProcs)
+			time.Sleep(15 * time.Second) // same refresh period as the deleteCondition monitoring period
+		}
+		fmt.Println("\tall cleanup processes finished!")
+	*/
 
 	fmt.Print("\n\nFinished running workflow job.\n")
 	fmt.Println("Here's the output:")
