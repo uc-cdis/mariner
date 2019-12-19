@@ -82,6 +82,7 @@ func (engine *K8sEngine) basicCleanup() {
 
 		// if the parent directory is now empty, delete that path as well
 		if isEmptyDir(filepath.Dir(path)) {
+			fmt.Println("deleting empty parent directory")
 			err = os.Remove(parentDir.Name())
 			if err != nil {
 				fmt.Println("error deleting parentDir: ", err)
@@ -91,6 +92,7 @@ func (engine *K8sEngine) basicCleanup() {
 		return nil
 	})
 
+	// probably not necessary
 	if err != nil {
 		// log
 		fmt.Println("error walking runDir: ", err)
