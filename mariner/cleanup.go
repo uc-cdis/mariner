@@ -74,29 +74,20 @@ func (engine *K8sEngine) basicCleanup() {
 		fmt.Println("handling this path: ", path)
 
 		// delete if this path is a file and is not in keepFiles
-		if !info.IsDir() && !keepFiles[path] {
-			fmt.Println("deleting file at path: ", path)
+		// also delete if path is an empty directory
+		if (!info.IsDir() && !keepFiles[path]) || isEmptyDir(path) {
+			fmt.Println("deleting path: ", path)
 			os.Remove(path)
 		}
 
-		// the parent directory is now empty, delete that path as well
-		parentDir, err = os.Open(filepath.Dir(path))
-		if err != nil {
-			// log
-			fmt.Println("error opening parentDir: ", err)
-		}
-		defer parentDir.Close()
-
-		// see if there are any names (files) in parent dir
-		_, err = parentDir.Readdirnames(1)
-		if err == io.EOF {
-			// means dir is empty and we can delete
+		// if the parent directory is now empty, delete that path as well
+		if isEmptyDir(filepath.Dir(path)) {
 			err = os.Remove(parentDir.Name())
 			if err != nil {
-				// this shouldn't happen, because the dir should be empty
 				fmt.Println("error deleting parentDir: ", err)
 			}
 		}
+
 		return nil
 	})
 
@@ -106,6 +97,28 @@ func (engine *K8sEngine) basicCleanup() {
 	}
 
 	return
+}
+
+// if dir is empty, return true, else return false
+func isEmptyDir(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		// log
+		fmt.Println("error opening file: ", path)
+		return false
+	}
+	defer f.Close()
+
+	// see if there are any names (files) in the dir
+	_, err = f.Readdirnames(1)
+	if err == io.EOF {
+		// means dir is empty
+		return true
+	} else if err != nil {
+		// log
+		fmt.Println("error from readdirnames: ", err)
+	}
+	return false
 }
 
 ////////////////////////////////////////////////////////////////////////
