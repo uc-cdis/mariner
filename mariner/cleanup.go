@@ -69,7 +69,7 @@ func (engine *K8sEngine) basicCleanup() {
 	// now recursively walk the runDir and delete all paths that are not in keepFiles
 	// dev'ing
 	// works - just need to recursively delete empty directories now
-	var parentDir *os.File
+	var parentDir string
 	err = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		fmt.Println("handling this path: ", path)
 
@@ -81,9 +81,10 @@ func (engine *K8sEngine) basicCleanup() {
 		}
 
 		// if the parent directory is now empty, delete that path as well
-		if isEmptyDir(filepath.Dir(path)) {
+		parentDir = filepath.Dir(path)
+		if isEmptyDir(parentDir) {
 			fmt.Println("deleting empty parent directory")
-			err = os.Remove(parentDir.Name())
+			err = os.Remove(parentDir)
 			if err != nil {
 				fmt.Println("error deleting parentDir: ", err)
 			}
