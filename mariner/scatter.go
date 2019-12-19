@@ -75,25 +75,34 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 // need to review scatter cwl spec - certain PARAMETERS are scattered
 // for the scatter task, need to collect scattered tasks *per scatter task output perameter*
 // i.e., iterate through the output params of the scattered STEP
+//
+// REFACTOR
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	fmt.Println("gathering scatter outputs..")
 	task.Outputs = make(map[string]interface{})
-	totalOutput := make([]map[string]interface{}, len(task.ScatterTasks))
+	totalOutput := make(map[string][]interface{})
+	for _, param := range task.Root.Outputs {
+		totalOutput[param.ID] = make([]interface{}, len(task.ScatterTasks))
+	}
 	var wg sync.WaitGroup
 	for _, scatterTask := range task.ScatterTasks {
 		wg.Add(1)
 		// HERE - add sync.Lock mechanism for safe concurrent writing to map
-		go func(scatterTask *Task, totalOutput []map[string]interface{}) {
+		go func(scatterTask *Task, totalOutput map[string][]interface{}) {
 			defer wg.Done()
 			for !*scatterTask.Done {
 				// wait for scattered task to finish
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
-			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note: scatter index starts at 1, not 0
+			for _, param := range task.Root.Outputs {
+				totalOutput[param.ID][scatterTask.ScatterIndex-1] = scatterTask.Outputs[param.ID]
+			}
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
-	task.Outputs[task.Root.Outputs[0].ID] = totalOutput // not sure what output ID to use here (?)
+	for param, val := range totalOutput {
+		task.Outputs[param] = val
+	}
 	task.Log.Output = task.Outputs
 	return nil
 }
