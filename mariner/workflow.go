@@ -200,7 +200,8 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// not sure if this should be dangling here
 	engine.Log.write()
 
-	// HERE - implement basic file cleanup function
+	// dev'ing, testing
+	engine.basicCleanup()
 
 	/*
 		// if running intermediate file cleanup as workflow is running
