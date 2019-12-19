@@ -11,7 +11,7 @@ import (
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
-// dev'ing - REFACTOR
+// test and REFACTOR
 func (engine *K8sEngine) basicCleanup() {
 	var err error
 	var path string
