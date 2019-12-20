@@ -12,7 +12,6 @@ import (
 )
 
 // collect all paths to not delete during basic file cleanup
-// REFACTORing
 func (engine *K8sEngine) collectKeepFiles() {
 	engine.KeepFiles = make(map[string]bool)
 
@@ -25,25 +24,17 @@ func (engine *K8sEngine) collectKeepFiles() {
 	var path string
 	var err error
 	for _, output := range engine.Log.Main.Output {
-		// now, need to ascertain whether val is:
-		// 1) a file
-		// 2) an array of files
-		// if 1 or 2, then collect paths (and secondaryFiles paths) into keepFiles
-		fmt.Println("handling output:")
-		printJSON(output)
 		switch output.(type) {
 		case *File:
-			fmt.Println("is a file, keeping path")
 			path = output.(*File).Path
 			engine.KeepFiles[path] = true
 		case []*File:
-			fmt.Println("is a file array, keeping paths")
 			files := output.([]*File)
 			for _, f := range files {
 				engine.KeepFiles[f.Path] = true
 			}
 		case []map[string]interface{}:
-			fmt.Println("secretly is a file array, keeping paths")
+			// secretly this is a file array
 			files := output.([]map[string]interface{})
 			for _, f := range files {
 				path, err = filePath(f)
@@ -59,9 +50,9 @@ func (engine *K8sEngine) collectKeepFiles() {
 	return
 }
 
-// REFACTORing
+// called after main workflow finishes running
+// deletes all paths in run working directory which are not associated with a main workflow output param
 func (engine *K8sEngine) basicCleanup() {
-
 	// collect all paths to keep
 	engine.collectKeepFiles()
 
@@ -69,19 +60,12 @@ func (engine *K8sEngine) basicCleanup() {
 	var parentDir string
 	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
 	_ = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
-		fmt.Println("handling this path: ", path)
-
-		// delete if this path is a file and is not in keepFiles
-		// also delete if path is an empty directory
 		if (!info.IsDir() && !engine.KeepFiles[path]) || isEmptyDir(path) {
-			fmt.Println("deleting path: ", path)
 			os.Remove(path)
 		}
-
 		// if the parent directory is now empty, delete that path as well
 		parentDir = filepath.Dir(path)
 		if isEmptyDir(parentDir) {
-			fmt.Println("deleting empty parent directory: ", parentDir)
 			err = os.Remove(parentDir)
 			if err != nil {
 				fmt.Println("error deleting parentDir: ", err)
@@ -109,7 +93,7 @@ func isEmptyDir(path string) bool {
 		return true
 	} else if err != nil {
 		// log
-		fmt.Println("error from readdirnames: ", err)
+		// fmt.Println("error from readdirnames: ", err)
 	}
 	return false
 }
