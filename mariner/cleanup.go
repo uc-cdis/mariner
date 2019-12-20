@@ -11,20 +11,19 @@ import (
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
-// test and REFACTOR
-func (engine *K8sEngine) basicCleanup() {
-	var err error
-	var path string
+// collect all paths to not delete during basic file cleanup
+// REFACTORing
+func (engine *K8sEngine) collectKeepFiles() {
+	engine.KeepFiles = make(map[string]bool)
 
-	// collect all paths to be not deleted here
-	keepFiles := make(map[string]bool)
-
-	// be sure to not delete the logfile
+	// be sure to not delete to logfile
 	pathToLog := fmt.Sprintf(pathToLogf, engine.RunID)
-	keepFiles[pathToLog] = true
+	engine.KeepFiles[pathToLog] = true
 
-	// iterate through workflow outputs
-	// collect paths from all files
+	// iterate through main workflow outputs
+	// collect paths from all file param outputs
+	var path string
+	var err error
 	for _, output := range engine.Log.Main.Output {
 		// now, need to ascertain whether val is:
 		// 1) a file
@@ -36,12 +35,12 @@ func (engine *K8sEngine) basicCleanup() {
 		case *File:
 			fmt.Println("is a file, keeping path")
 			path = output.(*File).Path
-			keepFiles[path] = true
+			engine.KeepFiles[path] = true
 		case []*File:
 			fmt.Println("is a file array, keeping paths")
 			files := output.([]*File)
 			for _, f := range files {
-				keepFiles[f.Path] = true
+				engine.KeepFiles[f.Path] = true
 			}
 		case []map[string]interface{}:
 			fmt.Println("secretly is a file array, keeping paths")
@@ -53,29 +52,28 @@ func (engine *K8sEngine) basicCleanup() {
 					printJSON(f)
 					continue
 				}
-				keepFiles[path] = true
+				engine.KeepFiles[path] = true
 			}
 		}
 	}
+	return
+}
 
-	// now have all protected paths in keepFiles
+// REFACTORing
+func (engine *K8sEngine) basicCleanup() {
 
-	// get working directory for workflow run
-	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
+	// collect all paths to keep
+	engine.collectKeepFiles()
 
-	fmt.Println("here are keepFiles:")
-	printJSON(keepFiles)
-
-	// now recursively walk the runDir and delete all paths that are not in keepFiles
-	// dev'ing
-	// works - just need to recursively delete empty directories now
+	// now walk the run working dir and delete all paths that are not in keepFiles
 	var parentDir string
-	err = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
+	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
+	err := filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		fmt.Println("handling this path: ", path)
 
 		// delete if this path is a file and is not in keepFiles
 		// also delete if path is an empty directory
-		if (!info.IsDir() && !keepFiles[path]) || isEmptyDir(path) {
+		if (!info.IsDir() && !engine.KeepFiles[path]) || isEmptyDir(path) {
 			fmt.Println("deleting path: ", path)
 			os.Remove(path)
 		}
@@ -83,13 +81,12 @@ func (engine *K8sEngine) basicCleanup() {
 		// if the parent directory is now empty, delete that path as well
 		parentDir = filepath.Dir(path)
 		if isEmptyDir(parentDir) {
-			fmt.Println("deleting empty parent directory")
+			fmt.Println("deleting empty parent directory: ", parentDir)
 			err = os.Remove(parentDir)
 			if err != nil {
 				fmt.Println("error deleting parentDir: ", err)
 			}
 		}
-
 		return nil
 	})
 

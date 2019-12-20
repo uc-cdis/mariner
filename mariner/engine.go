@@ -29,7 +29,8 @@ type K8sEngine struct {
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
-	Log             *MainLog
+	Log             *MainLog            //
+	KeepFiles       map[string]bool     // all the paths to not delete during basic file cleanup
 }
 
 // Tool represents a leaf in the graph of a workflow
