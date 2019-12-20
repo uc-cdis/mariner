@@ -68,7 +68,7 @@ func (engine *K8sEngine) basicCleanup() {
 	// now walk the run working dir and delete all paths that are not in keepFiles
 	var parentDir string
 	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
-	err := filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		fmt.Println("handling this path: ", path)
 
 		// delete if this path is a file and is not in keepFiles
@@ -89,13 +89,6 @@ func (engine *K8sEngine) basicCleanup() {
 		}
 		return nil
 	})
-
-	// probably not necessary
-	if err != nil {
-		// log
-		fmt.Println("error walking runDir: ", err)
-	}
-
 	return
 }
 
