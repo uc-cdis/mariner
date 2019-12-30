@@ -70,13 +70,6 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 	return true, initLen
 }
 
-// Additionally, TODO - log input for parent scatter task
-// FIXME - pretty sure this function isn't built right
-// need to review scatter cwl spec - certain PARAMETERS are scattered
-// for the scatter task, need to collect scattered tasks *per scatter task output perameter*
-// i.e., iterate through the output params of the scattered STEP
-//
-// REFACTOR
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	fmt.Println("gathering scatter outputs..")
 	task.Outputs = make(map[string]interface{})

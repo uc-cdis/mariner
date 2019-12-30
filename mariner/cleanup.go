@@ -201,9 +201,9 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 					fmt.Println("\tlooking at other step: ", otherStep.ID)
 					for _, input := range otherStep.In {
 						fmt.Println("\tlooking at input pararm: ", input.ID)
-						// FIXME - assuming one source specified here - certainly require case handling
+						// NOTE: assuming one source specified here - certainly require case handling
 						// I *think* every input should have at least one source specified though
-						// HERE - check that param corresponds to files
+						// need to check that param corresponds to files
 						if input.Source[0] == stepOutput.ID && task.stepParamFile(&otherStep, input.ID) {
 							fmt.Println("\tfound step dependency!")
 
@@ -222,9 +222,9 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			fmt.Println("\tchecking if workflow output..")
 			for _, workflowOutput := range task.Root.Outputs {
 				fmt.Println("\tlooking at workflow output: ", workflowOutput.ID)
-				// FIXME - again assuming exactly one source - need case handling
+				// NOTE: again assuming exactly one source - need case handling
 				// also need to determine whether it should ever be the case that len(source) != 1
-				// HERE - check that param corresponds to files
+				// check that param corresponds to files
 				if workflowOutput.Source[0] == stepOutput.ID && outputParamFile(workflowOutput) {
 					fmt.Println("\tfound parent dependency!")
 
@@ -273,7 +273,7 @@ func (engine *K8sEngine) monitorParamDeps(task *Task, stepID string, param strin
 // as soon as it evaluates to 'true' -> delete the files associated with this output parameter
 //
 // BIG NOTE: only need to monitor params of type FILE
-// -------- FIXME - need to check param type, ensure that it is 'file', before monitoring/deleting
+// --------	 need to check param type, ensure that it is 'file', before monitoring/deleting
 func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteFilesAtCondition for: ", step.ID, outputParam)
 	condition := (*task.CleanupByStep)[step.ID][outputParam]

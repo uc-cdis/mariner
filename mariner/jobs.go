@@ -271,9 +271,7 @@ func jobByID(jc batchtypev1.JobInterface, jobID string) (*batchv1.Job, error) {
 
 // trade engine jobName for engine jobID
 func engineJobID(jc batchtypev1.JobInterface, jobName string) string {
-	// FIXME - create "interface" for fetching particular sets of jobs
-	// i.e., listTaskJobs, listEngineJobs, etc.
-	// don't hardcode ListOptions here like this
+	// FIXME: don't hardcode ListOptions here like this
 	engines, err := jc.List(metav1.ListOptions{LabelSelector: "app=mariner-engine"})
 	if err != nil {
 		// log
