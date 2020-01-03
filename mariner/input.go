@@ -15,29 +15,30 @@ import (
 
 // LoadInputs passes parameter value to input.Provided for each input
 // in this setting, "ValueFrom" may appear either in:
-//  - tool.Root.Inputs[i].inputBinding.ValueFrom, OR
+//  - tool.Task.Root.Inputs[i].inputBinding.ValueFrom, OR
 //  - tool.OriginalStep.In[i].ValueFrom
 // need to handle both cases - first eval at the workflowStepInput level, then eval at the tool input level
 func (tool *Tool) loadInputs() (err error) {
-	sort.Sort(tool.Root.Inputs)
+	sort.Sort(tool.Task.Root.Inputs)
 	fmt.Println("building step input map..")
 	tool.buildStepInputMap()
-	for _, in := range tool.Root.Inputs {
+	for _, in := range tool.Task.Root.Inputs {
 		fmt.Printf("loading input %v..\n", in.ID)
 		err = tool.loadInput(in)
 		if err != nil {
 			return err
 		}
+		// HERE - map parameter to value for log
+		tool.Task.Log.Input[in.ID] = in.Provided.Raw
 	}
 	return nil
 }
 
 // used in loadInput() to handle case of workflow step input valueFrom case
-// FIXME - this function is busted - something to do with the pointer I'm sure
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
-	for _, in := range tool.OriginalStep.In {
-		localID := GetLastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
+	for _, in := range tool.Task.OriginalStep.In {
+		localID := lastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
 	}
 }
@@ -48,7 +49,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
 	// so that would be specified in a cwl workflow file like Workflow.cwl
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
-	// so that information would be specified in a cwl  *tool file like CommandLineTool.cwl or ExpressionTool.cwl
+	// so that information would be specified in a cwl tool file like CommandLineTool.cwl or ExpressionTool.cwl
 	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	} else {
@@ -60,11 +61,11 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 		return fmt.Errorf("input `%s` doesn't have default field but not provided", input.ID)
 	}
 	if key, needed := input.Types[0].NeedRequirement(); needed {
-		for _, req := range tool.Root.Requirements {
+		for _, req := range tool.Task.Root.Requirements {
 			for _, requiredtype := range req.Types {
 				if requiredtype.Name == key {
 					input.RequiredType = &requiredtype
-					input.Requirements = tool.Root.Requirements
+					input.Requirements = tool.Task.Root.Requirements
 				}
 			}
 		}
@@ -88,13 +89,13 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1
 	*/
-	localID := GetLastInPath(input.ID)
+	localID := lastInPath(input.ID)
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID].ValueFrom == "" {
 		// no processing needs to happen if the valueFrom field is empty
 		fmt.Println("no value from to handle")
 		var ok bool
-		if out, ok = tool.Parameters[input.ID]; !ok {
+		if out, ok = tool.Task.Parameters[input.ID]; !ok {
 			fmt.Println("error: input not found in tool's parameters")
 			return nil, fmt.Errorf("input not found in tool's parameters")
 		}
@@ -110,7 +111,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			// preprocess struct/array so that fields can be accessed in vm
 			// Question: how to handle non-array/struct data types?
 			// --------- no preprocessing should have to happen in this case.
-			self, err := PreProcessContext(tool.Parameters[input.ID])
+			self, err := preProcessContext(tool.Task.Parameters[input.ID])
 			if err != nil {
 				return nil, err
 			}
@@ -140,7 +141,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			*/
 
 			//  eval the expression in the vm, capture result in `out`
-			if out, err = EvalExpression(valueFrom, vm); err != nil {
+			if out, err = evalExpression(valueFrom, vm); err != nil {
 				return nil, err
 			}
 		} else {
@@ -155,7 +156,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	if isFile(out) {
 		// fmt.Println("is a file object")
-		path, err := GetPath(out)
+		path, err := filePath(out)
 		if err != nil {
 			return nil, err
 		}
@@ -166,11 +167,42 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// ---- COMMONS/<guid> -> /commons-data/by-guid/<guid>
 		// ---- USER/<path> -> /user-data/<path> // not implemented yet
 		// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
-		if strings.HasPrefix(path, COMMONS_PREFIX) {
-			GUID := strings.TrimPrefix(path, COMMONS_PREFIX)
-			path = strings.Join([]string{PATH_TO_COMMONS_DATA, GUID}, "")
+		switch {
+		case strings.HasPrefix(path, commonsPrefix):
+			/*
+				~ Path represenations/handling for commons-data ~
+
+				inputs.json: 				"COMMONS/<guid>"
+				mariner: "/commons-data/data/by-guid/<guid>"
+
+				gen3-fuse mounts those objects whose GUIDs appear in the manifest
+				gen3-fuse mounts to /commons-data/data/
+				and mounts the directories "by-guid/", "by-filepath/", and "by-filename/"
+
+				commons files can be accessed via the full path "/commons-data/data/by-guid/<guid>"
+
+				so the mapping that happens in this path processing step is this:
+				"COMMONS/<guid>" -> "/commons-data/data/by-guid/<guid>"
+			*/
+			GUID := strings.TrimPrefix(path, commonsPrefix)
+			path = strings.Join([]string{pathToCommonsData, GUID}, "")
+		case strings.HasPrefix(path, userPrefix):
+			/*
+				~ Path representations/handling for user-data ~
+
+				s3: 			   "/userID/path/to/file"
+				inputs.json: 	      "USER/path/to/file"
+				mariner: 		"/engine-workspace/path/to/file"
+
+				user-data bucket gets mounted at the 'userID' prefix to dir /engine-workspace/
+
+				so the mapping that happens in this path processing step is this:
+				"USER/path/to/file" -> "/engine-workspace/path/to/file"
+			*/
+			trimmedPath := strings.TrimPrefix(path, userPrefix)
+			path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
 		}
-		out = getFileObj(path)
+		out = fileObject(path)
 	} else {
 		fmt.Println("is not a file object")
 	}
@@ -190,7 +222,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			var context interface{}
 			if _, f := out.(*File); f {
 				// fmt.Println("context is a file")
-				context, err = PreProcessContext(out)
+				context, err = preProcessContext(out)
 				if err != nil {
 					return nil, err
 				}
@@ -199,7 +231,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				context = out
 			}
 			vm.Set("self", context) // NOTE: again, will more than likely need additional context here to cover other cases
-			if out, err = EvalExpression(valueFrom, vm); err != nil {
+			if out, err = evalExpression(valueFrom, vm); err != nil {
 				return nil, err
 			}
 		} else {
@@ -213,15 +245,15 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	return out, nil
 }
 
-// inputsToVM loads tool.Root.InputsVM with inputs context - using Input.Provided for each input
+// inputsToVM loads tool.Task.Root.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
-	prefix := tool.Root.ID + "/" // need to trim this from all the input.ID's
+	prefix := tool.Task.Root.ID + "/" // need to trim this from all the input.ID's
 	// fmt.Println("loading inputs to vm..")
-	tool.Root.InputsVM = otto.New()
+	tool.Task.Root.InputsVM = otto.New()
 	context := make(map[string]interface{})
 	var fileObj *File
-	for _, input := range tool.Root.Inputs {
+	for _, input := range tool.Task.Root.Inputs {
 		/*
 			fmt.Println("input:")
 			PrintJSON(input)
@@ -233,20 +265,20 @@ func (tool *Tool) inputsToVM() (err error) {
 			if input.Provided.Entry != nil {
 				// no valueFrom specified in inputBinding
 				if input.Provided.Entry.Location != "" {
-					fileObj = getFileObj(input.Provided.Entry.Location)
+					fileObj = fileObject(input.Provided.Entry.Location)
 				}
 			} else {
 				// valueFrom specified in inputBinding - resulting value stored in input.Provided.Raw
 				switch input.Provided.Raw.(type) {
 				case string:
-					fileObj = getFileObj(input.Provided.Raw.(string))
+					fileObj = fileObject(input.Provided.Raw.(string))
 				case *File:
 					fileObj = input.Provided.Raw.(*File)
 				default:
 					panic("unexpected datatype representing file object in input.Provided.Raw")
 				}
 			}
-			fileContext, err := PreProcessContext(fileObj)
+			fileContext, err := preProcessContext(fileObj)
 			if err != nil {
 				return err
 			}
@@ -257,6 +289,6 @@ func (tool *Tool) inputsToVM() (err error) {
 	}
 	// fmt.Println("Here's the context")
 	// PrintJSON(context)
-	tool.Root.InputsVM.Set("inputs", context)
+	tool.Task.Root.InputsVM.Set("inputs", context)
 	return nil
 }

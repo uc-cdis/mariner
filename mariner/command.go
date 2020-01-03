@@ -48,8 +48,8 @@ func (cmdElts CommandElements) Swap(i, j int)      { cmdElts[i], cmdElts[j] = cm
 func (cmdElts CommandElements) Less(i, j int) bool { return cmdElts[i].Position < cmdElts[j].Position }
 
 // GenerateCommand ..
-func (tool *Tool) GenerateCommand() (err error) {
-	cmdElts, err := tool.getCmdElts()
+func (tool *Tool) generateCommand() (err error) {
+	cmdElts, err := tool.cmdElts()
 	if err != nil {
 		return err
 	}
@@ -57,20 +57,20 @@ func (tool *Tool) GenerateCommand() (err error) {
 	// Sort the command elements by position
 	sort.Sort(cmdElts)
 
-	// capture stdout if specified - tool.Root.Stdout resolves to a file name where stdout will be redirected
-	if tool.Root.Stdout != "" {
+	// capture stdout if specified - tool.Task.Root.Stdout resolves to a file name where stdout will be redirected
+	if tool.Task.Root.Stdout != "" {
 		// append "1> stdout_file" to end of command
-		stdoutElts, err := tool.getStdElts(1)
+		stdoutElts, err := tool.stdElts(1)
 		if err != nil {
 			return err
 		}
 		cmdElts = append(cmdElts, stdoutElts...)
 	}
 
-	// capture stderr if specified - tool.Root.Stderr resolves to a file name where stderr will be redirected
-	if tool.Root.Stderr != "" {
+	// capture stderr if specified - tool.Task.Root.Stderr resolves to a file name where stderr will be redirected
+	if tool.Task.Root.Stderr != "" {
 		// append "2> stderr_file" to end of command
-		stderrElts, err := tool.getStdElts(2)
+		stderrElts, err := tool.stdElts(2)
 		if err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func (tool *Tool) GenerateCommand() (err error) {
 	// fmt.Println("here are cmdElts:")
 	// PrintJSON(cmdElts)
 
-	cmd := tool.Root.BaseCommands // BaseCommands is []string - empty array if no BaseCommand specified
+	cmd := tool.Task.Root.BaseCommands // BaseCommands is []string - empty array if no BaseCommand specified
 	for _, cmdElt := range cmdElts {
 		cmd = append(cmd, cmdElt.Value...)
 	}
@@ -89,14 +89,14 @@ func (tool *Tool) GenerateCommand() (err error) {
 }
 
 // i==1 --> stdout; i==2 --> stderr
-func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
+func (tool *Tool) stdElts(i int) (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0)
 	var f string
 	switch i {
 	case 1:
-		f, err = tool.resolveExpressions(tool.Root.Stdout)
+		f, _, err = tool.resolveExpressions(tool.Task.Root.Stdout)
 	case 2:
-		f, err = tool.resolveExpressions(tool.Root.Stderr)
+		f, _, err = tool.resolveExpressions(tool.Task.Root.Stderr)
 	}
 	if err != nil {
 		return nil, err
@@ -118,18 +118,18 @@ func (tool *Tool) getStdElts(i int) (cmdElts CommandElements, err error) {
 	return cmdElts, nil
 }
 
-func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
+func (tool *Tool) cmdElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0)
 
 	// handle arguments
-	argElts, err := tool.getArgElts()
+	argElts, err := tool.argElts()
 	if err != nil {
 		return nil, err
 	}
 	cmdElts = append(cmdElts, argElts...)
 
 	// handle inputs
-	inputElts, err := tool.getInputElts()
+	inputElts, err := tool.inputElts()
 	if err != nil {
 		return nil, err
 	}
@@ -139,10 +139,10 @@ func (tool *Tool) getCmdElts() (cmdElts CommandElements, err error) {
 }
 
 // TODO: handle optional inputs
-func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
+func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0)
 	var inputType string
-	for _, input := range tool.Root.Inputs {
+	for _, input := range tool.Task.Root.Inputs {
 		// no binding -> input doesn't get processed for representation on the commandline (though this input may be referenced by an argument)
 		if input.Binding != nil {
 			pos := input.Binding.Position // default position is 0, as per CWL spec
@@ -153,7 +153,7 @@ func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 					break
 				}
 			}
-			val, err := getInputValue(input, input.Provided.Raw, inputType, input.Binding)
+			val, err := inputValue(input, input.Provided.Raw, inputType, input.Binding)
 			if err != nil {
 				return nil, err
 			}
@@ -168,7 +168,7 @@ func (tool *Tool) getInputElts() (cmdElts CommandElements, err error) {
 }
 
 // NOTE: inputs of type 'object' presently not supported
-func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, binding *cwl.Binding) (val []string, err error) {
+func inputValue(input *cwl.Input, rawInput interface{}, inputType string, binding *cwl.Binding) (val []string, err error) {
 	// binding is non-nil
 	// input sources:
 	// 1. if valueFrom specified in binding, then input value taken from there
@@ -225,7 +225,7 @@ func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, bin
 				break
 			}
 		}
-		itemToString, err := getItemHandler(itemType)
+		itemToString, err := itemHandler(itemType)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +233,7 @@ func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, bin
 		for i := 0; i < inputArray.Len(); i++ {
 			if input.Types[0].Items[0].Binding != nil {
 				// need to handle this case of binding specified to be applied to each element individually
-				itemVal, err := getInputValue(nil, inputArray.Index(i).Interface(), itemType, input.Types[0].Items[0].Binding)
+				itemVal, err := inputValue(nil, inputArray.Index(i).Interface(), itemType, input.Types[0].Items[0].Binding)
 				if err != nil {
 					return nil, err
 				}
@@ -261,7 +261,7 @@ func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, bin
 		if binding.Prefix == "" {
 			return nil, fmt.Errorf("boolean input provided but no prefix provided")
 		}
-		boolVal, err := getBoolFromRaw(rawInput)
+		boolVal, err := boolFromRaw(rawInput)
 		if err != nil {
 			return nil, err
 		}
@@ -277,9 +277,9 @@ func getInputValue(input *cwl.Input, rawInput interface{}, inputType string, bin
 		return val, nil
 
 	case "string", "number":
-		s, err = getValFromRaw(rawInput)
+		s, err = valFromRaw(rawInput)
 	case "File", "Directory":
-		s, err = getPathFromRaw(rawInput)
+		s, err = pathFromRaw(rawInput)
 	}
 	// string/number and file/directory share the same processing here
 	// other cases end with return statements -> maybe refactor/revise this
@@ -312,7 +312,7 @@ func joinArray(input *cwl.Input) (arr string, err error) {
 			break
 		}
 	}
-	itemToString, err := getItemHandler(itemType)
+	itemToString, err := itemHandler(itemType)
 	if err != nil {
 		return "", err
 	}
@@ -331,19 +331,19 @@ func joinArray(input *cwl.Input) (arr string, err error) {
 }
 
 // called in joinArray() to get appropriate function to convert the array element to a string
-func getItemHandler(itemType string) (handler func(interface{}) (string, error), err error) {
+func itemHandler(itemType string) (handler func(interface{}) (string, error), err error) {
 	switch itemType {
 	case "string", "number":
-		return getValFromRaw, nil
+		return valFromRaw, nil
 	case "File", "Directory":
-		return getPathFromRaw, nil
+		return pathFromRaw, nil
 	default:
 		return nil, fmt.Errorf("binding on input array with items of type %T not supported", itemType)
 	}
 }
 
 // called in getInputValue()
-func getBoolFromRaw(rawInput interface{}) (boolVal bool, err error) {
+func boolFromRaw(rawInput interface{}) (boolVal bool, err error) {
 	boolVal, ok := rawInput.(bool)
 	if !ok {
 		return false, fmt.Errorf("unexpected data type for input specified as bool: %v; %T", rawInput, rawInput)
@@ -352,7 +352,7 @@ func getBoolFromRaw(rawInput interface{}) (boolVal bool, err error) {
 }
 
 // called in getInputValue()
-func getPathFromRaw(rawInput interface{}) (path string, err error) {
+func pathFromRaw(rawInput interface{}) (path string, err error) {
 	switch rawInput.(type) {
 	case string:
 		path = rawInput.(string)
@@ -360,7 +360,7 @@ func getPathFromRaw(rawInput interface{}) (path string, err error) {
 		fileObj := rawInput.(*File)
 		path = fileObj.Path
 	default:
-		path, err = GetPath(rawInput)
+		path, err = filePath(rawInput)
 		if err != nil {
 			return "", fmt.Errorf("failed to retrieve file or directory path from object of type %T with value %v", rawInput, rawInput)
 		}
@@ -369,7 +369,7 @@ func getPathFromRaw(rawInput interface{}) (path string, err error) {
 }
 
 // called in getInputValue()
-func getValFromRaw(rawInput interface{}) (val string, err error) {
+func valFromRaw(rawInput interface{}) (val string, err error) {
 	switch rawInput.(type) {
 	case string:
 		val = rawInput.(string)
@@ -384,14 +384,14 @@ func getValFromRaw(rawInput interface{}) (val string, err error) {
 }
 
 // collect CommandElement objects from arguments
-func (tool *Tool) getArgElts() (cmdElts CommandElements, err error) {
+func (tool *Tool) argElts() (cmdElts CommandElements, err error) {
 	cmdElts = make([]*CommandElement, 0) // this might be redundant - basic q: do I need to instantiate this array if it's a named output?
-	for i, arg := range tool.Root.Arguments {
+	for i, arg := range tool.Task.Root.Arguments {
 		pos := 0 // if no position specified the default is zero, as per CWL spec
 		if arg.Binding != nil {
 			pos = arg.Binding.Position
 		}
-		val, err := tool.getArgValue(arg) // okay
+		val, err := tool.argVal(arg) // okay
 		if err != nil {
 			return nil, err
 		}
@@ -406,7 +406,7 @@ func (tool *Tool) getArgElts() (cmdElts CommandElements, err error) {
 }
 
 // gets value from an argument - i.e., returns []string containing strings which will be put on the commandline to represent this argument
-func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
+func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 	// cases:
 	// either a string literal or an expression
 	// OR a binding with valueFrom field specified
@@ -419,7 +419,7 @@ func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
 			fmt.Println("expression to eval..")
-			result, err := EvalExpression(arg.Value, tool.Root.InputsVM)
+			result, err := evalExpression(arg.Value, tool.Task.Root.InputsVM)
 			if err != nil {
 				return nil, err
 			}
@@ -439,7 +439,7 @@ func (tool *Tool) getArgValue(arg cwl.Argument) (val []string, err error) {
 	} else {
 		fmt.Println("resolving valueFrom..")
 		// get value from `valueFrom` field which may itself be a string literal, an expression, or a string which contains one or more expressions
-		resolvedText, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
+		resolvedText, _, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
 		if err != nil {
 			return nil, err
 		}

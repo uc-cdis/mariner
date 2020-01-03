@@ -12,11 +12,11 @@ import (
 // NOTE: scattered subtasks get run concurrently -> see runScatterTasks()
 // what does "scatter" mean? great question -> see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
 
-func (task *Task) runScatter() (err error) {
+func (engine *K8sEngine) runScatter(task *Task) (err error) {
 	if err = task.validateScatterMethod(); err != nil {
 		return err
 	}
-	scatterParams, err := task.getScatterParams()
+	scatterParams, err := task.scatterParams()
 	if err != nil {
 		return err
 	}
@@ -24,7 +24,7 @@ func (task *Task) runScatter() (err error) {
 	if err != nil {
 		return err
 	}
-	err = task.runScatterTasks()
+	err = engine.runScatterTasks(task)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func (task *Task) runScatter() (err error) {
 }
 
 // assign input value to each scattered input parameter
-func (task *Task) getScatterParams() (scatterParams map[string][]interface{}, err error) {
+func (task *Task) scatterParams() (scatterParams map[string][]interface{}, err error) {
 	scatterParams = make(map[string][]interface{})
 	if err != nil {
 		return nil, err
@@ -70,24 +70,33 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 	return true, initLen
 }
 
-func (task *Task) gatherScatterOutputs() (err error) {
+func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	fmt.Println("gathering scatter outputs..")
-	task.Outputs = make(cwl.Parameters)
-	totalOutput := make([]cwl.Parameters, len(task.ScatterTasks))
+	task.Outputs = make(map[string]interface{})
+	totalOutput := make(map[string][]interface{})
+	for _, param := range task.Root.Outputs {
+		totalOutput[param.ID] = make([]interface{}, len(task.ScatterTasks))
+	}
 	var wg sync.WaitGroup
 	for _, scatterTask := range task.ScatterTasks {
 		wg.Add(1)
-		go func(scatterTask *Task, totalOutput []cwl.Parameters) {
+		// HERE - add sync.Lock mechanism for safe concurrent writing to map
+		go func(scatterTask *Task, totalOutput map[string][]interface{}) {
 			defer wg.Done()
 			for !*scatterTask.Done {
 				// wait for scattered task to finish
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
-			totalOutput[scatterTask.ScatterIndex-1] = scatterTask.Outputs // note: ScatterIndex begins at 1, not 0
+			for _, param := range task.Root.Outputs {
+				totalOutput[param.ID][scatterTask.ScatterIndex-1] = scatterTask.Outputs[param.ID]
+			}
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
-	task.Outputs[task.Root.Outputs[0].ID] = totalOutput // not sure what output ID to use here (?)
+	for param, val := range totalOutput {
+		task.Outputs[param] = val
+	}
+	task.Log.Output = task.Outputs
 	return nil
 }
 
@@ -115,14 +124,14 @@ func (task *Task) validateScatterMethod() (err error) {
 }
 
 // run all scatter tasks concurrently
-func (task *Task) runScatterTasks() (err error) {
+func (engine *K8sEngine) runScatterTasks(task *Task) (err error) {
 	fmt.Println("running scatter tasks concurrently..")
 	var wg sync.WaitGroup
 	for _, scattertask := range task.ScatterTasks {
 		wg.Add(1)
 		go func(scattertask *Task) {
 			defer wg.Done()
-			scattertask.Run()
+			engine.run(scattertask)
 		}(scattertask)
 	}
 	wg.Wait()
@@ -153,6 +162,7 @@ func buildArray(i interface{}) (arr []interface{}, isArr bool) {
 func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err error) {
 	// fmt.Printf("\tBuilding scatter subtasks for %v input(s) with scatterMethod %v\n", len(scatterParams), task.ScatterMethod)
 	task.ScatterTasks = make(map[int]*Task)
+	task.Log.Scatter = make(map[int]*Log)
 	switch task.ScatterMethod {
 	case "", "dotproduct": // simple scattering over one input is a special case of dotproduct
 		err = task.dotproduct(scatterParams)
@@ -174,11 +184,11 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	_, inputLength := uniformLength(scatterParams)
 	for i := 0; i < inputLength; i++ {
 		subtask := &Task{
-			JobID:        task.JobID,
-			Engine:       task.Engine,
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
-			originalStep: task.originalStep,
+			OriginalStep: task.OriginalStep,
+			Done:         &falseVal,
+			Log:          logger(),
 			ScatterIndex: i + 1, // count starts from 1, not 0, so that we can check if the ScatterIndex is nil (0 if nil)
 		}
 		// assign the i'th element of each input array as input to this scatter subtask
@@ -188,6 +198,10 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 		// assign values to all non-scattered parameters
 		subtask.fillNonScatteredParams(task)
 		task.ScatterTasks[i] = subtask
+
+		// currently logging scattered tasks this way
+		// the subtask logs are beneath/within the scatter task log object
+		task.Log.Scatter[i] = subtask.Log
 	}
 	return nil
 }
@@ -207,11 +221,11 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 	scatterIndex := 1
 	for ix := make([]int, len(inputArrays)); ix[0] < lens(0); nextIndex(ix, lens) {
 		subtask := &Task{
-			JobID:        task.JobID,
-			Engine:       task.Engine,
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
-			originalStep: task.originalStep,
+			OriginalStep: task.OriginalStep,
+			Done:         &falseVal,
+			Log:          logger(),
 			ScatterIndex: scatterIndex, // count starts from 1, not 0, so that we can check if the ScatterIndex is nil (0 if nil)
 		}
 		for j, k := range ix {
@@ -219,6 +233,11 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 		}
 		subtask.fillNonScatteredParams(task)
 		task.ScatterTasks[scatterIndex] = subtask
+
+		// currently logging scattered tasks this way
+		// the subtask logs are beneath/within the scatter task log object
+		task.Log.Scatter[scatterIndex] = subtask.Log
+
 		scatterIndex++
 	}
 	return nil

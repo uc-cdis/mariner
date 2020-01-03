@@ -20,7 +20,7 @@ import (
 // getJS strips the cwl prefix for an expression
 // and tells whether to just eval the expression, or eval the exp as a js function
 // this is modified from the cwl.Eval.ToJavaScriptString() method
-func getJS(s string) (js string, fn bool, err error) {
+func js(s string) (js string, fn bool, err error) {
 	// if curly braces, then need to eval as a js function
 	// see https://www.commonwl.org/v1.0/Workflow.html#Expressions
 	fn = strings.HasPrefix(s, "${")
@@ -33,10 +33,10 @@ func getJS(s string) (js string, fn bool, err error) {
 // the exp is passed before being stripped of any $(...) or ${...} wrapper
 // the vm must be loaded with all necessary context for eval
 // EvalExpression handles parameter references and expressions $(...), as well as functions ${...}
-func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
+func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 	// strip the $() (or if ${} just trim leading $), which appears in the cwl as a wrapper for js expressions
 	var output otto.Value
-	js, fn, _ := getJS(exp)
+	js, fn, _ := js(exp)
 	if js == "" {
 		return nil, fmt.Errorf("empty expression")
 	}
@@ -66,6 +66,10 @@ func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 	return result, nil
 }
 
+func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
+	return evalExpression(exp, tool.Task.Root.InputsVM)
+}
+
 // resolveExpressions processes a text field which may or may not be
 // - one expression
 // - a string literal
@@ -73,8 +77,9 @@ func EvalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 // presently writing simple case to return a string only for use in the argument valueFrom case
 // can easily extend in the future to be used for any field, to return any kind of value
 // NOTE: should work - needs to be tested more
+// NOTE: successful output is one of (text, nil, nil) or ("", *f, nil)
 // algorithm works in goplayground: https://play.golang.org/p/YOv-K-qdL18
-func (tool *Tool) resolveExpressions(inText string) (outText string, err error) {
+func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *File, err error) {
 	r := bufio.NewReader(strings.NewReader(inText))
 	var c0, c1, c2 string
 	var done bool
@@ -85,7 +90,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 			if err == io.EOF {
 				done = true
 			} else {
-				return "", err
+				return "", nil, err
 			}
 		}
 		c0, c1, c2 = c1, c2, string(nextRune)
@@ -95,29 +100,32 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 			// read through to the end of this expression block
 			expression, err := r.ReadString(')')
 			if err != nil {
-				return "", err
+				return "", nil, err
 			}
 
 			// get full $(...) expression
 			expression = c1 + c2 + expression
 
 			// eval that thing
-			result, err := EvalExpression(expression, tool.Root.InputsVM)
+			result, err := evalExpression(expression, tool.Task.Root.InputsVM)
 			if err != nil {
-				return "", err
+				return "", outFile, err
 			}
 
-			// result ought to be a string
-			val, ok := result.(string)
-			if !ok {
-				return "", fmt.Errorf("js embedded in string did not return a string")
+			// result ought to be a string (edit: OR a file)
+			switch result.(type) {
+			case string:
+				val := result.(string)
+
+				// cut off trailing "$" that had already been collected
+				image = image[:len(image)-1]
+
+				// collect resulting string
+				image = append(image, val)
+			case File:
+				f := result.(File)
+				return "", &f, nil
 			}
-
-			// cut off trailing "$" that had already been collected
-			image = image[:len(image)-1]
-
-			// collect resulting string
-			image = append(image, val)
 		} else {
 			if !done {
 				// checking done so as to not collect null value
@@ -127,7 +135,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 	}
 	// get resolved string value
 	outText = strings.Join(image, "")
-	return outText, nil
+	return outText, nil, nil
 }
 
 /*
@@ -162,7 +170,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, err error) 
 // ----- this means we can use the cwl fields as json aliases for any struct type's fields
 // ----- and then using this function to preprocess the struct/array, all the keys/data will get loaded in properly
 // ----- which saves us from having to handle special cases
-func PreProcessContext(in interface{}) (out interface{}, err error) {
+func preProcessContext(in interface{}) (out interface{}, err error) {
 	j, err := json.Marshal(in)
 	if err != nil {
 		return nil, err

@@ -3,57 +3,92 @@ package mariner
 import (
 	"encoding/json"
 	"fmt"
-	// "fmt"
 	"io/ioutil"
-	// "os"
-	// "time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	// batchv1 "k8s.io/api/batch/v1"
 )
 
 // this file contains type definitions for the config struct and a function for loading the config
 // also defines useful/needed vars and constants
 
 // define any needed/useful vars and consts here
+const (
+	// mariner components
+	marinerTask   = "task"
+	marinerEngine = "engine"
+	s3sidecar     = "s3sidecar"
+	gen3fuse      = "gen3fuse"
+
+	// volume names
+	engineWorkspaceVolumeName = "engine-workspace"
+	commonsDataVolumeName     = "commons-data"
+	configVolumeName          = "mariner-config"
+
+	// container name
+	taskContainerName = "mariner-task"
+
+	// file path prefixes - used to differentiate COMMONS vs USER vs marinerEngine WORKSPACE file
+	// user specifies commons datafile by "COMMONS/<GUID>"
+	// user specifies user datafile by "USER/<path>"
+	commonsPrefix = "COMMONS/"
+	userPrefix    = "USER/"
+
+	notStarted = "not-started" // 3
+	running    = "running"     // 2
+	failed     = "failed"      // 1
+	completed  = "completed"   // 0
+	unknown    = "unknown"
+	success    = "success"
+	cancelled  = "cancelled"
+
+	k8sJobAPI     = "k8sJobAPI"
+	k8sPodAPI     = "k8sPodAPI"
+	k8sMetricsAPI = "k8sMetricsAPI"
+
+	// log levels
+	infoLogLevel    = "INFO"
+	warningLogLevel = "WARNING"
+	errorLogLevel   = "ERROR"
+
+	// log file name
+	logFile = "marinerLog.json"
+
+	// done flag - used by engine
+	doneFlag = "done"
+
+	// workflow request file name
+	requestFile = "request.json"
+
+	// HTTP
+	authHeader = "Authorization"
+
+	// metrics collection sampling period (in seconds)
+	metricsSamplingPeriod = 30
+
+	// paths for engine
+	pathToCommonsData = "/commons-data/data/by-guid/"
+	pathToRunf        = "/engine-workspace/workflowRuns/%v/" // fill with runID
+	pathToLogf        = pathToRunf + logFile
+	pathToDonef       = pathToRunf + doneFlag
+	pathToRequestf    = pathToRunf + requestFile
+	pathToWorkingDirf = pathToRunf + "%v" // fill with runID
+
+	// paths for server
+	pathToUserRunsf   = "%v/workflowRuns/"                // fill with userID
+	pathToUserRunLogf = pathToUserRunsf + "%v/" + logFile // fill with runID
+)
+
 var (
 	trueVal                         = true
 	falseVal                        = false
-	MountPropagationHostToContainer = k8sv1.MountPropagationHostToContainer
-	MountPropagationBidirectional   = k8sv1.MountPropagationBidirectional
-	// S3SIDECARARGS                   = []string{"./s3sidecarDockerrun.sh"}
-	WORKFLOW_VOLUMES = []string{ENGINE_WORKSPACE, COMMONS_DATA, USER_DATA}
-)
-
-const (
-	// mariner components
-	TASK      = "TASK"
-	ENGINE    = "ENGINE"
-	S3SIDECAR = "S3SIDECAR"
-	GEN3FUSE  = "GEN3FUSE"
-
-	// volume names
-	ENGINE_WORKSPACE = "engine-workspace"
-	COMMONS_DATA     = "commons-data"
-	USER_DATA        = "user-data"
-	CONFIG           = "mariner-config"
-
-	// file path prefixes - used to differentiate COMMONS vs USER vs ENGINE WORKSPACE file
-	// user specifies commons datafile by "COMMONS/<GUID>"
-	// user specifies user datafile by "USER/<path>"
-	COMMONS_PREFIX       = "COMMONS/"
-	USER_PREFIX          = "USER/"
-	PATH_TO_COMMONS_DATA = "/commons-data/data/by-guid/"
-
-	// for pod annotation so that WTS works
-	// only here for testing, of course
-	GEN3USERNAME = "mgarvin3@uchicago.edu"
+	mountPropagationHostToContainer = k8sv1.MountPropagationHostToContainer
+	mountPropagationBidirectional   = k8sv1.MountPropagationBidirectional
+	workflowVolumeList              = []string{engineWorkspaceVolumeName, commonsDataVolumeName}
 )
 
 // for mounting aws-user-creds secret to s3sidecar
-var awscreds = k8sv1.EnvVarSource{
+var envVarAWSUserCreds = &k8sv1.EnvVarSource{
 	SecretKeyRef: &k8sv1.SecretKeySelector{
 		LocalObjectReference: k8sv1.LocalObjectReference{
 			Name: Config.Secrets.AWSUserCreds.Name,
@@ -62,33 +97,58 @@ var awscreds = k8sv1.EnvVarSource{
 	},
 }
 
-var envVar_HOSTNAME = k8sv1.EnvVar{
-	Name: "HOSTNAME",
-	ValueFrom: &k8sv1.EnvVarSource{
-		ConfigMapKeyRef: &k8sv1.ConfigMapKeySelector{
-			LocalObjectReference: k8sv1.LocalObjectReference{
-				Name: "global",
-			},
-			Key:      "hostname",
-			Optional: &falseVal,
+var envVarHostname = &k8sv1.EnvVarSource{
+	ConfigMapKeyRef: &k8sv1.ConfigMapKeySelector{
+		LocalObjectReference: k8sv1.LocalObjectReference{
+			Name: "global",
+		},
+		Key:      "hostname",
+		Optional: &falseVal,
+	},
+}
+
+var s3PrestopHook = &k8sv1.Lifecycle{
+	PreStop: &k8sv1.Handler{
+		Exec: &k8sv1.ExecAction{
+			Command: Config.Containers.S3sidecar.Lifecycle.Prestop,
 		},
 	},
 }
 
-func (config *MarinerConfig) getJobConfig(component string) (jobConfig JobConfig) {
-	switch component {
-	case ENGINE:
-		jobConfig = config.Jobs.Engine
-	case TASK:
-		jobConfig = config.Jobs.Task
-	}
-	return jobConfig
+// could put in manifest
+var gen3fusePrestopHook = &k8sv1.Lifecycle{
+	PreStop: &k8sv1.Handler{
+		Exec: &k8sv1.ExecAction{
+			Command: Config.Containers.Gen3fuse.Lifecycle.Prestop,
+		},
+	},
+}
+
+// only using jupyter asg for now - will have workflow asg in production
+// FIXME - put this in the manifest config
+var k8sTolerations = []k8sv1.Toleration{
+	k8sv1.Toleration{
+		Key:      "role",
+		Value:    "jupyter",
+		Operator: k8sv1.TolerationOpEqual,
+		Effect:   k8sv1.TaintEffectNoSchedule,
+	},
 }
 
 type MarinerConfig struct {
 	Containers Containers `json:"containers"`
 	Jobs       Jobs       `json:"jobs"`
 	Secrets    Secrets    `json:"secrets"`
+	Storage    Storage    `json:"storage"`
+}
+
+type Storage struct {
+	S3 S3Config `json:"s3"`
+}
+
+type S3Config struct {
+	Name   string `json:"name"`
+	Region string `json:"region"`
 }
 
 type Containers struct {
@@ -103,8 +163,13 @@ type Container struct {
 	Image           string          `json:"image"`
 	PullPolicy      string          `json:"pull_policy"`
 	Command         []string        `json:"command"`
+	Lifecycle       Lifecycle       `json:"lifecycle"`
 	SecurityContext SecurityContext `json:"securitycontext"`
 	Resources       Resources       `json:"resources"`
+}
+
+type Lifecycle struct {
+	Prestop []string `json:"prestop"`
 }
 
 type Resources struct {
@@ -117,7 +182,42 @@ type Resource struct {
 	Memory string `json:"memory"`
 }
 
-func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceRequirements) {
+// run as user? run as group? should mariner have those settings?
+type SecurityContext struct {
+	Privileged bool `json:"privileged"`
+}
+
+type Jobs struct {
+	Engine JobConfig `json:"engine"`
+	Task   JobConfig `json:"task"`
+}
+
+type JobConfig struct {
+	Labels         map[string]string `json:"labels"`
+	ServiceAccount string            `json:"serviceaccount"`
+	RestartPolicy  string            `json:"restart_policy"`
+}
+
+type Secrets struct {
+	AWSUserCreds *AWSUserCreds `json:"awsusercreds"`
+}
+
+type AWSUserCreds struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+func (config *MarinerConfig) jobConfig(component string) (jobConfig JobConfig) {
+	switch component {
+	case marinerEngine:
+		jobConfig = config.Jobs.Engine
+	case marinerTask:
+		jobConfig = config.Jobs.Task
+	}
+	return jobConfig
+}
+
+func (conf *Container) resourceRequirements() (requirements k8sv1.ResourceRequirements) {
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
 	if conf.Resources.Limits.CPU != "" {
 		limits[k8sv1.ResourceCPU] = k8sResource.MustParse(conf.Resources.Limits.CPU)
@@ -142,7 +242,7 @@ func (conf *Container) getResourceRequirements() (requirements k8sv1.ResourceReq
 	return requirements
 }
 
-func (conf *Container) getPullPolicy() (policy k8sv1.PullPolicy) {
+func (conf *Container) pullPolicy() (policy k8sv1.PullPolicy) {
 	switch conf.PullPolicy {
 	case "always":
 		policy = k8sv1.PullAlways
@@ -154,50 +254,46 @@ func (conf *Container) getPullPolicy() (policy k8sv1.PullPolicy) {
 	return policy
 }
 
-func (conf *Container) getSecurityContext() (context *k8sv1.SecurityContext) {
+func (conf *Container) securityContext() (context *k8sv1.SecurityContext) {
 	context = &k8sv1.SecurityContext{
 		Privileged: &conf.SecurityContext.Privileged,
 	}
 	return context
 }
 
-func getVolumeMounts(component string) (v []k8sv1.VolumeMount) {
+func volumeMounts(component string) (v []k8sv1.VolumeMount) {
 	switch component {
-	case ENGINE, TASK:
-		v = getMainVolumeMounts(component)
-	case S3SIDECAR, GEN3FUSE:
-		v = getSidecarVolumeMounts(component)
+	case marinerEngine, marinerTask:
+		v = mainVolumeMounts(component)
+	case s3sidecar, gen3fuse:
+		v = sidecarVolumeMounts(component)
 	}
 	return v
 }
 
-func getSidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
-	engineWorkspace := getVolumeMount(ENGINE_WORKSPACE, component)
+func sidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
+	engineWorkspace := volumeMount(engineWorkspaceVolumeName, component)
 	v = []k8sv1.VolumeMount{*engineWorkspace}
-	switch component {
-	case GEN3FUSE:
-		commonsData := getVolumeMount(COMMONS_DATA, component)
+	if component == gen3fuse {
+		commonsData := volumeMount(commonsDataVolumeName, component)
 		v = append(v, *commonsData)
-	case S3SIDECAR:
-		userData := getVolumeMount(USER_DATA, component)
-		v = append(v, *userData)
 	}
 	return v
 }
 
-func getMainVolumeMounts(component string) (volumeMounts []k8sv1.VolumeMount) {
-	for _, v := range WORKFLOW_VOLUMES {
-		volumeMount := getVolumeMount(v, component)
+func mainVolumeMounts(component string) (volumeMounts []k8sv1.VolumeMount) {
+	for _, v := range workflowVolumeList {
+		volumeMount := volumeMount(v, component)
 		volumeMounts = append(volumeMounts, *volumeMount)
 	}
-	if component == ENGINE {
-		configVol := getVolumeMount(CONFIG, component)
+	if component == marinerEngine {
+		configVol := volumeMount(configVolumeName, component)
 		volumeMounts = append(volumeMounts, *configVol)
 	}
 	return volumeMounts
 }
 
-func getConfigVolume() *k8sv1.Volume {
+func configVolume() *k8sv1.Volume {
 	// mariner config in manifest
 	// gets mounted as a volume in this way
 	configMap := &k8sv1.Volume{Name: "mariner-config"}
@@ -208,43 +304,24 @@ func getConfigVolume() *k8sv1.Volume {
 	return configMap
 }
 
-func getVolumeMount(name string, component string) *k8sv1.VolumeMount {
+func volumeMount(name string, component string) *k8sv1.VolumeMount {
 	volMnt := &k8sv1.VolumeMount{
 		Name:      name,
 		MountPath: fmt.Sprintf("/%v", name),
-		// ReadOnly:  trueVal,
 	}
 	switch component {
-	case TASK, ENGINE:
-		volMnt.MountPropagation = &MountPropagationHostToContainer
-	case S3SIDECAR, GEN3FUSE:
-		volMnt.MountPropagation = &MountPropagationBidirectional
+	case marinerTask, marinerEngine:
+		volMnt.MountPropagation = &mountPropagationHostToContainer
+	case s3sidecar, gen3fuse:
+		volMnt.MountPropagation = &mountPropagationBidirectional
 	}
-	// all vols are readOnly except the engine workspace
-	// that is, all files generated by a task are written/stored to engine workspace
-	if name == ENGINE_WORKSPACE {
+	if name == engineWorkspaceVolumeName {
 		volMnt.ReadOnly = falseVal
 	}
 	return volMnt
 }
 
-// run as user? run as group? should mariner have those settings?
-type SecurityContext struct {
-	Privileged bool `json:"privileged"`
-}
-
-type Jobs struct {
-	Engine JobConfig `json:"engine"`
-	Task   JobConfig `json:"task"`
-}
-
-type JobConfig struct {
-	Labels         map[string]string `json:"labels"`
-	ServiceAccount string            `json:"serviceaccount"`
-	RestartPolicy  string            `json:"restart_policy"`
-}
-
-func (conf *JobConfig) getRestartPolicy() (policy k8sv1.RestartPolicy) {
+func (conf *JobConfig) restartPolicy() (policy k8sv1.RestartPolicy) {
 	switch conf.RestartPolicy {
 	case "never":
 		policy = k8sv1.RestartPolicyNever
@@ -256,15 +333,6 @@ func (conf *JobConfig) getRestartPolicy() (policy k8sv1.RestartPolicy) {
 	return policy
 }
 
-type Secrets struct {
-	AWSUserCreds AWSUserCreds `json:"awsusercreds"`
-}
-
-type AWSUserCreds struct {
-	Name string `json:"name"`
-	Key  string `json:"key"`
-}
-
 // read `mariner-config.json` from configmap `mariner-config`
 // unmarshal into go config struct FullMarinerConfig
 // path is "/mariner-config/mariner-config.json"
@@ -272,10 +340,12 @@ func loadConfig(path string) (marinerConfig *MarinerConfig) {
 	config, err := ioutil.ReadFile(path)
 	if err != nil {
 		fmt.Printf("ERROR reading in config: %v", err)
+		// log
 	}
 	err = json.Unmarshal(config, &marinerConfig)
 	if err != nil {
 		fmt.Printf("ERROR unmarshalling config into MarinerConfig struct: %v", err)
+		// log
 	}
 	return marinerConfig
 }
