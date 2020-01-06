@@ -7,14 +7,39 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// pack serializes a single cwl file to json
-func pack(cwl []byte) {
-	cwlObj := new(CWLObject)
+// Pack serializes a single cwl file to json
+func Pack(cwl []byte) {
+	cwlObj := new(CommandLineTool)
 	yaml.Unmarshal(cwl, cwlObj)
-	fmt.Println(cwlObj)
+	fmt.Printf("%T\n", *cwlObj)
+	fmt.Printf("%v\n", *cwlObj)
+
+	j, err := (*cwlObj).JSON()
+	if err != nil {
+		fmt.Println("error marshalling to json: ", err)
+	}
+	fmt.Println("got this json:")
+	printJSON(j)
+
 }
 
-// PrintJSON pretty prints a struct as json
+// JSON returns the JSON of a workflow CWL object
+// i.e., converts from Go struct to JSON
+func (workflow *Workflow) JSON() ([]byte, error) {
+	return json.Marshal(workflow)
+}
+
+// JSON ..
+func (commandLineTool *CommandLineTool) JSON() ([]byte, error) {
+	return json.Marshal(commandLineTool)
+}
+
+// JSON ..
+func (expressionTool *ExpressionTool) JSON() ([]byte, error) {
+	return json.Marshal(expressionTool)
+}
+
+// PrintJSON pretty prints a struct as JSON
 func printJSON(i interface{}) {
 	var see []byte
 	var err error
