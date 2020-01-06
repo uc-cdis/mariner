@@ -208,15 +208,18 @@ type OrigCommandLineTool struct {
 }
 
 // CommandLineTool ..
+// the interface fields are trouble
 type CommandLineTool struct {
-	Class        string        `yaml:"class"`
-	CWLVersion   string        `yaml:"cwlVersion"`
+	Class      string `yaml:"class"`
+	CWLVersion string `yaml:"cwlVersion"`
+	///// these are problematic interfaces, nested struct giving json marshaller problems
 	Requirements []interface{} `yaml:"requirements"`
 	Hints        []interface{} `yaml:"hints"`
-	ID           string        `yaml:"id"`
-	Label        string        `yaml:"label"`
-	Doc          string        `yaml:"doc"`
-	Inputs       []struct {
+	/////
+	ID     string `yaml:"id"`
+	Label  string `yaml:"label"`
+	Doc    string `yaml:"doc"`
+	Inputs []struct {
 		ID             string `yaml:"id"`
 		Label          string `yaml:"label"`
 		Doc            string `yaml:"doc"`

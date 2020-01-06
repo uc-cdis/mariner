@@ -12,7 +12,7 @@ func Pack(cwl []byte) {
 	cwlObj := new(CommandLineTool)
 	yaml.Unmarshal(cwl, cwlObj)
 	fmt.Printf("%T\n", *cwlObj)
-	fmt.Printf("%v\n", *cwlObj)
+	fmt.Printf("%#v\n", *cwlObj)
 
 	j, err := (*cwlObj).JSON()
 	if err != nil {
@@ -23,6 +23,11 @@ func Pack(cwl []byte) {
 
 }
 
+func (clt *CommandLineTool) setTypes() error {
+
+	return nil
+}
+
 // JSON returns the JSON of a workflow CWL object
 // i.e., converts from Go struct to JSON
 func (workflow *Workflow) JSON() ([]byte, error) {
@@ -30,8 +35,8 @@ func (workflow *Workflow) JSON() ([]byte, error) {
 }
 
 // JSON ..
-func (commandLineTool *CommandLineTool) JSON() ([]byte, error) {
-	return json.Marshal(commandLineTool)
+func (clt *CommandLineTool) JSON() ([]byte, error) {
+	return json.Marshal(clt)
 }
 
 // JSON ..
