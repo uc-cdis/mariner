@@ -4,6 +4,13 @@ import ()
 
 // right now pretty much just writing out the CWL spec in Go types
 
+// will this tool just marshal without enforcing/validating the cwl?
+// e.g., if scatter, then scattermethod - will we perform that check here?
+// or does this tool assume your cwl is error-free
+// probably this tool should have some kind of validation function
+// this tool should answer, to some degree, the question - "will this cwl run?"
+// "will mariner even attempt to run this workflow?"
+
 // WorkflowJSON is the JSON representation of a CWL workflow
 type WorkflowJSON struct {
 	Graph WorkflowGraph
@@ -21,22 +28,22 @@ type CWLObject interface {
 	// some methods
 }
 
-// CoreFields are common to workflow, expressiontool, commandlinetool, ...
-type CoreFields struct {
-	ObjectMeta
-	ReqsAndHints
+// ObjectMeta ..
+type ObjectMeta struct {
+	CoreMeta
+	RequirementsAndHints
 	Class      string
 	CWLVersion string
 }
 
-// ReqsAndHints ..
-type ReqsAndHints struct {
+// RequirementsAndHints ..
+type RequirementsAndHints struct {
 	Requirements []Requirement
 	Hints        []Hint
 }
 
-// ObjectMeta ..
-type ObjectMeta struct {
+// CoreMeta ..
+type CoreMeta struct {
 	ID    string
 	Label string
 	Doc   string
@@ -44,15 +51,34 @@ type ObjectMeta struct {
 
 // Workflow ..
 type Workflow struct {
-	CoreFields
+	ObjectMeta
 	Inputs  []InputParameter
 	Outputs []WorkflowOutputParameter
 	Steps   []WorkflowStep
 }
 
-// WorkflowStep ..
+// Run can be string | clt | workflow | expressiontool
 // TODO
-type WorkflowStep struct{}
+type Run interface{}
+
+// WorkflowStep ..
+type WorkflowStep struct {
+	CoreMeta
+	RequirementsAndHints
+	In            []WorkflowStepInput
+	Out           []WorkflowStepOutput
+	Run           Run
+	Scatter       []string
+	ScatterMethod string
+}
+
+// WorkflowStepInput ..
+// TODO
+type WorkflowStepInput struct{}
+
+// WorkflowStepOutput .. string or struct
+// TODO
+type WorkflowStepOutput interface{}
 
 // InputParameter ..
 // TODO
@@ -64,20 +90,18 @@ type WorkflowOutputParameter struct{}
 
 // CommandLineTool ..
 type CommandLineTool struct {
+	ObjectMeta
 	Inputs             []CommandInputParameter
 	Outputs            []CommandOutputParameter
 	BaseCommand        []string
 	Arguments          []Argument
-	Stdin              Expression
-	Stderr             Expression
-	Stdout             Expression
+	Stdin              string
+	Stderr             string
+	Stdout             string
 	SuccessCodes       []int
 	TemporaryFailCodes []int
 	PermanentFailCodes []int
 }
-
-// Expression is just a string - but making it explicit for clarity
-type Expression string
 
 // Argument is one of 'expression' | 'string' | 'commandlinebinding'
 // TODO
@@ -93,9 +117,10 @@ type CommandOutputParameter struct{}
 
 // ExpressionTool ..
 type ExpressionTool struct {
+	ObjectMeta
 	Inputs     []InputParameter
 	Outputs    []ExpressionToolOutputParameter
-	Expression Expression
+	Expression string
 }
 
 // ExpressionToolOutputParameter ..
