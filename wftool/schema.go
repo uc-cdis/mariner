@@ -96,8 +96,15 @@ type InputParameter struct {
 }
 
 // CommandLineBinding ..
-// TODO
-type CommandLineBinding struct{}
+type CommandLineBinding struct {
+	LoadContents  bool
+	Position      int
+	Prefix        string
+	Separate      bool
+	ItemSeparator string
+	ValueFrom     string
+	ShellQuote    bool
+}
 
 // WorkflowOutputParameter ..
 // TODO
