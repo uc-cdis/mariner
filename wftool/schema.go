@@ -18,7 +18,7 @@ type WorkflowGraph []CWLObject
 // CWLObject represents a workflow, expressiontool, commandlinetool, ...
 // TODO
 type CWLObject interface {
-	// some method
+	// some methods
 }
 
 // CoreFields are common to workflow, expressiontool, commandlinetool, ...
@@ -43,16 +43,64 @@ type ObjectMeta struct {
 }
 
 // Workflow ..
+type Workflow struct {
+	CoreFields
+	Inputs  []InputParameter
+	Outputs []WorkflowOutputParameter
+	Steps   []WorkflowStep
+}
+
+// WorkflowStep ..
 // TODO
-type Workflow struct{}
+type WorkflowStep struct{}
+
+// InputParameter ..
+// TODO
+type InputParameter struct{}
+
+// WorkflowOutputParameter ..
+// TODO
+type WorkflowOutputParameter struct{}
 
 // CommandLineTool ..
+type CommandLineTool struct {
+	Inputs             []CommandInputParameter
+	Outputs            []CommandOutputParameter
+	BaseCommand        []string
+	Arguments          []Argument
+	Stdin              Expression
+	Stderr             Expression
+	Stdout             Expression
+	SuccessCodes       []int
+	TemporaryFailCodes []int
+	PermanentFailCodes []int
+}
+
+// Expression is just a string - but making it explicit for clarity
+type Expression string
+
+// Argument is one of 'expression' | 'string' | 'commandlinebinding'
 // TODO
-type CommandLineTool struct{}
+type Argument interface{}
+
+// CommandInputParameter ..
+// TODO
+type CommandInputParameter struct{}
+
+// CommandOutputParameter ..
+// TODO
+type CommandOutputParameter struct{}
 
 // ExpressionTool ..
+type ExpressionTool struct {
+	Inputs     []InputParameter
+	Outputs    []ExpressionToolOutputParameter
+	Expression Expression
+}
+
+// ExpressionToolOutputParameter ..
 // TODO
-type ExpressionTool struct{}
+type ExpressionToolOutputParameter struct{}
 
 // Requirement ..
 // TODO
