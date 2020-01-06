@@ -57,28 +57,30 @@ type Workflow struct {
 	Steps   []WorkflowStep
 }
 
-// Run can be string | clt | workflow | expressiontool
-// TODO
-type Run interface{}
-
 // WorkflowStep ..
 type WorkflowStep struct {
 	CoreMeta
 	RequirementsAndHints
 	In            []WorkflowStepInput
-	Out           []WorkflowStepOutput
-	Run           Run
+	Out           []WorkflowStepOutput // could be []string or []map[string]string
+	Run           interface{}
 	Scatter       []string
 	ScatterMethod string
 }
 
 // WorkflowStepInput ..
-// TODO
-type WorkflowStepInput struct{}
+type WorkflowStepInput struct {
+	ID        string
+	Source    []string
+	LinkMerge string // 'merge_nested' or 'merge_flattened'
+	Default   interface{}
+	ValueFrom string
+}
 
-// WorkflowStepOutput .. string or struct
-// TODO
-type WorkflowStepOutput interface{}
+// WorkflowStepOutput ..
+type WorkflowStepOutput struct {
+	ID string
+}
 
 // InputParameter ..
 // TODO
