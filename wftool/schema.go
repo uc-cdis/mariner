@@ -37,9 +37,12 @@ type ObjectMeta struct {
 }
 
 // RequirementsAndHints ..
+// NOTE: possibly need to make types for all the different requirements
+// though I'm not sure that'll be necessary at all
+// since the requirements themselves don't get touched/modifed during unmarshalling
 type RequirementsAndHints struct {
-	Requirements []Requirement
-	Hints        []Hint
+	Requirements []interface{}
+	Hints        []interface{} // some schema!
 }
 
 // CoreMeta ..
@@ -133,7 +136,7 @@ type CommandLineTool struct {
 	Inputs             []CommandInputParameter
 	Outputs            []CommandOutputParameter
 	BaseCommand        []string
-	Arguments          []Argument
+	Arguments          []interface{} // an argument is one of 'expression' | 'string' | 'commandlinebinding'
 	Stdin              string
 	Stderr             string
 	Stdout             string
@@ -142,17 +145,20 @@ type CommandLineTool struct {
 	PermanentFailCodes []int
 }
 
-// Argument is one of 'expression' | 'string' | 'commandlinebinding'
-// TODO
-type Argument interface{}
-
 // CommandInputParameter ..
-// TODO
-type CommandInputParameter struct{}
+type CommandInputParameter struct {
+	CoreMeta
+	FileParameterFields
+	InputBinding CommandLineBinding
+	Default      interface{}
+}
 
 // CommandOutputParameter ..
-// TODO
-type CommandOutputParameter struct{}
+type CommandOutputParameter struct {
+	CoreMeta
+	FileParameterFields
+	OutputBinding CommandOutputBinding
+}
 
 // ExpressionTool ..
 type ExpressionTool struct {
@@ -163,13 +169,8 @@ type ExpressionTool struct {
 }
 
 // ExpressionToolOutputParameter ..
-// TODO
-type ExpressionToolOutputParameter struct{}
-
-// Requirement ..
-// TODO
-type Requirement struct{}
-
-// Hint ..
-// TODO
-type Hint struct{}
+type ExpressionToolOutputParameter struct {
+	CoreMeta
+	FileParameterFields
+	OutputBinding CommandOutputBinding
+}
