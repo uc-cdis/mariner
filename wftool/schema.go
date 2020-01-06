@@ -83,8 +83,21 @@ type WorkflowStepOutput struct {
 }
 
 // InputParameter ..
+type InputParameter struct {
+	CoreMeta
+	SecondaryFiles []string
+	Streamable     bool
+	Format         []string
+	InputBinding   CommandLineBinding
+	Default        interface{}
+	Type           []interface{} // TODO
+	// NOTE: handling 'Type' requires some thought - several possibilities here
+	// see: https://www.commonwl.org/v1.0/Workflow.html#InputParameter
+}
+
+// CommandLineBinding ..
 // TODO
-type InputParameter struct{}
+type CommandLineBinding struct{}
 
 // WorkflowOutputParameter ..
 // TODO
