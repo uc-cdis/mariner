@@ -85,14 +85,9 @@ type WorkflowStepOutput struct {
 // InputParameter ..
 type InputParameter struct {
 	CoreMeta
-	SecondaryFiles []string
-	Streamable     bool
-	Format         []string
-	InputBinding   CommandLineBinding
-	Default        interface{}
-	Type           []interface{} // TODO
-	// NOTE: handling 'Type' requires some thought - several possibilities here
-	// see: https://www.commonwl.org/v1.0/Workflow.html#InputParameter
+	FileParameterFields
+	InputBinding CommandLineBinding
+	Default      interface{}
 }
 
 // CommandLineBinding ..
@@ -107,8 +102,30 @@ type CommandLineBinding struct {
 }
 
 // WorkflowOutputParameter ..
-// TODO
-type WorkflowOutputParameter struct{}
+type WorkflowOutputParameter struct {
+	CoreMeta
+	FileParameterFields
+	OutputBinding CommandOutputBinding
+	OutputSource  []string
+	LinkMerge     string
+}
+
+// FileParameterFields ..
+type FileParameterFields struct {
+	SecondaryFiles []string
+	Streamable     bool
+	Format         []string
+	Type           []interface{} // TODO
+	// NOTE: handling 'Type' requires some thought - several possibilities here
+	// see: https://www.commonwl.org/v1.0/Workflow.html#InputParameter
+}
+
+// CommandOutputBinding ..
+type CommandOutputBinding struct {
+	Glob         []string
+	LoadContents bool
+	OutputEval   string
+}
 
 // CommandLineTool ..
 type CommandLineTool struct {
