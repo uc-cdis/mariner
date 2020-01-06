@@ -19,14 +19,8 @@ type WorkflowJSON struct {
 // WorkflowGraph contains all the CWLObjects of the workflow
 type WorkflowGraph []CWLObject
 
-// as much as possible, don't repeat fields among structs
-// make basic, atomic structs, and embed into other structs as needed
-
-// CWLObject represents a workflow, expressiontool, commandlinetool, ...
-// TODO
-type CWLObject interface {
-	// some methods
-}
+// CWLObject represents a workflow, expressiontool, commandlinetool
+type CWLObject interface{}
 
 // ObjectMeta ..
 type ObjectMeta struct {
