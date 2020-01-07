@@ -116,7 +116,8 @@ var desiredOutput = `{
 		{
 			"position": 1,
 			"valueFrom": "touchFiles.sh"
-		}
+		},
+		"the second argument"
 	],
 	"id": "#read_from_all.cwl"
 }`

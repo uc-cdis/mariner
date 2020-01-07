@@ -1,7 +1,5 @@
 package wftool
 
-import ()
-
 // right now pretty much just writing out the CWL spec in Go types
 
 // will this tool just marshal without enforcing/validating the cwl?
@@ -155,17 +153,6 @@ type InputParameter struct {
 	Default      interface{}
 }
 
-// CommandLineBinding ..
-type CommandLineBinding struct {
-	LoadContents  bool
-	Position      int
-	Prefix        string
-	Separate      bool
-	ItemSeparator string
-	ValueFrom     string
-	ShellQuote    bool
-}
-
 // WorkflowOutputParameter ..
 type WorkflowOutputParameter struct {
 	CoreMeta
@@ -207,26 +194,40 @@ type OrigCommandLineTool struct {
 	PermanentFailCodes []int                    `yaml:"permanentFailCodes"`
 }
 
+/*
+
+special handling required for:
+- Requirements
+- Hints
+- Type
+- Default
+- Arguments (working on this)
+
+currently handling Arguments
+- array of (string | expression | commandlinebinding)
+- which translates to an array of (string | commandlinebinding)
+- this is a simple thing to handle
+*/
+
 // CommandLineTool ..
 // the interface fields are trouble
 type CommandLineTool struct {
 	Class      string `yaml:"class"`
 	CWLVersion string `yaml:"cwlVersion"`
-	///// these are problematic interfaces, nested struct giving json marshaller problems
-	Requirements []interface{} `yaml:"requirements"`
-	Hints        []interface{} `yaml:"hints"`
-	/////
-	ID     string `yaml:"id"`
-	Label  string `yaml:"label"`
-	Doc    string `yaml:"doc"`
-	Inputs []struct {
-		ID             string `yaml:"id"`
+	ID         string `yaml:"id"`
+	Label      string `yaml:"label"`
+	Doc        string `yaml:"doc"`
+	// special handling needed for requirements and hints
+	Requirements map[string]string `yaml:"requirements"`
+	Hints        map[string]string `yaml:"hints"`
+	// handle inputs
+	Inputs map[string]struct {
+		// ID             string `yaml:"id"`
 		Label          string `yaml:"label"`
 		Doc            string `yaml:"doc"`
 		SecondaryFiles []string
 		Streamable     bool
 		Format         []string
-		Type           []interface{} // TODO
 		InputBinding   struct {
 			LoadContents  bool
 			Position      int
@@ -236,30 +237,75 @@ type CommandLineTool struct {
 			ValueFrom     string
 			ShellQuote    bool
 		}
+		// special handling needed for 'Type' and 'Default'
+		Type    []interface{} // TODO
 		Default interface{}
 	} `yaml:"inputs"`
-	Outputs []struct {
-		ID             string `yaml:"id"`
+	// should be map[string]struct, per CWL change
+	// handle Outputs
+	Outputs map[string]struct {
+		// ID             string `yaml:"id"`
 		Label          string `yaml:"label"`
 		Doc            string `yaml:"doc"`
 		SecondaryFiles []string
 		Streamable     bool
 		Format         []string
-		Type           []interface{} // TODO
 		OutputBinding  struct {
 			Glob         []string
 			LoadContents bool
 			OutputEval   string
 		}
+		// special handling needed for 'Type'
+		Type []interface{} // TODO
 	} `yaml:"outputs"`
-	BaseCommand        []string      `yaml:"baseCommand"`
-	Arguments          []interface{} `yaml:"arguments"` // an argument is one of 'expression' | 'string' | 'commandlinebinding'
-	Stdin              string        `yaml:"stdin"`
-	Stderr             string        `yaml:"stderr"`
-	Stdout             string        `yaml:"stdout"`
-	SuccessCodes       []int         `yaml:"successCodes"`
-	TemporaryFailCodes []int         `yaml:"temporaryFailCodes"`
-	PermanentFailCodes []int         `yaml:"permanentFailCodes"`
+	BaseCommand        []string `yaml:"baseCommand"`
+	Stdin              string   `yaml:"stdin"`
+	Stderr             string   `yaml:"stderr"`
+	Stdout             string   `yaml:"stdout"`
+	SuccessCodes       []int    `yaml:"successCodes"`
+	TemporaryFailCodes []int    `yaml:"temporaryFailCodes"`
+	PermanentFailCodes []int    `yaml:"permanentFailCodes"`
+	// handle 'Arguments'
+	Arguments []CommandLineBinding `yaml:"arguments"` // an argument is one of 'expression' | 'string' | 'commandlinebinding'
+}
+
+// UnmarshalYAML ..
+func (clb *CommandLineBinding) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	yamlStruct := make(map[string]interface{})
+	err := unmarshal(&yamlStruct)
+	if err != nil {
+		return err
+	}
+	for k, v := range yamlStruct {
+		switch k {
+		case "loadContents":
+			clb.LoadContents = v.(bool)
+		case "position":
+			clb.Position = v.(int)
+		case "prefix":
+			clb.Prefix = v.(string)
+		case "separate":
+			clb.Separate = v.(bool)
+		case "itemSeparator":
+			clb.ItemSeparator = v.(string)
+		case "valueFrom":
+			clb.ValueFrom = v.(string)
+		case "shellQuote":
+			clb.ShellQuote = v.(bool)
+		}
+	}
+	return nil
+}
+
+// CommandLineBinding ..
+type CommandLineBinding struct {
+	LoadContents  bool
+	Position      int
+	Prefix        string
+	Separate      bool
+	ItemSeparator string
+	ValueFrom     string
+	ShellQuote    bool
 }
 
 // CommandInputParameter ..

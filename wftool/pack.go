@@ -14,12 +14,17 @@ func Pack(cwl []byte) {
 	fmt.Printf("%T\n", *cwlObj)
 	fmt.Printf("%#v\n", *cwlObj)
 
-	j, err := (*cwlObj).JSON()
-	if err != nil {
-		fmt.Println("error marshalling to json: ", err)
-	}
-	fmt.Println("got this json:")
-	printJSON(j)
+	fmt.Println("here's the struct in JSON:")
+	printJSON(cwlObj)
+
+	/*
+		j, err := cwlObj.JSON()
+		if err != nil {
+			fmt.Println("error marshalling to json: ", err)
+		}
+		fmt.Println("got this json:")
+		printJSON(j)
+	*/
 
 }
 
@@ -36,7 +41,7 @@ func (workflow *Workflow) JSON() ([]byte, error) {
 
 // JSON ..
 func (clt *CommandLineTool) JSON() ([]byte, error) {
-	return json.Marshal(clt)
+	return json.Marshal(*clt)
 }
 
 // JSON ..
