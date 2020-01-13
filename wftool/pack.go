@@ -31,27 +31,6 @@ func Pack(cwl []byte) {
 
 }
 
-func (clt *CommandLineTool) setTypes() error {
-
-	return nil
-}
-
-// JSON returns the JSON of a workflow CWL object
-// i.e., converts from Go struct to JSON
-func (workflow *Workflow) JSON() ([]byte, error) {
-	return json.Marshal(workflow)
-}
-
-// JSON ..
-func (clt *CommandLineTool) JSON() ([]byte, error) {
-	return json.Marshal(*clt)
-}
-
-// JSON ..
-func (expressionTool *ExpressionTool) JSON() ([]byte, error) {
-	return json.Marshal(expressionTool)
-}
-
 // PrintJSON pretty prints a struct as JSON
 func printJSON(i interface{}) {
 	var see []byte
