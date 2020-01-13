@@ -2,6 +2,7 @@ package wftool
 
 import (
 	"fmt"
+	"strings"
 )
 
 /*
@@ -18,25 +19,18 @@ import (
 	for user - "will mariner run this workflow,
 	or is there something I need to fix in my CWL?"
 
-	NOTICE
-
-	- currently not supporting inputParameter schemas
-	in the CommandInput.Type[i] field - expecting a string
-
+	need to handle type:
+	'type' key maps to either <T> or []<T>
+	handle <T> vs. []<T>
+	if []<T>:
+		for each <T>,
+			if <T>.endsWith("[]") {
+				saladArray(<T>)
+			}
+			elif <T>.endsWith("?") {
+				saladOptional(<T>)
+			}
 */
-
-// WorkflowJSON is the JSON representation of a CWL workflow
-type WorkflowJSON struct {
-	Graph WorkflowGraph
-}
-
-// WorkflowGraph contains all the CWLObjects of the workflow
-type WorkflowGraph []CWLObject
-
-// CWLObject represents a workflow, expressiontool, commandlinetool
-type CWLObject interface {
-	JSON() ([]byte, error)
-}
 
 // original
 func convert(i interface{}) interface{} {
@@ -99,6 +93,25 @@ func array(m map[interface{}]interface{}, parentKey string) []map[string]interfa
 	return arr
 }
 
+// currently only supporting base case - expecting string
+// i.e., not supporting user-defined schemas or $import or $include or custom types
+func resolveType(s string) interface{} {
+	var out interface{}
+	switch {
+	case strings.HasSuffix(s, "[]"):
+		out = map[string]string{
+			"type":  "array",
+			"items": strings.TrimSuffix(s, "[]"),
+		}
+	case strings.HasSuffix(s, "?"):
+		out = []string{
+			strings.TrimSuffix(s, "?"),
+			"null",
+		}
+	}
+	return out
+}
+
 /*
 HERE - TODO - finish this fn - does all the work
 
@@ -110,8 +123,10 @@ func nuConvert(i interface{}, parentKey string) interface{} {
 	fmt.Println("handling field: ", parentKey)
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
-		if mapToArray[parentKey] {
+		switch {
+		case mapToArray[parentKey]:
 			return array(x, parentKey)
+			// case ..
 		}
 
 		m2 := map[string]interface{}{}
@@ -123,6 +138,10 @@ func nuConvert(i interface{}, parentKey string) interface{} {
 	case []interface{}:
 		for i, v := range x {
 			x[i] = nuConvert(v, "")
+		}
+	case string:
+		if parentKey == "type" {
+			return resolveType(x)
 		}
 	}
 	return i
