@@ -57,6 +57,7 @@ func convert(i interface{}) interface{} {
 */
 var mapToArray = map[string]bool{
 	"inputs":       true,
+	"in":           true, // workflowStep 'in'
 	"outputs":      true,
 	"requirements": true,
 	"hints":        true,
@@ -71,12 +72,14 @@ func array(m map[interface{}]interface{}, parentKey string) []map[string]interfa
 		case map[string]interface{}:
 			nuV = x
 		case string:
-			// if inputs, where you have id: type
-			// not expecting any other instances of this
 			nuV = make(map[string]interface{})
-			if parentKey == "inputs" {
+			// handle shorthand syntax which is in the CWL spec
+			switch parentKey {
+			case "inputs", "outputs":
 				nuV["type"] = x
-			} else {
+			case "in":
+				nuV["source"] = x
+			default:
 				panic(fmt.Sprintf("unexpected syntax for field: %v", parentKey))
 			}
 		default:
