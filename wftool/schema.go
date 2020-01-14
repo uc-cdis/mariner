@@ -154,14 +154,14 @@ func nuConvert(i interface{}, parentKey string, parentID string) interface{} {
 				return fmt.Sprintf("%v/%v", parentID, x)
 			}
 		*/
-		/*
-			switch parentKey {
-			case "source", "outputSource":
-				return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
-			case "out":
-				return fmt.Sprintf("%v/%v", parentID, x)
-			}
-		*/
+
+		switch parentKey {
+		case "source", "outputSource":
+			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
+		case "out":
+			return fmt.Sprintf("%v/%v", parentID, x)
+		}
+
 	}
 	return i
 }
