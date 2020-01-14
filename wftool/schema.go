@@ -45,17 +45,19 @@ func convert(i interface{}) interface{} {
 */
 var mapToArray = map[string]bool{
 	"inputs":       true,
+	"steps":        true,
 	"in":           true,
 	"outputs":      true,
 	"requirements": true,
 	"hints":        true,
 }
 
-func array(m map[interface{}]interface{}, parentKey string) []map[string]interface{} {
+func array(m map[interface{}]interface{}, parentKey string, parentID string) []map[string]interface{} {
 	arr := []map[string]interface{}{}
 	var nuV map[string]interface{}
 	for k, v := range m {
-		i := nuConvert(v, k.(string))
+		id := fmt.Sprintf("%v/%v", parentID, k.(string))
+		i := nuConvert(v, "", id)
 		switch x := i.(type) {
 		case map[string]interface{}:
 			nuV = x
@@ -66,7 +68,14 @@ func array(m map[interface{}]interface{}, parentKey string) []map[string]interfa
 			case "inputs", "outputs":
 				nuV["type"] = x
 			case "in":
-				nuV["source"] = x
+				// nuV["source"] = x
+				// dev'ing
+				/*
+					tmp := strings.Split(parentID, "/")
+					prevID := strings.Join(tmp[:len(tmp)-1], "/")
+				*/
+				grandParentID := strings.Split(parentID, "/")[0]
+				nuV["source"] = fmt.Sprintf("%v/%v", grandParentID, x)
 			default:
 				panic(fmt.Sprintf("unexpected syntax for field: %v", parentKey))
 			}
@@ -77,7 +86,9 @@ func array(m map[interface{}]interface{}, parentKey string) []map[string]interfa
 		case "requirements", "hints":
 			nuV["class"] = k.(string)
 		default:
-			nuV["id"] = k.(string)
+			// nuV["id"] = k.(string)
+			// dev'ing
+			nuV["id"] = id
 		}
 		arr = append(arr, nuV)
 	}
@@ -109,30 +120,56 @@ HERE - TODO - finish this fn - main fn
 consider: separation of powers between cwl.go and this package
 should they be the same package?
 */
-func nuConvert(i interface{}, parentKey string) interface{} {
-	fmt.Println("handling field: ", parentKey)
+func nuConvert(i interface{}, parentKey string, parentID string) interface{} {
+	fmt.Println("parentKey: ", parentKey)
+	fmt.Println("object:")
+	printJSON(i)
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
 		switch {
 		case mapToArray[parentKey]:
-			return array(x, parentKey)
+			return array(x, parentKey, parentID)
 			// case ..
 		}
 
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
-			m2[key] = nuConvert(v, key)
+			m2[key] = nuConvert(v, key, parentID)
 		}
 		return m2
 	case []interface{}:
 		for i, v := range x {
-			x[i] = nuConvert(v, "")
+			// this is troublesome
+			// x[i] = nuConvert(v, parentKey, parentID)
+			x[i] = nuConvert(v, "", parentID)
 		}
 	case string:
 		if parentKey == "type" {
 			return resolveType(x)
 		}
+		// dev'ing
+		/*
+			if buildPath[parentKey] {
+				return fmt.Sprintf("%v/%v", parentID, x)
+			}
+		*/
+		/*
+			switch parentKey {
+			case "source", "outputSource":
+				return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
+			case "out":
+				return fmt.Sprintf("%v/%v", parentID, x)
+			}
+		*/
 	}
 	return i
+}
+
+// recursively build id paths for these fields
+var buildPath = map[string]bool{
+	// "id":           true,
+	"outputSource": true,
+	"source":       true,
+	"out":          true,
 }

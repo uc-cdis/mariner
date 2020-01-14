@@ -96,7 +96,14 @@ steps:
         out: [ output_files ]
 `
 
+/*
+{
+	"source": "#main/user_file",
+	"id": "#main/read_from_all/unprocessed_file_3"
+}
+*/
+
 func TestPack(t *testing.T) {
-	Pack([]byte(tool))
+	// Pack([]byte(tool))
 	Pack([]byte(workflow))
 }
