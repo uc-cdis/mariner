@@ -57,7 +57,7 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string) []m
 	var nuV map[string]interface{}
 	for k, v := range m {
 		id := fmt.Sprintf("%v/%v", parentID, k.(string))
-		i := nuConvert(v, "", id)
+		i := nuConvert(v, k.(string), id, false)
 		switch x := i.(type) {
 		case map[string]interface{}:
 			nuV = x
@@ -68,14 +68,7 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string) []m
 			case "inputs", "outputs":
 				nuV["type"] = x
 			case "in":
-				// nuV["source"] = x
-				// dev'ing
-				/*
-					tmp := strings.Split(parentID, "/")
-					prevID := strings.Join(tmp[:len(tmp)-1], "/")
-				*/
-				grandParentID := strings.Split(parentID, "/")[0]
-				nuV["source"] = fmt.Sprintf("%v/%v", grandParentID, x)
+				nuV["source"] = fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
 			default:
 				panic(fmt.Sprintf("unexpected syntax for field: %v", parentKey))
 			}
@@ -86,8 +79,6 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string) []m
 		case "requirements", "hints":
 			nuV["class"] = k.(string)
 		default:
-			// nuV["id"] = k.(string)
-			// dev'ing
 			nuV["id"] = id
 		}
 		arr = append(arr, nuV)
@@ -120,14 +111,14 @@ HERE - TODO - finish this fn - main fn
 consider: separation of powers between cwl.go and this package
 should they be the same package?
 */
-func nuConvert(i interface{}, parentKey string, parentID string) interface{} {
+func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) interface{} {
 	fmt.Println("parentKey: ", parentKey)
 	fmt.Println("object:")
 	printJSON(i)
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
 		switch {
-		case mapToArray[parentKey]:
+		case mapToArray[parentKey] && !inArray:
 			return array(x, parentKey, parentID)
 			// case ..
 		}
@@ -135,14 +126,12 @@ func nuConvert(i interface{}, parentKey string, parentID string) interface{} {
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
-			m2[key] = nuConvert(v, key, parentID)
+			m2[key] = nuConvert(v, key, parentID, false)
 		}
 		return m2
 	case []interface{}:
 		for i, v := range x {
-			// this is troublesome
-			// x[i] = nuConvert(v, parentKey, parentID)
-			x[i] = nuConvert(v, "", parentID)
+			x[i] = nuConvert(v, parentKey, parentID, true)
 		}
 	case string:
 		if parentKey == "type" {
