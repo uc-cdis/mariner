@@ -18,18 +18,6 @@ import (
 	or just return an error to the user now"
 	for user - "will mariner run this workflow,
 	or is there something I need to fix in my CWL?"
-
-	need to handle type:
-	'type' key maps to either <T> or []<T>
-	handle <T> vs. []<T>
-	if []<T>:
-		for each <T>,
-			if <T>.endsWith("[]") {
-				saladArray(<T>)
-			}
-			elif <T>.endsWith("?") {
-				saladOptional(<T>)
-			}
 */
 
 // original
@@ -50,14 +38,14 @@ func convert(i interface{}) interface{} {
 }
 
 /*
+	currently with the way the cwl.go library is setup,
 	certain fields need to be converted from map to array structure
-	currently, the way the cwl.go library is setup
-	could make changes there
+	could make changes in cwl.go lib
 	but first just getting things working
 */
 var mapToArray = map[string]bool{
 	"inputs":       true,
-	"in":           true, // workflowStep 'in'
+	"in":           true,
 	"outputs":      true,
 	"requirements": true,
 	"hints":        true,
@@ -116,11 +104,10 @@ func resolveType(s string) interface{} {
 }
 
 /*
-HERE - TODO - finish this fn - does all the work
+HERE - TODO - finish this fn - main fn
 
 consider: separation of powers between cwl.go and this package
 should they be the same package?
-
 */
 func nuConvert(i interface{}, parentKey string) interface{} {
 	fmt.Println("handling field: ", parentKey)
