@@ -147,7 +147,7 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) i
 		switch parentKey {
 		case "source", "outputSource":
 			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
-		case "out":
+		case "out", "id":
 			return fmt.Sprintf("%v/%v", parentID, x)
 		}
 
