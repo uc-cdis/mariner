@@ -66,7 +66,7 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string) []m
 			// handle shorthand syntax which is in the CWL spec
 			switch parentKey {
 			case "inputs", "outputs":
-				nuV["type"] = x
+				nuV["type"] = resolveType(x)
 			case "in":
 				nuV["source"] = fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
 			default:
