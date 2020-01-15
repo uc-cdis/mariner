@@ -89,20 +89,19 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string) []m
 // currently only supporting base case - expecting string
 // i.e., not supporting user-defined schemas or $import or $include or custom types
 func resolveType(s string) interface{} {
-	var out interface{}
 	switch {
 	case strings.HasSuffix(s, "[]"):
-		out = map[string]string{
+		return map[string]string{
 			"type":  "array",
 			"items": strings.TrimSuffix(s, "[]"),
 		}
 	case strings.HasSuffix(s, "?"):
-		out = []string{
+		return []string{
 			strings.TrimSuffix(s, "?"),
 			"null",
 		}
 	}
-	return out
+	return s
 }
 
 /*
