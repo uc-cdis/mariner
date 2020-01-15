@@ -8,14 +8,14 @@ import (
 )
 
 // Pack serializes a single cwl file to json
-func Pack(cwl []byte) {
+func Pack(cwl []byte, id string) {
 	// cwlObj := new(CommandLineTool)
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
 	fmt.Printf("%T\n", *cwlObj)
 	fmt.Printf("%#v\n", *cwlObj)
 
-	*cwlObj = nuConvert(*cwlObj, "", "#main", false)
+	*cwlObj = nuConvert(*cwlObj, "", id, false)
 
 	fmt.Println("here's the struct in JSON:")
 	printJSON(cwlObj)
