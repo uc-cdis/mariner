@@ -3,32 +3,33 @@ package wftool
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 
 	"gopkg.in/yaml.v2"
 )
 
-// Pack serializes a single cwl file to json
-func Pack(cwl []byte, id string) {
-	// cwlObj := new(CommandLineTool)
+// error handling, in general, needs attention
+
+// PackCWL serializes a single cwl byte to json
+func PackCWL(cwl []byte, id string) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
-	fmt.Printf("%T\n", *cwlObj)
-	fmt.Printf("%#v\n", *cwlObj)
-
 	*cwlObj = nuConvert(*cwlObj, primaryRoutine, id, false)
-
-	fmt.Println("here's the struct in JSON:")
 	printJSON(cwlObj)
+}
 
-	/*
-		j, err := cwlObj.JSON()
-		if err != nil {
-			fmt.Println("error marshalling to json: ", err)
-		}
-		fmt.Println("got this json:")
-		printJSON(j)
-	*/
-
+func packCWLFile(path string) error {
+	cwl, err := ioutil.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	// copying cwltool's pack id scheme
+	// not sure if it's actually good or not
+	// but for now, doing this
+	id := fmt.Sprintf("#%v", filepath.Base(path))
+	PackCWL(cwl, id)
+	return nil
 }
 
 // PrintJSON pretty prints a struct as JSON

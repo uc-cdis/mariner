@@ -280,12 +280,12 @@ steps:
         out: [ output ]
 `
 
-func TestPack(t *testing.T) {
+func TestPackCWL(t *testing.T) {
 	// Pack([]byte(tool), "#read_from_all.cwl")
 	// Pack([]byte(workflow), "#main")
 	// Pack([]byte(expressiontool), "#expressiontool_test.cwl")
 	// Pack([]byte(gen3test), "#main")
 	// Pack([]byte(initDir), "#initdir_test.cwl")
 	// Pack([]byte(scatter), "#scatter_test.cwl")
-	Pack([]byte(subwf), "#subworkflow_test.cwl")
+	PackCWL([]byte(subwf), "#subworkflow_test.cwl")
 }
