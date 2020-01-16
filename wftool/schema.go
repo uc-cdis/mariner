@@ -107,29 +107,25 @@ func resolveType(s string) interface{} {
 const primaryRoutine = "primaryRoutine"
 
 /*
-HERE - TODO - finish this fn - main fn
-
-consider: separation of powers between cwl.go and this package
+consider separation of powers between cwl.go and this package
 should they be the same package?
 */
 func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) interface{} {
-	fmt.Println("parentKey: ", parentKey)
-	fmt.Println("object:")
-	printJSON(i)
+	/*
+		fmt.Println("parentKey: ", parentKey)
+		fmt.Println("object:")
+		printJSON(i)
+	*/
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
-
-		switch {
-		case mapToArray[parentKey] && !inArray:
+		if mapToArray[parentKey] && !inArray {
 			return array(x, parentKey, parentID)
 		}
-
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
 			m2[key] = nuConvert(v, key, parentID, false)
 		}
-
 		// per cwl file
 		// one initial call to nuConvert()
 		// this initial call is the primaryRoutine
@@ -137,38 +133,20 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) i
 		if parentKey == primaryRoutine {
 			m2["id"] = parentID
 		}
-
 		return m2
 	case []interface{}:
 		for i, v := range x {
 			x[i] = nuConvert(v, parentKey, parentID, true)
 		}
 	case string:
-		if parentKey == "type" {
-			return resolveType(x)
-		}
-		// dev'ing
-		/*
-			if buildPath[parentKey] {
-				return fmt.Sprintf("%v/%v", parentID, x)
-			}
-		*/
-
 		switch parentKey {
+		case "type":
+			return resolveType(x)
 		case "source", "outputSource":
 			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
 		case "out", "id", "scatter":
 			return fmt.Sprintf("%v/%v", parentID, x)
 		}
-
 	}
 	return i
-}
-
-// recursively build id paths for these fields
-var buildPath = map[string]bool{
-	// "id":           true,
-	"outputSource": true,
-	"source":       true,
-	"out":          true,
 }
