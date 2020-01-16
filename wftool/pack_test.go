@@ -287,5 +287,5 @@ func TestPackCWL(t *testing.T) {
 	// Pack([]byte(gen3test), "#main")
 	// Pack([]byte(initDir), "#initdir_test.cwl")
 	// Pack([]byte(scatter), "#scatter_test.cwl")
-	PackCWL([]byte(subwf), "#subworkflow_test.cwl")
+	PackCWL([]byte(subwf), "#subworkflow_test.cwl", "")
 }

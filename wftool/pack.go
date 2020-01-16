@@ -12,14 +12,34 @@ import (
 // error handling, in general, needs attention
 
 // PackCWL serializes a single cwl byte to json
-func PackCWL(cwl []byte, id string) {
+func PackCWL(cwl []byte, id string, path string) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
-	*cwlObj = nuConvert(*cwlObj, primaryRoutine, id, false)
+	*cwlObj = nuConvert(*cwlObj, primaryRoutine, id, false, path)
 	printJSON(cwlObj)
 }
 
-func packCWLFile(path string) error {
+// 'path' is relative to prevPath
+// except in the case where prevPath is "", and path is absolute
+// which is the first call to packCWLFile
+//
+// at first call
+// first try absolute path
+// if err, try relative path - path relative to working dir
+// if err, fail out
+//
+// always only handle absolute paths - keep things simple
+// assume prevPath is absolute
+// and path is relative to prevPath
+// construct absolute path of `path`
+//
+// so:
+// 'path' is relative to 'prevPath'
+// 'prevPath' is absolute
+// 1. construct abs(path)
+// 2. ..
+func packCWLFile(path string, prevPath string) error {
+	// here construct absolute path of 'path' before reading file
 	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
@@ -28,7 +48,8 @@ func packCWLFile(path string) error {
 	// not sure if it's actually good or not
 	// but for now, doing this
 	id := fmt.Sprintf("#%v", filepath.Base(path))
-	PackCWL(cwl, id)
+	// 'path' here is absolute - implies prevPath is absolute
+	PackCWL(cwl, id, path)
 	return nil
 }
 

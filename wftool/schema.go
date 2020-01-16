@@ -52,12 +52,12 @@ var mapToArray = map[string]bool{
 	"hints":        true,
 }
 
-func array(m map[interface{}]interface{}, parentKey string, parentID string) []map[string]interface{} {
+func array(m map[interface{}]interface{}, parentKey string, parentID string, path string) []map[string]interface{} {
 	arr := []map[string]interface{}{}
 	var nuV map[string]interface{}
 	for k, v := range m {
 		id := fmt.Sprintf("%v/%v", parentID, k.(string))
-		i := nuConvert(v, k.(string), id, false)
+		i := nuConvert(v, k.(string), id, false, path)
 		switch x := i.(type) {
 		case map[string]interface{}:
 			nuV = x
@@ -110,7 +110,7 @@ const primaryRoutine = "primaryRoutine"
 consider separation of powers between cwl.go and this package
 should they be the same package?
 */
-func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) interface{} {
+func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string) interface{} {
 	/*
 		fmt.Println("parentKey: ", parentKey)
 		fmt.Println("object:")
@@ -119,12 +119,12 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) i
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
 		if mapToArray[parentKey] && !inArray {
-			return array(x, parentKey, parentID)
+			return array(x, parentKey, parentID, path)
 		}
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
-			m2[key] = nuConvert(v, key, parentID, false)
+			m2[key] = nuConvert(v, key, parentID, false, path)
 		}
 		// per cwl file
 		// one initial call to nuConvert()
@@ -136,7 +136,7 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) i
 		return m2
 	case []interface{}:
 		for i, v := range x {
-			x[i] = nuConvert(v, parentKey, parentID, true)
+			x[i] = nuConvert(v, parentKey, parentID, true, path)
 		}
 	case string:
 		switch parentKey {
@@ -146,6 +146,8 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) i
 			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
 		case "out", "id", "scatter":
 			return fmt.Sprintf("%v/%v", parentID, x)
+		case "run":
+			packCWLFile(x, path)
 		}
 	}
 	return i
