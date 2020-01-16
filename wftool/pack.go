@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -43,27 +44,33 @@ func PackCWL(cwl []byte, id string, path string) {
 func PackCWLFile(path string, prevPath string) (err error) {
 
 	///// here get absolute path of 'path' before reading file ////
-	if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
-		return err
+	if prevPath != "" {
+		if !strings.ContainsAny(prevPath, "/") {
+			prevPath = fmt.Sprintf("./%v", prevPath)
+		}
+		if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
+			return err
+		}
+		if err = os.Chdir(filepath.Dir(path)); err != nil {
+			return err
+		}
+		path, err = os.Getwd()
+		if err != nil {
+			return err
+		}
 	}
-	if err = os.Chdir(filepath.Dir(path)); err != nil {
-		return err
-	}
-	absPath, err := os.Getwd()
-	if err != nil {
-		return err
-	}
+
 	//////////////////
-	cwl, err := ioutil.ReadFile(absPath)
+	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
 	}
 	// copying cwltool's pack id scheme
 	// not sure if it's actually good or not
 	// but for now, doing this
-	id := fmt.Sprintf("#%v", filepath.Base(absPath))
+	id := fmt.Sprintf("#%v", filepath.Base(path))
 	// 'path' here is absolute - implies prevPath is absolute
-	PackCWL(cwl, id, absPath)
+	PackCWL(cwl, id, path)
 	return nil
 }
 
