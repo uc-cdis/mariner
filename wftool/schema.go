@@ -104,6 +104,8 @@ func resolveType(s string) interface{} {
 	return s
 }
 
+const primaryRoutine = "primaryRoutine"
+
 /*
 HERE - TODO - finish this fn - main fn
 
@@ -116,10 +118,10 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) i
 	printJSON(i)
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
+
 		switch {
 		case mapToArray[parentKey] && !inArray:
 			return array(x, parentKey, parentID)
-			// case ..
 		}
 
 		m2 := map[string]interface{}{}
@@ -127,6 +129,15 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool) i
 			key := k.(string)
 			m2[key] = nuConvert(v, key, parentID, false)
 		}
+
+		// per cwl file
+		// one initial call to nuConvert()
+		// this initial call is the primaryRoutine
+		// indicates we must populate the id field here
+		if parentKey == primaryRoutine {
+			m2["id"] = parentID
+		}
+
 		return m2
 	case []interface{}:
 		for i, v := range x {

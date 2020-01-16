@@ -15,7 +15,7 @@ func Pack(cwl []byte, id string) {
 	fmt.Printf("%T\n", *cwlObj)
 	fmt.Printf("%#v\n", *cwlObj)
 
-	*cwlObj = nuConvert(*cwlObj, "", id, false)
+	*cwlObj = nuConvert(*cwlObj, primaryRoutine, id, false)
 
 	fmt.Println("here's the struct in JSON:")
 	printJSON(cwlObj)
