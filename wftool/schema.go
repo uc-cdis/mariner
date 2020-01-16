@@ -2,6 +2,7 @@ package wftool
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 )
 
@@ -52,12 +53,12 @@ var mapToArray = map[string]bool{
 	"hints":        true,
 }
 
-func array(m map[interface{}]interface{}, parentKey string, parentID string, path string) []map[string]interface{} {
+func array(m map[interface{}]interface{}, parentKey string, parentID string, path string, graph *[]string) []map[string]interface{} {
 	arr := []map[string]interface{}{}
 	var nuV map[string]interface{}
 	for k, v := range m {
 		id := fmt.Sprintf("%v/%v", parentID, k.(string))
-		i := nuConvert(v, k.(string), id, false, path)
+		i := nuConvert(v, k.(string), id, false, path, graph)
 		switch x := i.(type) {
 		case map[string]interface{}:
 			nuV = x
@@ -110,7 +111,7 @@ const primaryRoutine = "primaryRoutine"
 consider separation of powers between cwl.go and this package
 should they be the same package?
 */
-func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string) interface{} {
+func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string, graph *[]string) interface{} {
 	/*
 		fmt.Println("parentKey: ", parentKey)
 		fmt.Println("object:")
@@ -119,12 +120,12 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
 		if mapToArray[parentKey] && !inArray {
-			return array(x, parentKey, parentID, path)
+			return array(x, parentKey, parentID, path, graph)
 		}
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
-			m2[key] = nuConvert(v, key, parentID, false, path)
+			m2[key] = nuConvert(v, key, parentID, false, path, graph)
 		}
 		// per cwl file
 		// one initial call to nuConvert()
@@ -136,7 +137,7 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 		return m2
 	case []interface{}:
 		for i, v := range x {
-			x[i] = nuConvert(v, parentKey, parentID, true, path)
+			x[i] = nuConvert(v, parentKey, parentID, true, path, graph)
 		}
 	case string:
 		switch parentKey {
@@ -147,7 +148,8 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 		case "out", "id", "scatter":
 			return fmt.Sprintf("%v/%v", parentID, x)
 		case "run":
-			PackCWLFile(x, path)
+			PackCWLFile(x, path, graph)
+			return fmt.Sprintf("#%v", filepath.Base(x))
 		}
 	}
 	return i

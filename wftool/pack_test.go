@@ -1,6 +1,7 @@
 package wftool
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -280,12 +281,43 @@ steps:
         out: [ output ]
 `
 
-func TestPackCWL(t *testing.T) {
+func NotTestPackCWL(t *testing.T) {
 	// Pack([]byte(tool), "#read_from_all.cwl")
 	// Pack([]byte(workflow), "#main")
 	// Pack([]byte(expressiontool), "#expressiontool_test.cwl")
 	// Pack([]byte(gen3test), "#main")
 	// Pack([]byte(initDir), "#initdir_test.cwl")
 	// Pack([]byte(scatter), "#scatter_test.cwl")
-	PackCWL([]byte(subwf), "#subworkflow_test.cwl", "")
+	// PackCWL([]byte(subwf), "#subworkflow_test.cwl", "")
+}
+
+func TestPackCWLFile(t *testing.T) {
+	// noInput := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/no_input_test/workflow/cwl/gen3_test.cwl"
+	userData := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/user_data_test/workflow/cwl/user-data_test.cwl"
+	graph := &[]string{}
+	PackCWLFile(userData, "", graph)
+	fmt.Println("------- ja here is ja graph --------")
+	fmt.Println(*graph)
+
+	// HERE - everything is in graph
+	// just need to write it to a file
+	// put in '$graph' field
+	// write to file
+
+	/*
+			f, err := os.Create("testwf.json")
+			if err != nil {
+				t.Fail()
+		  }
+	*/
+
+	/* note: this is a terrible method
+		b := []byte{}
+		for _, ob := range *graph {
+			b = append(b, ',', '\n')
+			b = append(b, []byte(ob)...)
+		}
+		fmt.Println(string(b))
+	  f.Write(b)
+	*/
 }
