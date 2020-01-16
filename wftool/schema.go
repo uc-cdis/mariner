@@ -147,7 +147,7 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 		case "out", "id", "scatter":
 			return fmt.Sprintf("%v/%v", parentID, x)
 		case "run":
-			packCWLFile(x, path)
+			PackCWLFile(x, path)
 		}
 	}
 	return i

@@ -20,6 +20,7 @@ func PackCWL(cwl []byte, id string, path string) {
 	printJSON(cwlObj)
 }
 
+// PackCWLFile ..
 // 'path' is relative to prevPath
 // except in the case where prevPath is "", and path is absolute
 // which is the first call to packCWLFile
@@ -39,8 +40,9 @@ func PackCWL(cwl []byte, id string, path string) {
 // 'prevPath' is absolute
 // 1. construct abs(path)
 // 2. ..
-func packCWLFile(path string, prevPath string) (err error) {
-	// here get absolute path of 'path' before reading file
+func PackCWLFile(path string, prevPath string) (err error) {
+
+	///// here get absolute path of 'path' before reading file ////
 	if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
 		return err
 	}
@@ -51,6 +53,7 @@ func packCWLFile(path string, prevPath string) (err error) {
 	if err != nil {
 		return err
 	}
+	//////////////////
 	cwl, err := ioutil.ReadFile(absPath)
 	if err != nil {
 		return err
