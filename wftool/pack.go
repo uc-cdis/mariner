@@ -54,8 +54,7 @@ func PackCWLFile(path string, prevPath string) (err error) {
 		if err = os.Chdir(filepath.Dir(path)); err != nil {
 			return err
 		}
-		path, err = os.Getwd()
-		if err != nil {
+		if path, err = os.Getwd(); err != nil {
 			return err
 		}
 	}
