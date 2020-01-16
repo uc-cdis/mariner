@@ -246,11 +246,46 @@ arguments:
       md5sum $(inputs.file.path)
 `
 
+var subwf = `
+#!/usr/bin/env cwl-runner
+
+cwlVersion: v1.0
+
+class: Workflow
+
+requirements:
+  - class: InlineJavascriptRequirement
+  - class: StepInputExpressionRequirement
+  - class: MultipleInputFeatureRequirement
+
+inputs:
+    input_bam: File
+outputs:
+    output_files:
+        type: File[]
+        outputSource: test_expr/output
+steps:
+    test_initworkdir:
+        run: initdir_test.cwl
+        in:
+            input_bam: input_bam
+        out: [ bam_with_index ]
+
+    test_expr:
+        run: expressiontool_test.cwl
+        in:
+            file_array:
+                source: test_initworkdir/bam_with_index
+                valueFrom: $([self, self.secondaryFiles[0]])
+        out: [ output ]
+`
+
 func TestPack(t *testing.T) {
 	// Pack([]byte(tool), "#read_from_all.cwl")
 	// Pack([]byte(workflow), "#main")
 	// Pack([]byte(expressiontool), "#expressiontool_test.cwl")
 	// Pack([]byte(gen3test), "#main")
 	// Pack([]byte(initDir), "#initdir_test.cwl")
-	Pack([]byte(scatter), "#scatter_test.cwl")
+	// Pack([]byte(scatter), "#scatter_test.cwl")
+	Pack([]byte(subwf), "#subworkflow_test.cwl")
 }
