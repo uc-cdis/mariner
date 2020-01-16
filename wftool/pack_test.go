@@ -165,9 +165,92 @@ steps:
 
 `
 
+var initDir = `
+#!/usr/bin/env cwl-runner
+
+cwlVersion: v1.0
+
+class: CommandLineTool
+
+requirements:
+  - class: InlineJavascriptRequirement
+  - class: ShellCommandRequirement
+  - class: DockerRequirement
+    dockerPull: quay.io/cdis/samtools:dev_cloud_support
+  - class: InitialWorkDirRequirement
+    listing:
+      - entry: $(inputs.input_bam)
+        entryname: $(inputs.input_bam.basename)
+  - class: ResourceRequirement
+    coresMin: 1
+    coresMax: 1
+    ramMin: 100
+
+inputs:
+  input_bam:
+    type: File
+
+outputs:
+  bam_with_index:
+    type: File
+    outputBinding:
+      glob: $(inputs.input_bam.basename)
+    secondaryFiles:
+      - '.bai'
+
+baseCommand: ['touch']
+arguments:
+  - position: 0
+    valueFrom: >-
+      $(inputs.input_bam.basename + '.bai')
+`
+
+var scatter = `
+#!/usr/bin/env cwl-runner
+
+cwlVersion: v1.0
+
+class: CommandLineTool
+
+requirements:
+  - class: InlineJavascriptRequirement
+  - class: ShellCommandRequirement
+  - class: DockerRequirement
+    dockerPull: alpine
+  - class: ResourceRequirement
+    coresMin: 1
+    coresMax: 1
+    ramMin: 100
+
+inputs:
+  file: File
+
+stdout: file_md5
+outputs:
+  output:
+    type: string
+    outputBinding:
+      glob: file_md5
+      loadContents: true
+      outputEval: |
+        ${
+          var local_md5 = self[0].contents.trim().split(' ')[0]
+          return local_md5
+        }
+
+baseCommand: []
+arguments:
+  - position: 0
+    shellQuote: false
+    valueFrom: >-
+      md5sum $(inputs.file.path)
+`
+
 func TestPack(t *testing.T) {
 	// Pack([]byte(tool), "#read_from_all.cwl")
 	// Pack([]byte(workflow), "#main")
 	// Pack([]byte(expressiontool), "#expressiontool_test.cwl")
-	Pack([]byte(gen3test), "#main")
+	// Pack([]byte(gen3test), "#main")
+	// Pack([]byte(initDir), "#initdir_test.cwl")
+	Pack([]byte(scatter), "#scatter_test.cwl")
 }
