@@ -43,25 +43,34 @@ func PackCWL(cwl []byte, id string, path string) {
 // 2. ..
 func PackCWLFile(path string, prevPath string) (err error) {
 
+	fmt.Println("path: ", path)
+	fmt.Println("prev path: ", prevPath)
+
 	///// here get absolute path of 'path' before reading file ////
 	if prevPath != "" {
+		var wd string
 		if !strings.ContainsAny(prevPath, "/") {
 			prevPath = fmt.Sprintf("./%v", prevPath)
 		}
 		if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
+			fmt.Println("err 1: ", err)
 			return err
 		}
 		if err = os.Chdir(filepath.Dir(path)); err != nil {
+			fmt.Println("err 2: ", err)
 			return err
 		}
-		if path, err = os.Getwd(); err != nil {
+		if wd, err = os.Getwd(); err != nil {
+			fmt.Println("err 3: ", err)
 			return err
 		}
+		path = fmt.Sprintf("%v/%v", wd, filepath.Base(path))
 	}
 
 	//////////////////
 	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
+		fmt.Println("err 4: ", err)
 		return err
 	}
 	// copying cwltool's pack id scheme
