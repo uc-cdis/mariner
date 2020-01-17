@@ -22,10 +22,12 @@ type WorkflowJSON struct {
 // Pack is the top level function for the packing routine
 func Pack(inPath string, outPath string) (err error) {
 	var wf WorkflowJSON
+	var wd string
+	wd, _ = os.Getwd()
 	if wf, err = PackWorkflow(inPath); err != nil {
 		return err
 	}
-	if outPath, err = resolveOutPath(inPath, outPath); err != nil {
+	if outPath, err = resolveOutPath(inPath, outPath, wd); err != nil {
 		return err
 	}
 	if err = writeJSON(wf, outPath); err != nil {
@@ -34,7 +36,7 @@ func Pack(inPath string, outPath string) (err error) {
 	return nil
 }
 
-func resolveOutPath(inPath string, outPath string) (string, error) {
+func resolveOutPath(inPath string, outPath string, wd string) (string, error) {
 
 	// no outPath specified
 	if outPath == "" {
@@ -48,7 +50,6 @@ func resolveOutPath(inPath string, outPath string) (string, error) {
 
 	// outPath specified relative to wd
 	var err error
-	wd, _ := os.Getwd()
 	if outPath, err = absPath(outPath, wd); err != nil {
 		return "", err
 	}
@@ -147,9 +148,15 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) 
 }
 
 func absPath(path string, refPath string) (string, error) {
-	var err error
 	var wd string
 	if refPath != "" {
+		refInfo, err := os.Stat(refPath)
+		if err != nil {
+			return "", err
+		}
+		if refInfo.IsDir() {
+			refPath = fmt.Sprintf("%v/", refPath)
+		}
 		if err = os.Chdir(filepath.Dir(refPath)); err != nil {
 			fmt.Println("err 1: ", err)
 			return "", err
