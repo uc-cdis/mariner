@@ -19,7 +19,25 @@ type WorkflowJSON struct {
 	CWLVersion string                    `json:"cwlVersion"`
 }
 
-// PackCWL serializes a single cwl byte to json
+// PackWorkflow packs the workflow specified by cwl file with path 'path'
+// i.e., packs 'path' and all child cwl files of 'path'
+func PackWorkflow(path string) (WorkflowJSON, error) {
+
+	// workflow gets packed into graph
+	graph := &[]map[string]interface{}{}
+
+	// fixme: should return an error
+	PackCWLFile(path, "", graph)
+
+	wf := WorkflowJSON{
+		Graph:      graph,
+		CWLVersion: "testCWLPack1.0", // fixme: populate actual value
+	}
+
+	return wf, nil
+}
+
+// PackCWL serializes a single cwl obj (e.g., commandlinetool) to json
 func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}) (map[string]interface{}, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
