@@ -68,11 +68,10 @@ func writeJSON(wf WorkflowJSON, outPath string) error {
 	if err != nil {
 		return err
 	}
-	j, err := json.Marshal(wf)
-	if err != nil {
-		return err
-	}
-	f.Write(j)
+	encoder := json.NewEncoder(f)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	encoder.Encode(wf)
 	return nil
 }
 
