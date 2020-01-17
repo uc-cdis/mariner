@@ -25,10 +25,20 @@ func Pack(inPath string, outPath string) (err error) {
 	if wf, err = PackWorkflow(inPath); err != nil {
 		return err
 	}
+	if outPath == "" {
+		outPath = defaultOutPath(inPath)
+	}
 	if err = writeJSON(wf, outPath); err != nil {
 		return err
 	}
 	return nil
+}
+
+// same as inPath, but w ext '.json' instead of '.cwl'
+func defaultOutPath(inPath string) string {
+	ext := filepath.Ext(inPath)
+	noExt := strings.TrimSuffix(inPath, ext)
+	return fmt.Sprintf("%v.json", noExt)
 }
 
 func writeJSON(wf WorkflowJSON, outPath string) error {
