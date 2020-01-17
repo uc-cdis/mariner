@@ -25,16 +25,34 @@ func Pack(inPath string, outPath string) (err error) {
 	if wf, err = PackWorkflow(inPath); err != nil {
 		return err
 	}
-	if outPath == "" {
-		outPath = defaultOutPath(inPath)
-	} else {
-		// outPath =
+	if outPath, err = resolveOutPath(inPath, outPath); err != nil {
+		return err
 	}
-
 	if err = writeJSON(wf, outPath); err != nil {
 		return err
 	}
 	return nil
+}
+
+func resolveOutPath(inPath string, outPath string) (string, error) {
+
+	// no outPath specified
+	if outPath == "" {
+		return defaultOutPath(inPath), nil
+	}
+
+	// full outPath specified
+	if filepath.IsAbs(outPath) {
+		return outPath, nil
+	}
+
+	// outPath specified relative to wd
+	var err error
+	wd, _ := os.Getwd()
+	if outPath, err = absPath(outPath, wd); err != nil {
+		return "", err
+	}
+	return outPath, nil
 }
 
 // same as inPath, but w ext '.json' instead of '.cwl'
