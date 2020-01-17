@@ -56,27 +56,32 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) 
 	fmt.Println("prev path: ", prevPath)
 
 	///// here get absolute path of 'path' before reading file ////
-	if prevPath != "" {
-		var wd string
-		if !strings.ContainsAny(prevPath, "/") {
-			prevPath = fmt.Sprintf("./%v", prevPath)
-		}
-		if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
-			fmt.Println("err 1: ", err)
-			return err
-		}
-		if err = os.Chdir(filepath.Dir(path)); err != nil {
-			fmt.Println("err 2: ", err)
-			return err
-		}
-		if wd, err = os.Getwd(); err != nil {
-			fmt.Println("err 3: ", err)
-			return err
-		}
-		path = fmt.Sprintf("%v/%v", wd, filepath.Base(path))
+	if path, err = absPath(path, prevPath); err != nil {
+		return err
 	}
 
-	//////////////////
+	/*
+		if prevPath != "" {
+			var wd string
+			if !strings.ContainsAny(prevPath, "/") {
+				prevPath = fmt.Sprintf("./%v", prevPath)
+			}
+			if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
+				fmt.Println("err 1: ", err)
+				return err
+			}
+			if err = os.Chdir(filepath.Dir(path)); err != nil {
+				fmt.Println("err 2: ", err)
+				return err
+			}
+			if wd, err = os.Getwd(); err != nil {
+				fmt.Println("err 3: ", err)
+				return err
+			}
+			path = fmt.Sprintf("%v/%v", wd, filepath.Base(path))
+		}
+	*/
+
 	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
 		fmt.Println("err 4: ", err)
@@ -90,9 +95,33 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) 
 
 	// 'path' here is absolute - implies prevPath is absolute
 	j, err := PackCWL(cwl, id, path, graph)
-	fmt.Printf("%#v", j)
+	// fmt.Printf("%#v", j)
 	*graph = append(*graph, j)
 	return nil
+}
+
+func absPath(path string, prevPath string) (string, error) {
+	var err error
+	var wd string
+	if prevPath != "" {
+		if !strings.ContainsAny(prevPath, "/") {
+			prevPath = fmt.Sprintf("./%v", prevPath)
+		}
+		if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
+			fmt.Println("err 1: ", err)
+			return "", err
+		}
+		if err = os.Chdir(filepath.Dir(path)); err != nil {
+			fmt.Println("err 2: ", err)
+			return "", err
+		}
+		if wd, err = os.Getwd(); err != nil {
+			fmt.Println("err 3: ", err)
+			return "", err
+		}
+		path = fmt.Sprintf("%v/%v", wd, filepath.Base(path))
+	}
+	return path, nil
 }
 
 // PrintJSON pretty prints a struct as JSON
