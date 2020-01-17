@@ -1,7 +1,6 @@
 package wftool
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -294,10 +293,15 @@ func NotTestPackCWL(t *testing.T) {
 func TestPack(t *testing.T) {
 	// noInput := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/no_input_test/workflow/cwl/gen3_test.cwl"
 	userData := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/user_data_test/workflow/cwl/user-data_test.cwl"
-	wf, err := PackWorkflow(userData)
-	if err != nil {
-		t.Fail()
-	}
-	fmt.Println("---- here da wf ----")
-	printJSON(wf)
+
+	Pack(userData, "testPack.json")
+
+	/*
+			wf, err := PackWorkflow(userData)
+			if err != nil {
+				t.Fail()
+			}
+			fmt.Println("---- here da wf ----")
+		  printJSON(wf)
+	*/
 }
