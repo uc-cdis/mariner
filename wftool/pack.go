@@ -19,6 +19,32 @@ type WorkflowJSON struct {
 	CWLVersion string                    `json:"cwlVersion"`
 }
 
+// Pack is the top level function for the packing routine
+func Pack(inPath string, outPath string) (err error) {
+	var wf WorkflowJSON
+	if wf, err = PackWorkflow(inPath); err != nil {
+		return err
+	}
+	if err = writeJSON(wf, outPath); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeJSON(wf WorkflowJSON, outPath string) error {
+	f, err := os.Create(outPath)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	j, err := json.Marshal(wf)
+	if err != nil {
+		return err
+	}
+	f.Write(j)
+	return nil
+}
+
 // PackWorkflow packs the workflow specified by cwl file with path 'path'
 // i.e., packs 'path' and all child cwl files of 'path'
 func PackWorkflow(path string) (WorkflowJSON, error) {
