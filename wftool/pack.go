@@ -27,7 +27,10 @@ func Pack(inPath string, outPath string) (err error) {
 	}
 	if outPath == "" {
 		outPath = defaultOutPath(inPath)
+	} else {
+		// outPath =
 	}
+
 	if err = writeJSON(wf, outPath); err != nil {
 		return err
 	}
@@ -126,14 +129,11 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) 
 	return nil
 }
 
-func absPath(path string, prevPath string) (string, error) {
+func absPath(path string, refPath string) (string, error) {
 	var err error
 	var wd string
-	if prevPath != "" {
-		if !strings.ContainsAny(prevPath, "/") {
-			prevPath = fmt.Sprintf("./%v", prevPath)
-		}
-		if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
+	if refPath != "" {
+		if err = os.Chdir(filepath.Dir(refPath)); err != nil {
 			fmt.Println("err 1: ", err)
 			return "", err
 		}
