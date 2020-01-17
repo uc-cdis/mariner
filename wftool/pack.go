@@ -51,39 +51,13 @@ func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}
 // 1. construct abs(path)
 // 2. ..
 func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) (err error) {
-
-	fmt.Println("path: ", path)
-	fmt.Println("prev path: ", prevPath)
-
-	///// here get absolute path of 'path' before reading file ////
 	if path, err = absPath(path, prevPath); err != nil {
 		return err
 	}
 
-	/*
-		if prevPath != "" {
-			var wd string
-			if !strings.ContainsAny(prevPath, "/") {
-				prevPath = fmt.Sprintf("./%v", prevPath)
-			}
-			if err = os.Chdir(filepath.Dir(prevPath)); err != nil {
-				fmt.Println("err 1: ", err)
-				return err
-			}
-			if err = os.Chdir(filepath.Dir(path)); err != nil {
-				fmt.Println("err 2: ", err)
-				return err
-			}
-			if wd, err = os.Getwd(); err != nil {
-				fmt.Println("err 3: ", err)
-				return err
-			}
-			path = fmt.Sprintf("%v/%v", wd, filepath.Base(path))
-		}
-	*/
-
 	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
+		// routine should fail out here and primaryRoutine should not return any results
 		fmt.Println("err 4: ", err)
 		return err
 	}
@@ -95,7 +69,6 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) 
 
 	// 'path' here is absolute - implies prevPath is absolute
 	j, err := PackCWL(cwl, id, path, graph)
-	// fmt.Printf("%#v", j)
 	*graph = append(*graph, j)
 	return nil
 }
