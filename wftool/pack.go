@@ -25,15 +25,14 @@ func PackWorkflow(path string) (WorkflowJSON, error) {
 
 	// workflow gets packed into graph
 	graph := &[]map[string]interface{}{}
-
-	// fixme: should return an error
-	PackCWLFile(path, "", graph)
+	if err := PackCWLFile(path, "", graph); err != nil {
+		return WorkflowJSON{}, nil
+	}
 
 	wf := WorkflowJSON{
 		Graph:      graph,
 		CWLVersion: "testCWLPack1.0", // fixme: populate actual value
 	}
-
 	return wf, nil
 }
 
