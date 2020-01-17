@@ -294,10 +294,17 @@ func NotTestPackCWL(t *testing.T) {
 func TestPackCWLFile(t *testing.T) {
 	// noInput := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/no_input_test/workflow/cwl/gen3_test.cwl"
 	userData := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/user_data_test/workflow/cwl/user-data_test.cwl"
-	graph := &[]string{}
+	graph := &[]map[string]interface{}{}
 	PackCWLFile(userData, "", graph)
 	fmt.Println("------- ja here is ja graph --------")
-	fmt.Println(*graph)
+	// fmt.Println(*graph)
+
+	wf := WorkflowJSON{
+		Graph:      graph,
+		CWLVersion: "testCWLPack1.0",
+	}
+
+	printJSON(wf)
 
 	// HERE - everything is in graph
 	// just need to write it to a file

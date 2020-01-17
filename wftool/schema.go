@@ -53,7 +53,7 @@ var mapToArray = map[string]bool{
 	"hints":        true,
 }
 
-func array(m map[interface{}]interface{}, parentKey string, parentID string, path string, graph *[]string) []map[string]interface{} {
+func array(m map[interface{}]interface{}, parentKey string, parentID string, path string, graph *[]map[string]interface{}) []map[string]interface{} {
 	arr := []map[string]interface{}{}
 	var nuV map[string]interface{}
 	for k, v := range m {
@@ -111,7 +111,7 @@ const primaryRoutine = "primaryRoutine"
 consider separation of powers between cwl.go and this package
 should they be the same package?
 */
-func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string, graph *[]string) interface{} {
+func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string, graph *[]map[string]interface{}) interface{} {
 	/*
 		fmt.Println("parentKey: ", parentKey)
 		fmt.Println("object:")

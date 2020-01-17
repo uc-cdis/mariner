@@ -13,15 +13,19 @@ import (
 
 // error handling, in general, needs attention
 
+// WorkflowJSON ..
+type WorkflowJSON struct {
+	Graph      *[]map[string]interface{} `json:"$graph"`
+	CWLVersion string                    `json:"cwlVersion"`
+}
+
 // PackCWL serializes a single cwl byte to json
-func PackCWL(cwl []byte, id string, path string, graph *[]string) ([]byte, error) {
+func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}) (map[string]interface{}, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
-	*cwlObj = nuConvert(*cwlObj, primaryRoutine, id, false, path, graph)
-	// printJSON(cwlObj)
-	j, err := json.MarshalIndent(cwlObj, "", "    ")
-	if err != nil {
-		return nil, err
+	j, ok := nuConvert(*cwlObj, primaryRoutine, id, false, path, graph).(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("failed to convert %v to json", path)
 	}
 	return j, nil
 }
@@ -46,7 +50,7 @@ func PackCWL(cwl []byte, id string, path string, graph *[]string) ([]byte, error
 // 'prevPath' is absolute
 // 1. construct abs(path)
 // 2. ..
-func PackCWLFile(path string, prevPath string, graph *[]string) (err error) {
+func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) (err error) {
 
 	fmt.Println("path: ", path)
 	fmt.Println("prev path: ", prevPath)
@@ -78,17 +82,16 @@ func PackCWLFile(path string, prevPath string, graph *[]string) (err error) {
 		fmt.Println("err 4: ", err)
 		return err
 	}
+
 	// copying cwltool's pack id scheme
 	// not sure if it's actually good or not
 	// but for now, doing this
 	id := fmt.Sprintf("#%v", filepath.Base(path))
+
 	// 'path' here is absolute - implies prevPath is absolute
 	j, err := PackCWL(cwl, id, path, graph)
-	if err != nil {
-		fmt.Println("err 5: ", err)
-	}
-	printJSON(j)
-	*graph = append(*graph, string(j))
+	fmt.Printf("%#v", j)
+	*graph = append(*graph, j)
 	return nil
 }
 
