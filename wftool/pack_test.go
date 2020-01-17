@@ -291,40 +291,13 @@ func NotTestPackCWL(t *testing.T) {
 	// PackCWL([]byte(subwf), "#subworkflow_test.cwl", "")
 }
 
-func TestPackCWLFile(t *testing.T) {
+func TestPack(t *testing.T) {
 	// noInput := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/no_input_test/workflow/cwl/gen3_test.cwl"
 	userData := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/user_data_test/workflow/cwl/user-data_test.cwl"
-	graph := &[]map[string]interface{}{}
-	PackCWLFile(userData, "", graph)
-	fmt.Println("------- ja here is ja graph --------")
-	// fmt.Println(*graph)
-
-	wf := WorkflowJSON{
-		Graph:      graph,
-		CWLVersion: "testCWLPack1.0",
+	wf, err := PackWorkflow(userData)
+	if err != nil {
+		t.Fail()
 	}
-
+	fmt.Println("---- here da wf ----")
 	printJSON(wf)
-
-	// HERE - everything is in graph
-	// just need to write it to a file
-	// put in '$graph' field
-	// write to file
-
-	/*
-			f, err := os.Create("testwf.json")
-			if err != nil {
-				t.Fail()
-		  }
-	*/
-
-	/* note: this is a terrible method
-		b := []byte{}
-		for _, ob := range *graph {
-			b = append(b, ',', '\n')
-			b = append(b, []byte(ob)...)
-		}
-		fmt.Println(string(b))
-	  f.Write(b)
-	*/
 }
