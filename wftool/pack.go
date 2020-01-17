@@ -1,7 +1,8 @@
-package wftool
+package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,6 +13,21 @@ import (
 )
 
 // error handling, in general, needs attention
+
+// inputPath, outputPath
+func main() {
+
+	// current (bad) assumption is that input path provided is absolute
+	// fixme
+
+	var input, output string
+	flag.StringVar(&input, "path", "", "path to workflow")
+	flag.StringVar(&output, "out", "", "output path")
+
+	flag.Parse()
+
+	Pack(input, output)
+}
 
 // WorkflowJSON ..
 type WorkflowJSON struct {

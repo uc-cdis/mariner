@@ -1,4 +1,4 @@
-package wftool
+package main
 
 import (
 	"fmt"
