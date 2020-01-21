@@ -98,22 +98,43 @@ func PackWorkflow(path string) (WorkflowJSON, error) {
 
 	// workflow gets packed into graph
 	graph := &[]map[string]interface{}{}
-	if err := PackCWLFile(path, "", graph); err != nil {
+
+	// collects versions of all cwl files in workflow
+	// workflow is only valid if all versions are the same
+	// i.e., this map should have exactly 1 entry in it
+	versionCheck := make(map[string][]string)
+
+	if err := PackCWLFile(path, "", graph, versionCheck); err != nil {
 		return WorkflowJSON{}, nil
+	}
+
+	// error if multiple cwl versions specified in workflow files
+	if len(versionCheck) > 1 {
+		fmt.Println("pack operation failed - incompatible versions specified")
+		fmt.Println("version breakdown:")
+		printJSON(versionCheck)
+		return WorkflowJSON{}, fmt.Errorf("version error")
+	}
+
+	// get the one version listed
+	var cwlVersion string
+	for ver := range versionCheck {
+		cwlVersion = ver
 	}
 
 	wf := WorkflowJSON{
 		Graph:      graph,
-		CWLVersion: "testCWLPack1.0", // fixme: populate actual value
+		CWLVersion: cwlVersion,
 	}
+
 	return wf, nil
 }
 
 // PackCWL serializes a single cwl obj (e.g., commandlinetool) to json
-func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}) (map[string]interface{}, error) {
+func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) (map[string]interface{}, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
-	j, ok := nuConvert(*cwlObj, primaryRoutine, id, false, path, graph).(map[string]interface{})
+	j, ok := nuConvert(*cwlObj, primaryRoutine, id, false, path, graph, versionCheck).(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to convert %v to json", path)
 	}
@@ -140,7 +161,7 @@ func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}
 // 'prevPath' is absolute
 // 1. construct abs(path)
 // 2. ..
-func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) (err error) {
+func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, versionCheck map[string][]string) (err error) {
 	if path, err = absPath(path, prevPath); err != nil {
 		return err
 	}
@@ -155,10 +176,15 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}) 
 	// copying cwltool's pack id scheme
 	// not sure if it's actually good or not
 	// but for now, doing this
-	id := fmt.Sprintf("#%v", filepath.Base(path))
+	var id string
+	if prevPath == "" {
+		id = "#main"
+	} else {
+		id = fmt.Sprintf("#%v", filepath.Base(path))
+	}
 
 	// 'path' here is absolute - implies prevPath is absolute
-	j, err := PackCWL(cwl, id, path, graph)
+	j, err := PackCWL(cwl, id, path, graph, versionCheck)
 	*graph = append(*graph, j)
 	return nil
 }
