@@ -21,8 +21,8 @@ func main() {
 	// fixme
 
 	var input, output string
-	flag.StringVar(&input, "path", "", "path to workflow")
-	flag.StringVar(&output, "out", "", "output path")
+	flag.StringVar(&input, "i", "", "path to workflow")
+	flag.StringVar(&output, "o", "", "output path")
 
 	flag.Parse()
 
