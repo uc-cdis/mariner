@@ -12,13 +12,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// error handling, in general, needs attention
+// error handling and validation, in general, need attention
 
-// inputPath, outputPath
 func main() {
-
-	// current (bad) assumption is that input path provided is absolute
-	// fixme
 
 	var input, output string
 	flag.StringVar(&input, "i", "", "path to workflow")
