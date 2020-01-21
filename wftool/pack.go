@@ -22,7 +22,9 @@ func main() {
 
 	flag.Parse()
 
-	Pack(input, output)
+	if err := Pack(input, output); err != nil {
+		fmt.Println("pack operation failed due to error: ", err)
+	}
 }
 
 // WorkflowJSON ..
@@ -36,7 +38,15 @@ func Pack(inPath string, outPath string) (err error) {
 	var wf WorkflowJSON
 	var wd string
 	wd, _ = os.Getwd()
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("failed to pack workflow: ", r)
+		}
+	}()
+
 	if wf, err = PackWorkflow(inPath); err != nil {
+		fmt.Println("failed to pack workflow ", inPath)
 		return err
 	}
 	if outPath, err = resolveOutPath(inPath, outPath, wd); err != nil {
@@ -101,7 +111,7 @@ func PackWorkflow(path string) (WorkflowJSON, error) {
 	versionCheck := make(map[string][]string)
 
 	if err := PackCWLFile(path, "", graph, versionCheck); err != nil {
-		return WorkflowJSON{}, nil
+		return WorkflowJSON{}, err
 	}
 
 	// error if multiple cwl versions specified in workflow files
