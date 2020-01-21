@@ -155,7 +155,7 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 		case "run":
 			// this is not graceful, but is functionally sufficient for a first iteration
 			if err := PackCWLFile(x, path, graph, versionCheck); err != nil {
-				panic(fmt.Errorf("failed to pack file at path: %v", path))
+				panic(fmt.Errorf("failed to pack file at path: %v\nparent path: %v", x, path))
 			}
 			return fmt.Sprintf("#%v", filepath.Base(x))
 		}

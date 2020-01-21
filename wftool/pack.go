@@ -41,7 +41,7 @@ func Pack(inPath string, outPath string) (err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Println("failed to pack workflow: ", r)
+			fmt.Printf("failed to pack workflow:\n%v", r)
 		}
 	}()
 
@@ -206,15 +206,12 @@ func absPath(path string, refPath string) (string, error) {
 			refPath = fmt.Sprintf("%v/", refPath)
 		}
 		if err = os.Chdir(filepath.Dir(refPath)); err != nil {
-			fmt.Println("err 1: ", err)
 			return "", err
 		}
 		if err = os.Chdir(filepath.Dir(path)); err != nil {
-			fmt.Println("err 2: ", err)
 			return "", err
 		}
 		if wd, err = os.Getwd(); err != nil {
-			fmt.Println("err 3: ", err)
 			return "", err
 		}
 		path = fmt.Sprintf("%v/%v", wd, filepath.Base(path))
@@ -228,7 +225,7 @@ func printJSON(i interface{}) {
 	var err error
 	see, err = json.MarshalIndent(i, "", "   ")
 	if err != nil {
-		fmt.Printf("error printing JSON: %v", err)
+		fmt.Printf("error printing JSON: %v\n", err)
 	}
 	fmt.Println(string(see))
 }
