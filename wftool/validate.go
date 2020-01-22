@@ -23,13 +23,8 @@ type Validator struct {
 	Grievances *WorkflowGrievances
 }
 
-func (g Grievances) log(m interface{}) {
-	switch x := m.(type) {
-	case string:
-		g = append(g, x)
-	case []string:
-		g = append(g, x...)
-	}
+func (g Grievances) log(f string, vs ...interface{}) {
+	g = append(g, fmt.Sprintf(f, vs...))
 }
 
 // ValidateWorkflow ..
@@ -104,11 +99,17 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 
 	// collect grievances for this object
 
-	var class string
+	var commonFields = []string{
+		"inputs",
+		"outputs",
+		"class",
+	}
+
 	var ok bool
-	if class, ok = obj["class"].(string); !ok {
-		g.log("missing field: 'class'")
-		return
+	for _, field := range commonFields {
+		if _, ok = obj[field]; !ok {
+			g.log("missing field: '%v'", field)
+		}
 	}
 
 	// all general checks here
@@ -118,6 +119,7 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 
 	// here all class-specific checks
 	// for now, case sensitive, strict match
+	var class string
 	switch class {
 	case "CommandLineTool":
 	case "Workflow":
