@@ -11,6 +11,18 @@ type WorkflowJSON struct {
 // Grievances ..
 type Grievances []string
 
+// WorkflowGrievances ..
+type WorkflowGrievances struct {
+	Main      Grievances            `json:"main"`
+	ByProcess map[string]Grievances `json:"byProcess"`
+}
+
+// Validator ..
+type Validator struct {
+	Workflow   *WorkflowJSON
+	Grievances *WorkflowGrievances
+}
+
 func (g Grievances) log(m interface{}) {
 	switch x := m.(type) {
 	case string:
@@ -20,58 +32,77 @@ func (g Grievances) log(m interface{}) {
 	}
 }
 
-// could optionally take path or []bytes input?
-func (wf *WorkflowJSON) validate() (bool, []string) {
-	g := make(Grievances, 0)
+// ValidateWorkflow ..
+// this function feels exceedingly awkward
+func ValidateWorkflow(wf *WorkflowJSON) (bool, *WorkflowGrievances) {
+	v := &Validator{Workflow: wf}
+	valid := v.Validate()
+	return valid, v.Grievances
+}
+
+// Validate ..
+func (v *Validator) Validate() bool {
+	g := &WorkflowGrievances{
+		Main:      make(Grievances, 0),
+		ByProcess: make(map[string]Grievances),
+	}
+	v.Grievances = g
 
 	// collect grievances
 
 	// check if '$graph' field is populated
-	if wf.Graph == nil {
-		g.log("missing graph")
+	if v.Workflow.Graph == nil {
+		g.Main.log("missing graph")
 	}
 
 	// check version
 	// here also validate that the cwlVersion matches
 	// the version currently supported by mariner
 	// todo
-	if wf.CWLVersion == "" {
-		g.log("missing cwlVersion")
+	if v.Workflow.CWLVersion == "" {
+		g.Main.log("missing cwlVersion")
 	}
 
 	// check that '#main' routine (entrypoint into the graph) exists
 	foundMain := false
-	for _, obj := range *wf.Graph {
+	for _, obj := range *v.Workflow.Graph {
 		if obj["id"] == "#main" {
 			foundMain = true
-			ok, gg := wf.traceGraph(obj) // trace graph and validate each vertex
-			if !ok {
-				g.log(gg)
-			}
+			// recursively validate the whole graph
+			v.validate(obj, "")
 			break
 		}
 	}
 	if !foundMain {
-		g.log("missing '#main' workflow")
+		g.Main.log("missing '#main' workflow")
 	}
 
-	if len(g) > 0 {
-		return false, g
+	// if there are grievances, report them
+	if !g.empty() {
+		return false
 	}
-	return true, nil
+	return true
 }
 
-// notice the make(g), check, return pattern - same in these validaton functions
-// the same pattern at different depths
+func (wfg *WorkflowGrievances) empty() bool {
+	if len(wfg.Main) > 0 {
+		return false
+	}
+	for _, g := range wfg.ByProcess {
+		if len(g) > 0 {
+			return false
+		}
+	}
+	return true
+}
 
-// trace graph and collect grievances
-func (wf *WorkflowJSON) traceGraph(main map[string]interface{}) (bool, Grievances) {
+// recursively validate each cwl object in the graph
+func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	g := make(Grievances, 0)
 
-	// collect grievances
+	// collect grievances for this object
 
 	if len(g) > 0 {
-		return false, g
+		v.Grievances.ByProcess[obj["id"].(string)] = g
 	}
-	return true, nil
 }
