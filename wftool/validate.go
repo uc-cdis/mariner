@@ -91,59 +91,74 @@ func (wfg *WorkflowGrievances) empty() bool {
 	return true
 }
 
+// check required field
+func fieldCheck(obj map[string]interface{}, field string, g Grievances) bool {
+	valid := true
+	if i, ok := obj[field]; !ok {
+		g.log("missing required field: '%v'", field)
+		valid = false
+	} else if mapToArray[field] {
+		// enforce array structure
+		// because of cwl.go's internals
+		// later, if I change cwl.go library to be map-based instead of array-based
+		// this check has to change to enforce map[string]interface{} structure
+		if _, ok = i.([]interface{}); !ok {
+			g.log("value for field '%v' must be an array", field)
+			valid = false
+		}
+	}
+	return valid
+}
+
 // recursively validate each cwl object in the graph
 // log any grievances encountered
 func (v *Validator) validate(obj map[string]interface{}, parentID string) {
+	id := obj["id"].(string)
 	g := make(Grievances, 0)
-	v.Grievances.ByProcess[obj["id"].(string)] = g
+	v.Grievances.ByProcess[id] = g
 
 	// collect grievances for this object
 
+	// NOTE: don't need super specific checks
+	// just rough checks are okay for first build
+
+	// all general checks here
 	var commonFields = []string{
 		"inputs",
 		"outputs",
 		"class",
 	}
 
-	var ok bool
 	for _, field := range commonFields {
-		if _, ok = obj[field]; !ok {
-			g.log("missing field: '%v'", field)
-		}
+		fieldCheck(obj, field, g)
 	}
 
-	// all general checks here
-
-	// NOTE: don't need super specific checks
-	// just rough checks are okay for first build
-
 	// here all class-specific checks
-	// for now, case sensitive, strict match
 	var class string
 	switch class {
 	case "CommandLineTool":
+		// no specific validation here yet
 	case "Workflow":
+		if valid := fieldCheck(obj, "steps", g); valid {
+			steps := obj["steps"].([]interface{})
+			for _, step := range steps {
+				v.validateStep(step, id)
+			}
+		}
 	case "ExpressionTool":
+		fieldCheck(obj, "expression", g)
 	default:
 		g.log(fmt.Sprintf("invalid value for field 'class': %v", class))
 	}
 }
 
-// of course, here, making the assumption that 'id' is a string in the json
-// which ultimately is not an assumption we will make
+// validate a workflow step
+// call validate routine on referenced graph object
+func (v *Validator) validateStep(step interface{}, parentID string) {
+	// g := v.Grievances.ByProcess[parentID]
 
-/*
-func (v *Validator) validateCLT(clt map[string]interface{}, parentID string) {
-	g := v.Grievances.ByProcess[clt["id"].(string)]
+	// first thing for now - find 'run' field
+	// call validate routine on the value of that field
+	// since it's "run: id"
 
-	// collect g's
 }
-
-func (v *Validator) validateWF(wf map[string]interface{}, parentID string) {
-	g := v.Grievances.ByProcess[wf["id"].(string)]
-}
-
-func (v *Validator) validateET(et map[string]interface{}, parentID string) {
-	g := v.Grievances.ByProcess[et["id"].(string)]
-}
-*/
