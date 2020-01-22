@@ -1,6 +1,6 @@
 package main
 
-import ()
+import "fmt"
 
 // WorkflowJSON ..
 type WorkflowJSON struct {
@@ -97,12 +97,51 @@ func (wfg *WorkflowGrievances) empty() bool {
 }
 
 // recursively validate each cwl object in the graph
+// log any grievances encountered
 func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	g := make(Grievances, 0)
+	v.Grievances.ByProcess[obj["id"].(string)] = g
 
 	// collect grievances for this object
 
-	if len(g) > 0 {
-		v.Grievances.ByProcess[obj["id"].(string)] = g
+	var class string
+	var ok bool
+	if class, ok = obj["class"].(string); !ok {
+		g.log("missing field: 'class'")
+		return
+	}
+
+	// all general checks here
+
+	// NOTE: don't need super specific checks
+	// just rough checks are okay for first build
+
+	// here all class-specific checks
+	// for now, case sensitive, strict match
+	switch class {
+	case "CommandLineTool":
+	case "Workflow":
+	case "ExpressionTool":
+	default:
+		g.log(fmt.Sprintf("invalid value for field 'class': %v", class))
 	}
 }
+
+// of course, here, making the assumption that 'id' is a string in the json
+// which ultimately is not an assumption we will make
+
+/*
+func (v *Validator) validateCLT(clt map[string]interface{}, parentID string) {
+	g := v.Grievances.ByProcess[clt["id"].(string)]
+
+	// collect g's
+}
+
+func (v *Validator) validateWF(wf map[string]interface{}, parentID string) {
+	g := v.Grievances.ByProcess[wf["id"].(string)]
+}
+
+func (v *Validator) validateET(et map[string]interface{}, parentID string) {
+	g := v.Grievances.ByProcess[et["id"].(string)]
+}
+*/
