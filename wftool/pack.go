@@ -27,12 +27,6 @@ func main() {
 	}
 }
 
-// WorkflowJSON ..
-type WorkflowJSON struct {
-	Graph      *[]map[string]interface{} `json:"$graph"`
-	CWLVersion string                    `json:"cwlVersion"`
-}
-
 // Pack is the top level function for the packing routine
 func Pack(inPath string, outPath string) (err error) {
 	var wf WorkflowJSON

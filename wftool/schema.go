@@ -7,10 +7,6 @@ import (
 )
 
 /*
-	will this tool just marshal without enforcing/validating the cwl?
-	e.g., if scatter, then scattermethod - will we perform that check here?
-	or does this tool assume your cwl is error-free
-	probably this tool should have some kind of validation function
 	this tool should answer, to some degree, the question - "will this cwl run?"
 	"will/should mariner even attempt to run this workflow?"
 
@@ -20,23 +16,6 @@ import (
 	for user - "will mariner run this workflow,
 	or is there something I need to fix in my CWL?"
 */
-
-// original
-func convert(i interface{}) interface{} {
-	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
-		for k, v := range x {
-			m2[k.(string)] = convert(v)
-		}
-		return m2
-	case []interface{}:
-		for i, v := range x {
-			x[i] = convert(v)
-		}
-	}
-	return i
-}
 
 /*
 	currently with the way the cwl.go library is setup,
