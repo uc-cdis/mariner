@@ -280,6 +280,17 @@ steps:
         out: [ output ]
 `
 
+var notAWorkflow = `
+{
+  "I": [
+    "am",
+    "not",
+    "a",
+    "workflow"
+  ]
+}
+`
+
 func NotTestPackCWL(t *testing.T) {
 	// Pack([]byte(tool), "#read_from_all.cwl")
 	// Pack([]byte(workflow), "#main")

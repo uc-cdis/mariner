@@ -2,6 +2,10 @@ package main
 
 import "fmt"
 
+import "io/ioutil"
+
+import "encoding/json"
+
 // WorkflowJSON ..
 type WorkflowJSON struct {
 	Graph      *[]map[string]interface{} `json:"$graph"`
@@ -21,6 +25,33 @@ type WorkflowGrievances struct {
 type Validator struct {
 	Workflow   *WorkflowJSON
 	Grievances *WorkflowGrievances
+}
+
+// HERE todo
+func validateJSONFile(path string) (bool, *WorkflowGrievances) {
+	g := &WorkflowGrievances{
+		Main: make(Grievances, 0),
+	}
+
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		g.Main.log("unable to read file")
+		return false, g
+	}
+
+	return validateJSON(b, g)
+}
+
+func validateJSON(b []byte, g *WorkflowGrievances) (bool, *WorkflowGrievances) {
+	wf := &WorkflowJSON{}
+
+	err := json.Unmarshal(b, wf)
+	if err != nil {
+		g.Main.log("invalid json structure")
+		return false, g
+	}
+
+	return ValidateWorkflow(wf)
 }
 
 func (g Grievances) log(f string, vs ...interface{}) {

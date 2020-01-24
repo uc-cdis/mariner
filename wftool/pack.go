@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,19 +12,7 @@ import (
 )
 
 // error handling and validation, in general, need attention
-
-func main() {
-
-	var input, output string
-	flag.StringVar(&input, "i", "", "path to workflow")
-	flag.StringVar(&output, "o", "", "output path")
-
-	flag.Parse()
-
-	if err := Pack(input, output); err != nil {
-		fmt.Println("pack operation failed due to error: ", err)
-	}
-}
+// code needs better organization
 
 // Pack is the top level function for the packing routine
 func Pack(inPath string, outPath string) (err error) {
