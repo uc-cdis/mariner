@@ -27,7 +27,6 @@ type Validator struct {
 	Grievances *WorkflowGrievances
 }
 
-// HERE todo
 func validateJSONFile(path string) (bool, *WorkflowGrievances) {
 	g := &WorkflowGrievances{
 		Main: make(Grievances, 0),
@@ -48,14 +47,22 @@ func validateJSON(b []byte, g *WorkflowGrievances) (bool, *WorkflowGrievances) {
 	err := json.Unmarshal(b, wf)
 	if err != nil {
 		g.Main.log("invalid json structure")
+	}
+	if wf.Graph == nil {
+		g.Main.log("missing workflow")
+	}
+	if wf.CWLVersion == "" {
+		g.Main.log("missing version")
+	}
+	if len(g.Main) > 0 {
 		return false, g
 	}
 
 	return ValidateWorkflow(wf)
 }
 
-func (g Grievances) log(f string, vs ...interface{}) {
-	g = append(g, fmt.Sprintf(f, vs...))
+func (g *Grievances) log(f string, vs ...interface{}) {
+	*g = append(*g, fmt.Sprintf(f, vs...))
 }
 
 // ValidateWorkflow ..
@@ -95,7 +102,6 @@ func (v *Validator) Validate() bool {
 		if obj["id"] == "#main" {
 			foundMain = true
 			// recursively validate the whole graph
-			fmt.Printf("found #main, validating workflow")
 			v.validate(obj, "")
 			break
 		}
@@ -147,7 +153,6 @@ func fieldCheck(obj map[string]interface{}, field string, g Grievances) bool {
 // log any grievances encountered
 func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	id := obj["id"].(string) // is this a safe assumption - no need to risk
-	fmt.Println("validating obj ", id)
 	g := make(Grievances, 0)
 	v.Grievances.ByProcess[id] = g
 
@@ -164,7 +169,6 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	}
 
 	for _, field := range commonFields {
-		fmt.Println("checking field ", field)
 		fieldCheck(obj, field, g)
 	}
 
@@ -176,10 +180,8 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	// here all class-specific checks
 	switch class {
 	case "CommandLineTool":
-		fmt.Println("checking CLT")
 		// no specific validation here yet
 	case "Workflow":
-		fmt.Println("checking WF steps")
 		if valid := fieldCheck(obj, "steps", g); valid {
 			steps := obj["steps"].([]interface{})
 			for _, step := range steps {
@@ -188,7 +190,6 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 			}
 		}
 	case "ExpressionTool":
-		fmt.Println("checking ET")
 		fieldCheck(obj, "expression", g)
 	default:
 		g.log(fmt.Sprintf("invalid value for field 'class': %v", class))
@@ -221,7 +222,6 @@ func (v *Validator) validateStep(i interface{}, parentID string) {
 	if !ok {
 		g.log("invalid type for id field")
 	}
-	fmt.Println("validating step ", id)
 	for _, field := range stepFields {
 		_, ok = step[field]
 		if !ok {
@@ -243,12 +243,10 @@ func (v *Validator) validateStep(i interface{}, parentID string) {
 	var refObj map[string]interface{}
 	for _, obj := range *v.Workflow.Graph {
 		if obj["id"].(string) == run {
-			fmt.Println("found ref obj with id ", run)
 			refObj = obj
 		}
 	}
 	if refObj == nil {
-		fmt.Println("failed to find ref obj with id ", run)
 		g.log("for step '%v' failed to find referenced cwl obj: %v", id, run)
 		return
 	}
