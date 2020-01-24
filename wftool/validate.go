@@ -133,14 +133,22 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 		fieldCheck(obj, field, g)
 	}
 
-	// here all class-specific checks
 	var class string
+	class, ok := obj["class"].(string)
+	if !ok {
+		return
+	}
+	// here all class-specific checks
 	switch class {
 	case "CommandLineTool":
 		// no specific validation here yet
 	case "Workflow":
 		if valid := fieldCheck(obj, "steps", g); valid {
-			steps := obj["steps"].([]interface{})
+			steps, ok := obj["steps"].([]interface{})
+			if !ok {
+				g.log("steps not a list")
+				return
+			}
 			for _, step := range steps {
 				v.validateStep(step, id)
 			}
@@ -152,13 +160,59 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	}
 }
 
+var stepFields = []string{
+	// "id",
+	"in",
+	"out",
+	"run",
+}
+
 // validate a workflow step
 // call validate routine on referenced graph object
-func (v *Validator) validateStep(step interface{}, parentID string) {
-	// g := v.Grievances.ByProcess[parentID]
+// NOTE: this is far from clean, but works
+// REFACTOR
+func (v *Validator) validateStep(i interface{}, parentID string) {
+	g := v.Grievances.ByProcess[parentID]
+	step, ok := i.(map[string]interface{})
+	if !ok {
+		g.log("step is not a map")
+		return
+	}
+	i, ok = step["id"]
+	if !ok {
+		g.log("step missing id")
+	}
+	id, ok := i.(string)
+	if !ok {
+		g.log("invalid type for id field")
+	}
+	for _, field := range stepFields {
+		_, ok = step[field]
+		if !ok {
+			g.log("step '%v' missing field: %v", id, field)
+		}
+	}
+	i, ok = step["run"]
+	if !ok {
+		return
+	}
+	run, ok := i.(string)
+	if !ok {
+		g.log("step '%v' invalid type for field: %v", id, "run")
+		return
+	}
 
-	// first thing for now - find 'run' field
-	// call validate routine on the value of that field
-	// since it's "run: id"
+	// could write small fn to retrieve string val from map[string]interface{} obj
 
+	var refObj map[string]interface{}
+	for _, obj := range *v.Workflow.Graph {
+		if obj["id"].(string) == run {
+			refObj = obj
+		}
+	}
+	if refObj == nil {
+		g.log("for step '%v' failed to find referenced cwl obj: %v", id, run)
+		return
+	}
+	v.validate(refObj, parentID)
 }
