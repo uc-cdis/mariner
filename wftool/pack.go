@@ -54,6 +54,8 @@ func Pack(inPath string, outPath string) (err error) {
 		return fmt.Errorf("workflow is not valid - see grievances")
 	}
 
+	fmt.Println("TEST - your workflow passed validation!")
+
 	// write the thing to a file
 	if outPath, err = resolveOutPath(inPath, outPath, wd); err != nil {
 		return err
