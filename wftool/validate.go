@@ -150,6 +150,7 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 				return
 			}
 			for _, step := range steps {
+				// calls validate(obj) on referenced cwl obj
 				v.validateStep(step, id)
 			}
 		}

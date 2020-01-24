@@ -29,7 +29,7 @@ func main() {
 
 // Pack is the top level function for the packing routine
 func Pack(inPath string, outPath string) (err error) {
-	var wf WorkflowJSON
+	var wf *WorkflowJSON
 	var wd string
 	wd, _ = os.Getwd()
 
@@ -39,10 +39,22 @@ func Pack(inPath string, outPath string) (err error) {
 		}
 	}()
 
+	// pack the thing
 	if wf, err = PackWorkflow(inPath); err != nil {
 		fmt.Println("failed to pack workflow ", inPath)
 		return err
 	}
+
+	// validate the thing
+	valid, grievances := ValidateWorkflow(wf)
+	if !valid {
+		// need some more natural response here
+		fmt.Println("grievances:")
+		printJSON(grievances)
+		return fmt.Errorf("workflow is not valid - see grievances")
+	}
+
+	// write the thing to a file
 	if outPath, err = resolveOutPath(inPath, outPath, wd); err != nil {
 		return err
 	}
@@ -79,7 +91,7 @@ func defaultOutPath(inPath string) string {
 	return fmt.Sprintf("%v.json", noExt)
 }
 
-func writeJSON(wf WorkflowJSON, outPath string) error {
+func writeJSON(wf *WorkflowJSON, outPath string) error {
 	f, err := os.Create(outPath)
 	defer f.Close()
 	if err != nil {
@@ -94,7 +106,7 @@ func writeJSON(wf WorkflowJSON, outPath string) error {
 
 // PackWorkflow packs the workflow specified by cwl file with path 'path'
 // i.e., packs 'path' and all child cwl files of 'path'
-func PackWorkflow(path string) (WorkflowJSON, error) {
+func PackWorkflow(path string) (*WorkflowJSON, error) {
 
 	// workflow gets packed into graph
 	graph := &[]map[string]interface{}{}
@@ -105,7 +117,7 @@ func PackWorkflow(path string) (WorkflowJSON, error) {
 	versionCheck := make(map[string][]string)
 
 	if err := PackCWLFile(path, "", graph, versionCheck); err != nil {
-		return WorkflowJSON{}, err
+		return nil, err
 	}
 
 	// error if multiple cwl versions specified in workflow files
@@ -113,7 +125,7 @@ func PackWorkflow(path string) (WorkflowJSON, error) {
 		fmt.Println("pack operation failed - incompatible versions specified")
 		fmt.Println("version breakdown:")
 		printJSON(versionCheck)
-		return WorkflowJSON{}, fmt.Errorf("version error")
+		return nil, fmt.Errorf("version error")
 	}
 
 	// get the one version listed
@@ -122,7 +134,7 @@ func PackWorkflow(path string) (WorkflowJSON, error) {
 		cwlVersion = ver
 	}
 
-	wf := WorkflowJSON{
+	wf := &WorkflowJSON{
 		Graph:      graph,
 		CWLVersion: cwlVersion,
 	}
