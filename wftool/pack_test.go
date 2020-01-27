@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -292,6 +293,12 @@ var notAWorkflow = `
 }
 `
 
+/*
+  Todo:
+  1. write compareJSON()
+  2. write fn TestValidate()
+*/
+
 // todo - read in each json file, compare
 // return true if match, false if not match
 func compareJSON(testPath string, targetPath string) bool {
@@ -305,11 +312,10 @@ func TestPack(t *testing.T) {
 	compare := func(cwl, target string) {
 		Pack(cwl, out)
 		if match = compareJSON(out, target); !match {
-			t.Error("packed json doesn't match target json")
+			t.Errorf("%v packed json does match target json", cwl)
 		}
 		os.Remove(out)
 	}
-
 	compare(noInputCWL, noInputTargetJSON)
 	compare(userDataCWL, userDataTargetJSON)
 }
@@ -321,3 +327,18 @@ var (
 	userDataCWL        = "../testdata/user_data_test/workflow/cwl/user-data_test.cwl"
 	userDataTargetJSON = "../testdata/user_data_test/workflow/workflow.json"
 )
+
+func TestValidate(t *testing.T) {
+	l := []string{
+		noInputTargetJSON,
+		userDataTargetJSON,
+	}
+	for _, v := range l {
+		valid, grievances := validateJSONFile(v)
+		if !valid {
+			t.Errorf("%v failed validation", v)
+			fmt.Println("grievances: ")
+			printJSON(grievances)
+		}
+	}
+}
