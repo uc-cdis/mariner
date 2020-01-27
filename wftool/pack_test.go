@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"testing"
 )
 
@@ -291,28 +292,32 @@ var notAWorkflow = `
 }
 `
 
-func NotTestPackCWL(t *testing.T) {
-	// Pack([]byte(tool), "#read_from_all.cwl")
-	// Pack([]byte(workflow), "#main")
-	// Pack([]byte(expressiontool), "#expressiontool_test.cwl")
-	// Pack([]byte(gen3test), "#main")
-	// Pack([]byte(initDir), "#initdir_test.cwl")
-	// Pack([]byte(scatter), "#scatter_test.cwl")
-	// PackCWL([]byte(subwf), "#subworkflow_test.cwl", "")
+// todo - read in each json file, compare
+// return true if match, false if not match
+func compareJSON(testPath string, targetPath string) bool {
+
+	return true
 }
 
 func TestPack(t *testing.T) {
-	// noInput := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/no_input_test/workflow/cwl/gen3_test.cwl"
-	userData := "/Users/mattgarvin/go/src/github.com/uc-cdis/mariner/testdata/user_data_test/workflow/cwl/user-data_test.cwl"
+	var match bool
+	out := "testPack.json"
+	compare := func(cwl, target string) {
+		Pack(cwl, out)
+		if match = compareJSON(out, target); !match {
+			t.Error("packed json doesn't match target json")
+		}
+		os.Remove(out)
+	}
 
-	Pack(userData, "testPack.json")
-
-	/*
-			wf, err := PackWorkflow(userData)
-			if err != nil {
-				t.Fail()
-			}
-			fmt.Println("---- here da wf ----")
-		  printJSON(wf)
-	*/
+	compare(noInputCWL, noInputTargetJSON)
+	compare(userDataCWL, userDataTargetJSON)
 }
+
+// paths for tests
+var (
+	noInputCWL         = "../testdata/no_input_test/workflow/cwl/gen3_test.cwl"
+	noInputTargetJSON  = "../testdata/no_input_test/workflow/workflow.json"
+	userDataCWL        = "../testdata/user_data_test/workflow/cwl/user-data_test.cwl"
+	userDataTargetJSON = "../testdata/user_data_test/workflow/workflow.json"
+)
