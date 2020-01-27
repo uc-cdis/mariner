@@ -27,7 +27,8 @@ type Validator struct {
 	Grievances *WorkflowGrievances
 }
 
-func validateJSONFile(path string) (bool, *WorkflowGrievances) {
+// ValidateJSONFile ..
+func ValidateJSONFile(path string) (bool, *WorkflowGrievances) {
 	g := &WorkflowGrievances{
 		Main: make(Grievances, 0),
 	}

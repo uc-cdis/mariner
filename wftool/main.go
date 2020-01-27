@@ -32,7 +32,7 @@ func main() {
 			fmt.Println("pack operation failed due to error: ", err)
 		}
 	case validate:
-		if valid, grievances := validateJSONFile(input); !valid {
+		if valid, grievances := ValidateJSONFile(input); !valid {
 			fmt.Println("invalid json - see grievances:")
 			printJSON(grievances)
 		} else {

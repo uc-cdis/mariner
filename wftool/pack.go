@@ -22,7 +22,8 @@ func Pack(inPath string, outPath string) (err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("failed to pack workflow:\n%v", r)
+			// fmt.Printf("panic: failed to pack workflow\n%v\n\n", r)
+			err = fmt.Errorf("pack routine panicked")
 		}
 	}()
 
@@ -50,7 +51,7 @@ func Pack(inPath string, outPath string) (err error) {
 	if err = writeJSON(wf, outPath); err != nil {
 		return err
 	}
-	return nil
+	return err
 }
 
 func resolveOutPath(inPath string, outPath string, wd string) (string, error) {
