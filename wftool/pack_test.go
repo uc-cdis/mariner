@@ -15,7 +15,6 @@ const (
 /*
   Todo:
   1. write compareJSON()
-  2. write fn TestValidate()
 */
 
 // todo - read in each json file, compare
@@ -26,12 +25,10 @@ func compareJSON(testPath string, targetPath string) bool {
 }
 
 func TestPack(t *testing.T) {
-	// testDir, _ := os.Getwd()
 	var match bool
 	var err error
 	out := "testPack.json"
 	compare := func(cwl, target string) {
-		// os.Chdir(testDir)
 		if err = Pack(cwl, out); err != nil {
 			t.Errorf("failed to pack cwl %v", cwl)
 		}
