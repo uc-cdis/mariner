@@ -91,7 +91,9 @@ func writeJSON(wf *WorkflowJSON, outPath string) error {
 	encoder := json.NewEncoder(f)
 	encoder.SetEscapeHTML(false)
 	encoder.SetIndent("", "  ")
-	encoder.Encode(wf)
+	if err = encoder.Encode(wf); err != nil {
+		return err
+	}
 	return nil
 }
 

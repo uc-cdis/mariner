@@ -6,37 +6,21 @@ import (
 )
 
 const (
-	noInputCWL         = "../testdata/no_input_test/workflow/cwl/gen3_test.cwl"
-	noInputTargetJSON  = "../testdata/no_input_test/workflow/workflow.json"
-	userDataCWL        = "../testdata/user_data_test/workflow/cwl/user-data_test.cwl"
-	userDataTargetJSON = "../testdata/user_data_test/workflow/workflow.json"
+	noInputCWL  = "../testdata/no_input_test/workflow/cwl/gen3_test.cwl"
+	userDataCWL = "../testdata/user_data_test/workflow/cwl/user-data_test.cwl"
 )
 
-/*
-  Todo:
-  1. write compareJSON()
-*/
-
-// todo - read in each json file, compare
-// return true if match, false if not match
-func compareJSON(testPath string, targetPath string) bool {
-
-	return true
-}
-
 func TestPack(t *testing.T) {
-	var match bool
 	var err error
 	out := "testPack.json"
-	compare := func(cwl, target string) {
+	p := func(cwl string) {
 		if err = Pack(cwl, out); err != nil {
-			t.Errorf("failed to pack cwl %v", cwl)
+			t.Errorf("failed to pack cwl %v\nerror: %v", cwl, err)
 		}
-		if match = compareJSON(out, target); !match {
-			t.Errorf("%v packed json does match target json", cwl)
+		if err = os.Remove(out); err != nil {
+			t.Errorf("failed to cleanup packed cwl file\nerror: %v", err)
 		}
-		os.Remove(out)
 	}
-	compare(noInputCWL, noInputTargetJSON)
-	compare(userDataCWL, userDataTargetJSON)
+	p(noInputCWL)
+	p(userDataCWL)
 }
