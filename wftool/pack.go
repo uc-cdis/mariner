@@ -29,16 +29,17 @@ func Pack(inPath string, outPath string) (err error) {
 
 	// pack the thing
 	if wf, err = PackWorkflow(inPath); err != nil {
-		fmt.Println("failed to pack workflow ", inPath)
+		// fmt.Println("failed to pack workflow ", inPath)
 		return err
 	}
 
 	// validate the thing
-	valid, grievances := ValidateWorkflow(wf)
+	// valid, grievances := ValidateWorkflow(wf)
+	valid, _ := ValidateWorkflow(wf)
 	if !valid {
 		// need some more natural response here
-		fmt.Println("grievances:")
-		printJSON(grievances)
+		// fmt.Println("grievances:")
+		// printJSON(grievances)
 		return fmt.Errorf("workflow is not valid - see grievances")
 	}
 
@@ -171,7 +172,7 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, 
 	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
 		// routine should fail out here and primaryRoutine should not return any results
-		fmt.Println("err 4: ", err)
+		// fmt.Println("err 4: ", err)
 		return err
 	}
 
