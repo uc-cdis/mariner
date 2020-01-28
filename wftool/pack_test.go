@@ -26,7 +26,7 @@ func compareJSON(testPath string, targetPath string) bool {
 }
 
 func TestPack(t *testing.T) {
-	//	testDir, _ := os.Getwd()
+	// testDir, _ := os.Getwd()
 	var match bool
 	var err error
 	out := "testPack.json"

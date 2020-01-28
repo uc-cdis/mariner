@@ -43,7 +43,7 @@ func Pack(inPath string, outPath string) (err error) {
 		return fmt.Errorf("workflow is not valid - see grievances")
 	}
 
-	fmt.Println("your workflow is valid!")
+	// fmt.Println("your workflow is valid!")
 
 	// write the thing to a file
 	if outPath, err = resolveOutPath(inPath, outPath, wd); err != nil {
@@ -192,7 +192,12 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, 
 	return nil
 }
 
+// this feels like a sin
+// but not sure offhand how to otherwise handle resolving paths
 func absPath(path string, refPath string) (string, error) {
+	origDir, _ := os.Getwd()
+	defer os.Chdir(origDir)
+
 	var wd string
 	if refPath != "" {
 		refInfo, err := os.Stat(refPath)
