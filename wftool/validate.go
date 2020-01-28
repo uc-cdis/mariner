@@ -1,10 +1,10 @@
 package main
 
-import "fmt"
-
-import "io/ioutil"
-
-import "encoding/json"
+import (
+	"fmt"
+	"encoding/json"
+	"io/ioutil"
+)
 
 // WorkflowJSON ..
 type WorkflowJSON struct {
