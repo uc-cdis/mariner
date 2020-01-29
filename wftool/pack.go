@@ -79,7 +79,7 @@ func resolveOutPath(inPath string, outPath string, wd string) (string, error) {
 func defaultOutPath(inPath string) string {
 	ext := filepath.Ext(inPath)
 	noExt := strings.TrimSuffix(inPath, ext)
-	return fmt.Sprintf("%v.json", noExt)
+	return fmt.Sprintf("%v_packed.json", noExt)
 }
 
 func writeJSON(wf *WorkflowJSON, outPath string) error {
