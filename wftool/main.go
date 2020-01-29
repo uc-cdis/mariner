@@ -36,10 +36,10 @@ func main() {
 		}
 	case validate:
 		if valid, grievances := ValidateJSONFile(input); !valid {
-			fmt.Println("invalid json - see grievances:")
+			fmt.Println("invalid - see grievances:")
 			printJSON(grievances)
 		} else {
-			fmt.Println("json is valid")
+			fmt.Println("valid")
 		}
 	}
 }
