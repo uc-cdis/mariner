@@ -1,10 +1,10 @@
 package main
 
-import "fmt"
-
-import "io/ioutil"
-
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+)
 
 // WorkflowJSON ..
 type WorkflowJSON struct {
@@ -39,12 +39,18 @@ func ValidateJSONFile(path string) (bool, *WorkflowGrievances) {
 		return false, g
 	}
 
-	return validateJSON(b, g)
+	return ValidateJSON(b, g)
 }
 
-func validateJSON(b []byte, g *WorkflowGrievances) (bool, *WorkflowGrievances) {
-	wf := &WorkflowJSON{}
+// ValidateJSON ..
+func ValidateJSON(b []byte, g *WorkflowGrievances) (bool, *WorkflowGrievances) {
+	if g == nil {
+		g = &WorkflowGrievances{
+			Main: make(Grievances, 0),
+		}
+	}
 
+	wf := &WorkflowJSON{}
 	err := json.Unmarshal(b, wf)
 	if err != nil {
 		g.Main.log("invalid json structure")

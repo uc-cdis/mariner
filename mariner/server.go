@@ -344,7 +344,21 @@ func (j *ListRunsJSON) fetchRuns(userID string) (*ListRunsJSON, error) {
 
 // `/runs` - POST
 func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
+	// fixme: return and handle err here
 	workflowRequest := unmarshalBody(r, &WorkflowRequest{}).(*WorkflowRequest)
+
+	// really, all json needs to get validated some way or another by the server
+	// in particular for a workflow request
+	// validate against WorkflowRequest struct schema
+
+	// right now just validating the workflow itself, not the whole request
+	// fixme
+	valid, _ := wftool.ValidateJSON([]byte(workflowRequest.Workflow), nil)
+	if !valid {
+		http.Error(w, "invalid workflow request", 400)
+		return
+	}
+
 	workflowRequest.UserID = server.userID(r)
 	runID, err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
@@ -445,7 +459,7 @@ func (server *Server) authZ(r *http.Request) bool {
 }
 
 // HandleHealthcheck registers root endpoint
-// FIXME
+// fixme
 func (server *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL)
 	return
@@ -467,6 +481,7 @@ func (server *Server) uniqueKey(r *http.Request) (userID, runID string) {
 }
 
 // unmarshal the request body to the given go struct
+// fixme: return error
 func unmarshalBody(r *http.Request, v interface{}) interface{} {
 	b := body(r)
 	err := json.Unmarshal(b, v)
@@ -476,6 +491,7 @@ func unmarshalBody(r *http.Request, v interface{}) interface{} {
 	return v
 }
 
+// fixme: return error
 func body(r *http.Request) []byte {
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
