@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 )
 
@@ -43,8 +43,13 @@ func ValidateJSONFile(path string) (bool, *WorkflowGrievances) {
 }
 
 func validateJSON(b []byte, g *WorkflowGrievances) (bool, *WorkflowGrievances) {
-	wf := &WorkflowJSON{}
+	if g == nil {
+		g = &WorkflowGrievances{
+			Main: make(Grievances, 0),
+		}
+	}
 
+	wf := &WorkflowJSON{}
 	err := json.Unmarshal(b, wf)
 	if err != nil {
 		g.Main.log("invalid json structure")
