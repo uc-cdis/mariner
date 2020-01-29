@@ -139,7 +139,11 @@ func PackWorkflow(path string) (*WorkflowJSON, error) {
 func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) (map[string]interface{}, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
-	j, ok := nuConvert(*cwlObj, primaryRoutine, id, false, path, graph, versionCheck).(map[string]interface{})
+	i, err := nuConvert(*cwlObj, primaryRoutine, id, false, path, graph, versionCheck)
+	if err != nil {
+		return nil, err
+	}
+	j, ok := i.(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("failed to convert %v to json", path)
 	}
@@ -190,6 +194,9 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, 
 
 	// 'path' here is absolute - implies prevPath is absolute
 	j, err := PackCWL(cwl, id, path, graph, versionCheck)
+	if err != nil {
+		return err
+	}
 	*graph = append(*graph, j)
 	return nil
 }

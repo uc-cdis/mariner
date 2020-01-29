@@ -32,12 +32,15 @@ var mapToArray = map[string]bool{
 	"hints":        true,
 }
 
-func array(m map[interface{}]interface{}, parentKey string, parentID string, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) []map[string]interface{} {
+func array(m map[interface{}]interface{}, parentKey string, parentID string, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) ([]map[string]interface{}, error) {
 	arr := []map[string]interface{}{}
 	var nuV map[string]interface{}
 	for k, v := range m {
 		id := fmt.Sprintf("%v/%v", parentID, k.(string))
-		i := nuConvert(v, k.(string), id, false, path, graph, versionCheck)
+		i, err := nuConvert(v, k.(string), id, false, path, graph, versionCheck)
+		if err != nil {
+			return nil, err
+		}
 		switch x := i.(type) {
 		case map[string]interface{}:
 			nuV = x
@@ -50,10 +53,11 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string, pat
 			case "in":
 				nuV["source"] = fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
 			default:
-				panic(fmt.Sprintf("unexpected syntax for field: %v", parentKey))
+
+				return nil, fmt.Errorf("unexpected syntax for field: %v", parentKey)
 			}
 		default:
-			panic(fmt.Sprintf("unexpected syntax for field: %v", parentKey))
+			return nil, fmt.Errorf("unexpected syntax for field: %v", parentKey)
 		}
 		switch parentKey {
 		case "requirements", "hints":
@@ -63,7 +67,7 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string, pat
 		}
 		arr = append(arr, nuV)
 	}
-	return arr
+	return arr, nil
 }
 
 // currently only supporting base case - expecting string
@@ -90,12 +94,14 @@ const primaryRoutine = "primaryRoutine"
 consider separation of powers between cwl.go and this package
 should they be the same package?
 */
-func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) interface{} {
+// fixme: rename this function
+func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) (interface{}, error) {
 	/*
 		fmt.Println("parentKey: ", parentKey)
 		fmt.Println("object:")
 		printJSON(i)
 	*/
+	var err error
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
 		if mapToArray[parentKey] && !inArray {
@@ -104,7 +110,10 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
-			m2[key] = nuConvert(v, key, parentID, false, path, graph, versionCheck)
+			m2[key], err = nuConvert(v, key, parentID, false, path, graph, versionCheck)
+			if err != nil {
+				return nil, err
+			}
 		}
 		// per cwl file
 		// one initial call to nuConvert()
@@ -113,10 +122,13 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 		if parentKey == primaryRoutine {
 			m2["id"] = parentID
 		}
-		return m2
+		return m2, nil
 	case []interface{}:
 		for i, v := range x {
-			x[i] = nuConvert(v, parentKey, parentID, true, path, graph, versionCheck)
+			x[i], err = nuConvert(v, parentKey, parentID, true, path, graph, versionCheck)
+			if err != nil {
+				return nil, err
+			}
 		}
 	case string:
 		switch parentKey {
@@ -126,18 +138,18 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 			// they can see which files they need to change
 			versionCheck[x] = append(versionCheck[x], path)
 		case "type":
-			return resolveType(x)
+			return resolveType(x), nil
 		case "source", "outputSource":
-			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
+			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x), nil
 		case "out", "id", "scatter":
-			return fmt.Sprintf("%v/%v", parentID, x)
+			return fmt.Sprintf("%v/%v", parentID, x), nil
 		case "run":
-			// this is not graceful, but is functionally sufficient for a first iteration
 			if err := PackCWLFile(x, path, graph, versionCheck); err != nil {
-				panic(fmt.Errorf("failed to pack file at path: %v\nparent path: %v", x, path))
+				fmt.Printf("failed to pack file at path: %v\nparent path: %v\nerror: %v\n", x, path, err)
+				// return err here or not?
 			}
-			return fmt.Sprintf("#%v", filepath.Base(x))
+			return fmt.Sprintf("#%v", filepath.Base(x)), nil
 		}
 	}
-	return i
+	return i, nil
 }
