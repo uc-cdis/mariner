@@ -38,7 +38,7 @@ func TestValidate(t *testing.T) {
 
 	for _, j := range neg {
 		g = &WorkflowGrievances{}
-		if valid, g = validateJSON([]byte(j), g); valid {
+		if valid, g = ValidateJSON([]byte(j), g); valid {
 			t.Errorf("negative test case passed validation:\n%v", j)
 		}
 	}

@@ -39,10 +39,11 @@ func ValidateJSONFile(path string) (bool, *WorkflowGrievances) {
 		return false, g
 	}
 
-	return validateJSON(b, g)
+	return ValidateJSON(b, g)
 }
 
-func validateJSON(b []byte, g *WorkflowGrievances) (bool, *WorkflowGrievances) {
+// ValidateJSON ..
+func ValidateJSON(b []byte, g *WorkflowGrievances) (bool, *WorkflowGrievances) {
 	if g == nil {
 		g = &WorkflowGrievances{
 			Main: make(Grievances, 0),
