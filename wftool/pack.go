@@ -171,6 +171,9 @@ func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}
 // 1. construct abs(path)
 // 2. ..
 func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, versionCheck map[string][]string) (err error) {
+	if filepath.Ext(path) != ".cwl" {
+		return fmt.Errorf("input %v is not a cwl file", path)
+	}
 	if path, err = absPath(path, prevPath); err != nil {
 		return err
 	}
