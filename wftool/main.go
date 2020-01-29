@@ -22,11 +22,14 @@ func main() {
 		wftool -pack -i path/to/workflow.cwl -o myPackedWorkflow.json
 		wftool -validate -i path/to/packedWorkflow.json
 	*/
+
 	switch {
 	case pack && validate:
 		fmt.Println("command error - must specify exactly one of 'pack' or 'validate', not both")
 	case !(pack || validate):
 		fmt.Println("command error - must specify either 'pack' or 'validate'")
+	case input == "":
+		fmt.Println("command error - must specify input path")
 	case pack:
 		if err := Pack(input, output); err != nil {
 			fmt.Println("pack operation failed due to error: ", err)
