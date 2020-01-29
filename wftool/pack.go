@@ -79,7 +79,7 @@ func resolveOutPath(inPath string, outPath string, wd string) (string, error) {
 func defaultOutPath(inPath string) string {
 	ext := filepath.Ext(inPath)
 	noExt := strings.TrimSuffix(inPath, ext)
-	return fmt.Sprintf("%v.json", noExt)
+	return fmt.Sprintf("%v_packed.json", noExt)
 }
 
 func writeJSON(wf *WorkflowJSON, outPath string) error {
@@ -171,6 +171,9 @@ func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}
 // 1. construct abs(path)
 // 2. ..
 func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, versionCheck map[string][]string) (err error) {
+	if filepath.Ext(path) != ".cwl" {
+		return fmt.Errorf("input %v is not a cwl file", path)
+	}
 	if path, err = absPath(path, prevPath); err != nil {
 		return err
 	}
