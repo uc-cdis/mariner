@@ -14,6 +14,13 @@ import (
 // error handling and validation, in general, need attention
 // code needs better organization
 
+// Packer ..
+type Packer struct {
+	Graph        *[]map[string]interface{}
+	FilesPacked  map[string]bool
+	VersionCheck map[string][]string
+}
+
 // Pack is the top level function for the packing routine
 func Pack(inPath string, outPath string) (err error) {
 	var wf *WorkflowJSON
@@ -27,19 +34,28 @@ func Pack(inPath string, outPath string) (err error) {
 		}
 	}()
 
+	// here create an instance of 'Packer' struct
+	// want to keep track of top-level routine things in there
+	// e.g., graph and list of files packed
+	packer := &Packer{
+		Graph:        &[]map[string]interface{}{},
+		FilesPacked:  make(map[string]bool),
+		VersionCheck: make(map[string][]string),
+	}
+
 	// pack the thing
-	if wf, err = PackWorkflow(inPath); err != nil {
+	if wf, err = packer.PackWorkflow(inPath); err != nil {
 		// fmt.Println("failed to pack workflow ", inPath)
 		return err
 	}
 
 	// validate the thing
-	// valid, grievances := ValidateWorkflow(wf)
-	valid, _ := ValidateWorkflow(wf)
+	valid, grievances := ValidateWorkflow(wf)
+	// valid, _ := ValidateWorkflow(wf)
 	if !valid {
 		// need some more natural response here
-		// fmt.Println("grievances:")
-		// printJSON(grievances)
+		fmt.Println("grievances:")
+		printJSON(grievances)
 		return fmt.Errorf("workflow is not valid - see grievances")
 	}
 
@@ -99,36 +115,34 @@ func writeJSON(wf *WorkflowJSON, outPath string) error {
 
 // PackWorkflow packs the workflow specified by cwl file with path 'path'
 // i.e., packs 'path' and all child cwl files of 'path'
-func PackWorkflow(path string) (*WorkflowJSON, error) {
-
+func (p *Packer) PackWorkflow(path string) (*WorkflowJSON, error) {
 	// workflow gets packed into graph
-	graph := &[]map[string]interface{}{}
 
 	// collects versions of all cwl files in workflow
 	// workflow is only valid if all versions are the same
 	// i.e., this map should have exactly 1 entry in it
-	versionCheck := make(map[string][]string)
 
-	if err := PackCWLFile(path, "", graph, versionCheck); err != nil {
+	if err := p.PackCWLFile(path, ""); err != nil {
 		return nil, err
 	}
 
 	// error if multiple cwl versions specified in workflow files
-	if len(versionCheck) > 1 {
+	if len(p.VersionCheck) > 1 {
 		fmt.Println("pack operation failed - incompatible versions specified")
 		fmt.Println("version breakdown:")
-		printJSON(versionCheck)
+		printJSON(p.VersionCheck)
 		return nil, fmt.Errorf("version error")
 	}
 
 	// get the one version listed
 	var cwlVersion string
-	for ver := range versionCheck {
+	for ver := range p.VersionCheck {
 		cwlVersion = ver
 	}
 
+	// maybe should redo typing - make types more orthogonal
 	wf := &WorkflowJSON{
-		Graph:      graph,
+		Graph:      p.Graph,
 		CWLVersion: cwlVersion,
 	}
 
@@ -136,10 +150,10 @@ func PackWorkflow(path string) (*WorkflowJSON, error) {
 }
 
 // PackCWL serializes a single cwl obj (e.g., commandlinetool) to json
-func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) (map[string]interface{}, error) {
+func (p *Packer) PackCWL(cwl []byte, id string, path string) (map[string]interface{}, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
-	i, err := nuConvert(*cwlObj, primaryRoutine, id, false, path, graph, versionCheck)
+	i, err := p.nuConvert(*cwlObj, primaryRoutine, id, false, path)
 	if err != nil {
 		return nil, err
 	}
@@ -170,12 +184,17 @@ func PackCWL(cwl []byte, id string, path string, graph *[]map[string]interface{}
 // 'prevPath' is absolute
 // 1. construct abs(path)
 // 2. ..
-func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, versionCheck map[string][]string) (err error) {
+func (p *Packer) PackCWLFile(path string, prevPath string) (err error) {
 	if filepath.Ext(path) != ".cwl" {
 		return fmt.Errorf("input %v is not a cwl file", path)
 	}
 	if path, err = absPath(path, prevPath); err != nil {
 		return err
+	}
+
+	// don't pack the same file more than once
+	if p.FilesPacked[path] {
+		return nil
 	}
 
 	cwl, err := ioutil.ReadFile(path)
@@ -190,17 +209,26 @@ func PackCWLFile(path string, prevPath string, graph *[]map[string]interface{}, 
 	// but for now, doing this
 	var id string
 	if prevPath == "" {
-		id = "#main"
+		id = mainID
 	} else {
+		/*
+			if a user for whatever reason has two different files
+			with the same base name but in different directories
+			this is gonna be a problem
+			the two different files will be packed with the same ID
+
+			fixme
+		*/
 		id = fmt.Sprintf("#%v", filepath.Base(path))
 	}
 
 	// 'path' here is absolute - implies prevPath is absolute
-	j, err := PackCWL(cwl, id, path, graph, versionCheck)
+	j, err := p.PackCWL(cwl, id, path)
 	if err != nil {
 		return err
 	}
-	*graph = append(*graph, j)
+	*p.Graph = append(*p.Graph, j)
+	p.FilesPacked[path] = true
 	return nil
 }
 
