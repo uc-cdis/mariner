@@ -32,18 +32,38 @@ var mapToArray = map[string]bool{
 	"hints":        true,
 }
 
-func array(m map[interface{}]interface{}, parentKey string, parentID string, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) ([]map[string]interface{}, error) {
+func (p *Packer) array(m map[interface{}]interface{}, parentKey string, parentID string, path string) ([]map[string]interface{}, error) {
 	arr := []map[string]interface{}{}
 	var nuV map[string]interface{}
 	for k, v := range m {
 		id := fmt.Sprintf("%v/%v", parentID, k.(string))
-		i, err := nuConvert(v, k.(string), id, false, path, graph, versionCheck)
+		i, err := p.nuConvert(v, k.(string), id, false, path)
 		if err != nil {
 			return nil, err
 		}
 		switch x := i.(type) {
 		case map[string]interface{}:
 			nuV = x
+		case []interface{}:
+			nuV = make(map[string]interface{})
+			switch parentKey {
+			// 'source' field is type (str | []str)
+			case "in":
+				var fullSource, source string
+				var ok bool
+				sourceList := make([]string, len(x))
+				for j, si := range x {
+					source, ok = si.(string)
+					if !ok {
+						return nil, syntaxError(parentKey)
+					}
+					fullSource = resolveSource(source, parentID)
+					sourceList[j] = fullSource
+				}
+				nuV["source"] = sourceList
+			default:
+				return nil, syntaxError(parentKey)
+			}
 		case string:
 			nuV = make(map[string]interface{})
 			// handle shorthand syntax which is in the CWL spec
@@ -51,13 +71,12 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string, pat
 			case "inputs", "outputs":
 				nuV["type"] = resolveType(x)
 			case "in":
-				nuV["source"] = fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
+				nuV["source"] = resolveSource(x, parentID)
 			default:
-
-				return nil, fmt.Errorf("unexpected syntax for field: %v", parentKey)
+				return nil, syntaxError(parentKey)
 			}
 		default:
-			return nil, fmt.Errorf("unexpected syntax for field: %v", parentKey)
+			return nil, syntaxError(parentKey)
 		}
 		switch parentKey {
 		case "requirements", "hints":
@@ -68,6 +87,14 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string, pat
 		arr = append(arr, nuV)
 	}
 	return arr, nil
+}
+
+func syntaxError(key string) error {
+	return fmt.Errorf("unexpected syntax for field: %v", key)
+}
+
+func resolveSource(source string, parentID string) string {
+	return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], source)
 }
 
 // currently only supporting base case - expecting string
@@ -88,14 +115,17 @@ func resolveType(s string) interface{} {
 	return s
 }
 
-const primaryRoutine = "primaryRoutine"
+const (
+	primaryRoutine = "primaryRoutine"
+	mainID         = "#main"
+)
 
 /*
 consider separation of powers between cwl.go and this package
 should they be the same package?
 */
 // fixme: rename this function
-func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string, graph *[]map[string]interface{}, versionCheck map[string][]string) (interface{}, error) {
+func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string) (interface{}, error) {
 	/*
 		fmt.Println("parentKey: ", parentKey)
 		fmt.Println("object:")
@@ -104,13 +134,21 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 	var err error
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
+
 		if mapToArray[parentKey] && !inArray {
-			return array(x, parentKey, parentID, path, graph, versionCheck)
+			return p.array(x, parentKey, parentID, path)
 		}
+
+		if parentKey == primaryRoutine {
+			if givenID, ok := x["id"]; ok && parentID != mainID {
+				parentID = givenID.(string)
+			}
+		}
+
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
-			m2[key], err = nuConvert(v, key, parentID, false, path, graph, versionCheck)
+			m2[key], err = p.nuConvert(v, key, parentID, false, path)
 			if err != nil {
 				return nil, err
 			}
@@ -119,13 +157,14 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 		// one initial call to nuConvert()
 		// this initial call is the primaryRoutine
 		// indicates we must populate the id field here
+		// if it is not already populated
 		if parentKey == primaryRoutine {
 			m2["id"] = parentID
 		}
 		return m2, nil
 	case []interface{}:
 		for i, v := range x {
-			x[i], err = nuConvert(v, parentKey, parentID, true, path, graph, versionCheck)
+			x[i], err = p.nuConvert(v, parentKey, parentID, true, path)
 			if err != nil {
 				return nil, err
 			}
@@ -136,15 +175,16 @@ func nuConvert(i interface{}, parentKey string, parentID string, inArray bool, p
 			// collect paths corresponding to cwlVersions appearing in workflow
 			// so when someone's workflow fails to pack because of conflicting versions
 			// they can see which files they need to change
-			versionCheck[x] = append(versionCheck[x], path)
+			p.VersionCheck[x] = append(p.VersionCheck[x], path)
 		case "type":
 			return resolveType(x), nil
 		case "source", "outputSource":
 			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x), nil
 		case "out", "id", "scatter":
+			// here's the problem
 			return fmt.Sprintf("%v/%v", parentID, x), nil
 		case "run":
-			if err := PackCWLFile(x, path, graph, versionCheck); err != nil {
+			if err := p.PackCWLFile(x, path); err != nil {
 				fmt.Printf("failed to pack file at path: %v\nparent path: %v\nerror: %v\n", x, path, err)
 				// return err here or not?
 			}
