@@ -18,7 +18,11 @@ which do not get caught by the wftool validator.
 
 ## Installing wftool
 
-At the commandline, run this command:  
+wftool is written in [Go](https://golang.org/). If you don't already have Go on your machine,
+check out this [installation guide](https://golang.org/doc/install).
+
+Once you have Go on your machine, 
+run this command at the commandline:  
 `go get github.com/uc-cdis/mariner/wftool`
 
 Now wftool is installed!  
