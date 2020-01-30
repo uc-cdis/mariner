@@ -44,6 +44,26 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string, pat
 		switch x := i.(type) {
 		case map[string]interface{}:
 			nuV = x
+		case []interface{}:
+			nuV = make(map[string]interface{})
+			switch parentKey {
+			// 'source' field is type (str | []str)
+			case "in":
+				var fullSource, source string
+				var ok bool
+				sourceList := make([]string, len(x))
+				for j, si := range x {
+					source, ok = si.(string)
+					if !ok {
+						return nil, syntaxError(parentKey)
+					}
+					fullSource = resolveSource(source, parentID)
+					sourceList[j] = fullSource
+				}
+				nuV["source"] = sourceList
+			default:
+				return nil, syntaxError(parentKey)
+			}
 		case string:
 			nuV = make(map[string]interface{})
 			// handle shorthand syntax which is in the CWL spec
@@ -51,13 +71,12 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string, pat
 			case "inputs", "outputs":
 				nuV["type"] = resolveType(x)
 			case "in":
-				nuV["source"] = fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x)
+				nuV["source"] = resolveSource(x, parentID)
 			default:
-
-				return nil, fmt.Errorf("unexpected syntax for field: %v", parentKey)
+				return nil, syntaxError(parentKey)
 			}
 		default:
-			return nil, fmt.Errorf("unexpected syntax for field: %v", parentKey)
+			return nil, syntaxError(parentKey)
 		}
 		switch parentKey {
 		case "requirements", "hints":
@@ -68,6 +87,14 @@ func array(m map[interface{}]interface{}, parentKey string, parentID string, pat
 		arr = append(arr, nuV)
 	}
 	return arr, nil
+}
+
+func syntaxError(key string) error {
+	return fmt.Errorf("unexpected syntax for field: %v", key)
+}
+
+func resolveSource(source string, parentID string) string {
+	return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], source)
 }
 
 // currently only supporting base case - expecting string
