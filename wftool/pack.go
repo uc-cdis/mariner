@@ -202,8 +202,6 @@ func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]
 // 'prevPath' is absolute
 // 1. construct abs(path)
 // 2. ..
-//
-// FIXME - return ID for this object
 func (p *Packer) PackCWLFile(path string, prevPath string) (string, error) {
 	var err error
 	if filepath.Ext(path) != ".cwl" {
