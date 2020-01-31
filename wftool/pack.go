@@ -168,13 +168,10 @@ func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]
 	yaml.Unmarshal(cwl, cwlObj)
 	id, err := resolveID(*cwlObj, defaultID)
 	if err != nil {
-		fmt.Println("error resolving id")
 		return nil, "", err
 	}
-	fmt.Println("resolved id: ", id)
 	i, err := p.nuConvert(*cwlObj, primaryRoutine, id, false, path)
 	if err != nil {
-		fmt.Println("error from nuConvert")
 		return nil, "", err
 	}
 
@@ -245,18 +242,14 @@ func (p *Packer) PackCWLFile(path string, prevPath string) (string, error) {
 		*/
 		defaultID = fmt.Sprintf("#%v", filepath.Base(path))
 	}
-	fmt.Println("defaultID: ", defaultID)
 
 	// 'path' here is absolute - implies prevPath is absolute
-	// fixme - th
 	j, id, err := p.PackCWL(cwl, defaultID, path)
 
 	if err != nil {
 		fmt.Println("error from PackCWL")
 		return "", err
 	}
-
-	fmt.Println("id from PackCWL: ", id)
 
 	*p.Graph = append(*p.Graph, j)
 	p.FilesPacked[path] = id
