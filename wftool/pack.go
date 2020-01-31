@@ -63,7 +63,7 @@ func resolveOutPath(inPath string, outPath string, wd string) (string, error) {
 
 	// no outPath specified
 	if outPath == "" {
-		return defaultOutPath(inPath), nil
+		return defaultOutPath(inPath, wd), nil
 	}
 
 	// full outPath specified
@@ -79,11 +79,10 @@ func resolveOutPath(inPath string, outPath string, wd string) (string, error) {
 	return outPath, nil
 }
 
-// same as inPath, but w ext '.json' instead of '.cwl'
-func defaultOutPath(inPath string) string {
+func defaultOutPath(inPath, wd string) string {
 	ext := filepath.Ext(inPath)
-	noExt := strings.TrimSuffix(inPath, ext)
-	return fmt.Sprintf("%v_packed.json", noExt)
+	noExt := strings.TrimSuffix(filepath.Base(inPath), ext)
+	return filepath.Join(wd, fmt.Sprintf("%v_packed.json", noExt))
 }
 
 func writeJSON(wf *WorkflowJSON, outPath string) error {
