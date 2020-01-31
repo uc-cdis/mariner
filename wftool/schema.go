@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -134,15 +133,8 @@ func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inA
 	var err error
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
-
 		if mapToArray[parentKey] && !inArray {
 			return p.array(x, parentKey, parentID, path)
-		}
-
-		if parentKey == primaryRoutine {
-			if givenID, ok := x["id"]; ok && parentID != mainID {
-				parentID = fmt.Sprintf("#%v", givenID.(string))
-			}
 		}
 
 		m2 := map[string]interface{}{}
@@ -181,14 +173,14 @@ func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inA
 		case "source", "outputSource":
 			return fmt.Sprintf("%v/%v", strings.Split(parentID, "/")[0], x), nil
 		case "out", "id", "scatter":
-			// here's the problem
 			return fmt.Sprintf("%v/%v", parentID, x), nil
 		case "run":
-			if err := p.PackCWLFile(x, path); err != nil {
+			childID, err := p.PackCWLFile(x, path)
+			if err != nil {
 				fmt.Printf("failed to pack file at path: %v\nparent path: %v\nerror: %v\n", x, path, err)
 				// return err here or not?
 			}
-			return fmt.Sprintf("#%v", filepath.Base(x)), nil
+			return childID, nil
 		}
 	}
 	return i, nil

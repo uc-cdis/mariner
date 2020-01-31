@@ -17,7 +17,7 @@ import (
 // Packer ..
 type Packer struct {
 	Graph        *[]map[string]interface{}
-	FilesPacked  map[string]bool
+	FilesPacked  map[string]string // {path: id}
 	VersionCheck map[string][]string
 }
 
@@ -39,7 +39,7 @@ func Pack(inPath string, outPath string) (err error) {
 	// e.g., graph and list of files packed
 	packer := &Packer{
 		Graph:        &[]map[string]interface{}{},
-		FilesPacked:  make(map[string]bool),
+		FilesPacked:  make(map[string]string),
 		VersionCheck: make(map[string][]string),
 	}
 
@@ -122,7 +122,7 @@ func (p *Packer) PackWorkflow(path string) (*WorkflowJSON, error) {
 	// workflow is only valid if all versions are the same
 	// i.e., this map should have exactly 1 entry in it
 
-	if err := p.PackCWLFile(path, ""); err != nil {
+	if _, err := p.PackCWLFile(path, ""); err != nil {
 		return nil, err
 	}
 
@@ -149,19 +149,37 @@ func (p *Packer) PackWorkflow(path string) (*WorkflowJSON, error) {
 	return wf, nil
 }
 
+// dev'ing
+func resolveID(i interface{}, defaultID string) (string, error) {
+	cwlObj, ok := i.(map[interface{}]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid document structure")
+	}
+
+	if givenID, ok := cwlObj["id"]; ok && defaultID != mainID {
+		return fmt.Sprintf("#%v", givenID.(string)), nil
+	}
+	return defaultID, nil
+}
+
 // PackCWL serializes a single cwl obj (e.g., commandlinetool) to json
-func (p *Packer) PackCWL(cwl []byte, id string, path string) (map[string]interface{}, error) {
+func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]interface{}, string, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
+	id, err := resolveID(*cwlObj, defaultID)
+	if err != nil {
+		return nil, "", err
+	}
 	i, err := p.nuConvert(*cwlObj, primaryRoutine, id, false, path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
+
 	j, ok := i.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("failed to convert %v to json", path)
+		return nil, "", fmt.Errorf("failed to convert %v to json", path)
 	}
-	return j, nil
+	return j, id, nil
 }
 
 // PackCWLFile ..
@@ -184,32 +202,35 @@ func (p *Packer) PackCWL(cwl []byte, id string, path string) (map[string]interfa
 // 'prevPath' is absolute
 // 1. construct abs(path)
 // 2. ..
-func (p *Packer) PackCWLFile(path string, prevPath string) (err error) {
+//
+// FIXME - return ID for this object
+func (p *Packer) PackCWLFile(path string, prevPath string) (string, error) {
+	var err error
 	if filepath.Ext(path) != ".cwl" {
-		return fmt.Errorf("input %v is not a cwl file", path)
+		return "", fmt.Errorf("input %v is not a cwl file", path)
 	}
 	if path, err = absPath(path, prevPath); err != nil {
-		return err
+		return "", err
 	}
 
 	// don't pack the same file more than once
-	if p.FilesPacked[path] {
-		return nil
+	if packedID, ok := p.FilesPacked[path]; ok {
+		return packedID, nil
 	}
 
 	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
 		// routine should fail out here and primaryRoutine should not return any results
 		// fmt.Println("err 4: ", err)
-		return err
+		return "", err
 	}
 
 	// copying cwltool's pack id scheme
 	// not sure if it's actually good or not
 	// but for now, doing this
-	var id string
+	var defaultID string
 	if prevPath == "" {
-		id = mainID
+		defaultID = mainID
 	} else {
 		/*
 			if a user for whatever reason has two different files
@@ -219,17 +240,20 @@ func (p *Packer) PackCWLFile(path string, prevPath string) (err error) {
 
 			fixme
 		*/
-		id = fmt.Sprintf("#%v", filepath.Base(path))
+		defaultID = fmt.Sprintf("#%v", filepath.Base(path))
 	}
 
 	// 'path' here is absolute - implies prevPath is absolute
-	j, err := p.PackCWL(cwl, id, path)
+	j, id, err := p.PackCWL(cwl, defaultID, path)
+
 	if err != nil {
-		return err
+		fmt.Println("error from PackCWL")
+		return "", err
 	}
+
 	*p.Graph = append(*p.Graph, j)
-	p.FilesPacked[path] = true
-	return nil
+	p.FilesPacked[path] = id
+	return id, nil
 }
 
 // this feels like a sin
