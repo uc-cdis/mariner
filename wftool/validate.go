@@ -104,12 +104,16 @@ func (v *Validator) Validate() bool {
 	}
 
 	// check that '#main' routine (entrypoint into the graph) exists
+	var err error
 	foundMain := false
 	for _, obj := range *v.Workflow.Graph {
 		if obj["id"] == "#main" {
 			foundMain = true
 			// recursively validate the whole graph
-			v.validate(obj, "")
+			err = v.validate(obj, "")
+			if err != nil {
+				g.Main.log("%v", err)
+			}
 			break
 		}
 	}
@@ -157,9 +161,12 @@ func fieldCheck(obj map[string]interface{}, field string, g Grievances) bool {
 }
 
 // recursively validate each cwl object in the graph
-// log any grievances encountered
-func (v *Validator) validate(obj map[string]interface{}, parentID string) {
-	id := obj["id"].(string) // is this a safe assumption - no need to risk
+// log any grievances
+func (v *Validator) validate(obj map[string]interface{}, parentID string) error {
+	id, ok := obj["id"].(string)
+	if !ok {
+		return fmt.Errorf("id not a string")
+	}
 	g := make(Grievances, 0)
 	v.Grievances.ByProcess[id] = g
 
@@ -180,9 +187,9 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	}
 
 	var class string
-	class, ok := obj["class"].(string)
+	class, ok = obj["class"].(string)
 	if !ok {
-		return
+		return nil
 	}
 	// here all class-specific checks
 	switch class {
@@ -201,10 +208,10 @@ func (v *Validator) validate(obj map[string]interface{}, parentID string) {
 	default:
 		g.log(fmt.Sprintf("invalid value for field 'class': %v", class))
 	}
+	return nil
 }
 
 var stepFields = []string{
-	// "id",
 	"in",
 	"out",
 	"run",
@@ -257,5 +264,7 @@ func (v *Validator) validateStep(i interface{}, parentID string) {
 		g.log("for step '%v' failed to find referenced cwl obj: %v", id, run)
 		return
 	}
-	v.validate(refObj, parentID)
+	if err := v.validate(refObj, parentID); err != nil {
+		g.log("error validating child object: %v", err)
+	}
 }

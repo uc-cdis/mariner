@@ -7,6 +7,13 @@ import (
 
 func main() {
 
+	/*
+		Usage:
+
+		wftool -pack -i path/to/workflow.cwl -o myPackedWorkflow.json
+		wftool -validate -i path/to/packedWorkflow.json
+	*/
+
 	var input, output string
 	var pack, validate bool
 	flag.StringVar(&input, "i", "", "path to workflow")
@@ -15,13 +22,6 @@ func main() {
 	flag.BoolVar(&validate, "validate", false, "validate a packed CWL workflow (i.e., validate JSON)")
 
 	flag.Parse()
-
-	/*
-		Usage:
-
-		wftool -pack -i path/to/workflow.cwl -o myPackedWorkflow.json
-		wftool -validate -i path/to/packedWorkflow.json
-	*/
 
 	switch {
 	case pack && validate:

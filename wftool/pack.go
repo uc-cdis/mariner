@@ -29,39 +29,27 @@ func Pack(inPath string, outPath string) (err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			// fmt.Printf("panic: failed to pack workflow\n%v\n\n", r)
 			err = fmt.Errorf("pack routine panicked")
 		}
 	}()
 
-	// here create an instance of 'Packer' struct
-	// want to keep track of top-level routine things in there
-	// e.g., graph and list of files packed
 	packer := &Packer{
 		Graph:        &[]map[string]interface{}{},
 		FilesPacked:  make(map[string]string),
 		VersionCheck: make(map[string][]string),
 	}
 
-	// pack the thing
 	if wf, err = packer.PackWorkflow(inPath); err != nil {
-		// fmt.Println("failed to pack workflow ", inPath)
 		return err
 	}
 
-	// validate the thing
 	valid, grievances := ValidateWorkflow(wf)
-	// valid, _ := ValidateWorkflow(wf)
 	if !valid {
-		// need some more natural response here
 		fmt.Println("grievances:")
 		printJSON(grievances)
 		return fmt.Errorf("workflow is not valid - see grievances")
 	}
 
-	// fmt.Println("your workflow is valid!")
-
-	// write the thing to a file
 	if outPath, err = resolveOutPath(inPath, outPath, wd); err != nil {
 		return err
 	}
@@ -118,10 +106,6 @@ func writeJSON(wf *WorkflowJSON, outPath string) error {
 func (p *Packer) PackWorkflow(path string) (*WorkflowJSON, error) {
 	// workflow gets packed into graph
 
-	// collects versions of all cwl files in workflow
-	// workflow is only valid if all versions are the same
-	// i.e., this map should have exactly 1 entry in it
-
 	if _, err := p.PackCWLFile(path, ""); err != nil {
 		return nil, err
 	}
@@ -140,12 +124,10 @@ func (p *Packer) PackWorkflow(path string) (*WorkflowJSON, error) {
 		cwlVersion = ver
 	}
 
-	// maybe should redo typing - make types more orthogonal
 	wf := &WorkflowJSON{
 		Graph:      p.Graph,
 		CWLVersion: cwlVersion,
 	}
-
 	return wf, nil
 }
 
@@ -155,14 +137,13 @@ func resolveID(i interface{}, defaultID string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("invalid document structure")
 	}
-
 	if givenID, ok := cwlObj["id"]; ok && defaultID != mainID {
 		return fmt.Sprintf("#%v", givenID.(string)), nil
 	}
 	return defaultID, nil
 }
 
-// PackCWL serializes a single cwl obj (e.g., commandlinetool) to json
+// PackCWL serializes a single cwl obj (e.g., a commandlinetool) to json
 func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]interface{}, string, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
@@ -170,11 +151,10 @@ func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]
 	if err != nil {
 		return nil, "", err
 	}
-	i, err := p.nuConvert(*cwlObj, primaryRoutine, id, false, path)
+	i, err := p.convert(*cwlObj, primaryRoutine, id, false, path)
 	if err != nil {
 		return nil, "", err
 	}
-
 	j, ok := i.(map[string]interface{})
 	if !ok {
 		return nil, "", fmt.Errorf("failed to convert %v to json", path)
@@ -211,21 +191,17 @@ func (p *Packer) PackCWLFile(path string, prevPath string) (string, error) {
 		return "", err
 	}
 
-	// don't pack the same file more than once
+	// if this file has already been packed
+	// skip it, and return the URI of the already packed object
 	if packedID, ok := p.FilesPacked[path]; ok {
 		return packedID, nil
 	}
 
 	cwl, err := ioutil.ReadFile(path)
 	if err != nil {
-		// routine should fail out here and primaryRoutine should not return any results
-		// fmt.Println("err 4: ", err)
 		return "", err
 	}
 
-	// copying cwltool's pack id scheme
-	// not sure if it's actually good or not
-	// but for now, doing this
 	var defaultID string
 	if prevPath == "" {
 		defaultID = mainID
@@ -243,7 +219,6 @@ func (p *Packer) PackCWLFile(path string, prevPath string) (string, error) {
 
 	// 'path' here is absolute - implies prevPath is absolute
 	j, id, err := p.PackCWL(cwl, defaultID, path)
-
 	if err != nil {
 		fmt.Println("error from PackCWL")
 		return "", err
@@ -283,11 +258,9 @@ func absPath(path string, refPath string) (string, error) {
 	return path, nil
 }
 
-// PrintJSON pretty prints a struct as JSON
+// printJSON pretty prints a struct as JSON
 func printJSON(i interface{}) {
-	var see []byte
-	var err error
-	see, err = json.MarshalIndent(i, "", "   ")
+	see, err := json.MarshalIndent(i, "", "   ")
 	if err != nil {
 		fmt.Printf("error printing JSON: %v\n", err)
 	}
