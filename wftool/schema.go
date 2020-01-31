@@ -141,7 +141,7 @@ func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inA
 
 		if parentKey == primaryRoutine {
 			if givenID, ok := x["id"]; ok && parentID != mainID {
-				parentID = givenID.(string)
+				parentID = fmt.Sprintf("#%v", givenID.(string))
 			}
 		}
 
