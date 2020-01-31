@@ -17,7 +17,7 @@ import (
 // Packer ..
 type Packer struct {
 	Graph        *[]map[string]interface{}
-	FilesPacked  map[string]bool
+	FilesPacked  map[string]string // {path: id}
 	VersionCheck map[string][]string
 }
 
@@ -39,7 +39,7 @@ func Pack(inPath string, outPath string) (err error) {
 	// e.g., graph and list of files packed
 	packer := &Packer{
 		Graph:        &[]map[string]interface{}{},
-		FilesPacked:  make(map[string]bool),
+		FilesPacked:  make(map[string]string),
 		VersionCheck: make(map[string][]string),
 	}
 
@@ -168,12 +168,16 @@ func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]
 	yaml.Unmarshal(cwl, cwlObj)
 	id, err := resolveID(*cwlObj, defaultID)
 	if err != nil {
+		fmt.Println("error resolving id")
 		return nil, "", err
 	}
+	fmt.Println("resolved id: ", id)
 	i, err := p.nuConvert(*cwlObj, primaryRoutine, id, false, path)
 	if err != nil {
+		fmt.Println("error from nuConvert")
 		return nil, "", err
 	}
+
 	j, ok := i.(map[string]interface{})
 	if !ok {
 		return nil, "", fmt.Errorf("failed to convert %v to json", path)
@@ -213,8 +217,8 @@ func (p *Packer) PackCWLFile(path string, prevPath string) (string, error) {
 	}
 
 	// don't pack the same file more than once
-	if p.FilesPacked[path] {
-		return "", nil
+	if packedID, ok := p.FilesPacked[path]; ok {
+		return packedID, nil
 	}
 
 	cwl, err := ioutil.ReadFile(path)
@@ -241,15 +245,21 @@ func (p *Packer) PackCWLFile(path string, prevPath string) (string, error) {
 		*/
 		defaultID = fmt.Sprintf("#%v", filepath.Base(path))
 	}
+	fmt.Println("defaultID: ", defaultID)
 
 	// 'path' here is absolute - implies prevPath is absolute
-	// fixme - this fn should return the resolved ID for this obj
+	// fixme - th
 	j, id, err := p.PackCWL(cwl, defaultID, path)
+
 	if err != nil {
+		fmt.Println("error from PackCWL")
 		return "", err
 	}
+
+	fmt.Println("id from PackCWL: ", id)
+
 	*p.Graph = append(*p.Graph, j)
-	p.FilesPacked[path] = true
+	p.FilesPacked[path] = id
 	return id, nil
 }
 

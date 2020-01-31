@@ -184,6 +184,11 @@ func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inA
 				// return err here or not?
 			}
 			// here, return that ID
+			if childID != "" {
+				fmt.Println("childID: ", childID)
+			} else {
+				fmt.Println("\tempty childID for childpath: ", x)
+			}
 			return childID, nil
 			// return fmt.Sprintf("#%v", filepath.Base(x)), nil
 		}
