@@ -36,7 +36,7 @@ func (p *Packer) array(m map[interface{}]interface{}, parentKey string, parentID
 	var nuV map[string]interface{}
 	for k, v := range m {
 		id := fmt.Sprintf("%v/%v", parentID, k.(string))
-		i, err := p.nuConvert(v, k.(string), id, false, path)
+		i, err := p.convert(v, k.(string), id, false, path)
 		if err != nil {
 			return nil, err
 		}
@@ -123,13 +123,7 @@ const (
 consider separation of powers between cwl.go and this package
 should they be the same package?
 */
-// fixme: rename this function
-func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inArray bool, path string) (interface{}, error) {
-	/*
-		fmt.Println("parentKey: ", parentKey)
-		fmt.Println("object:")
-		printJSON(i)
-	*/
+func (p *Packer) convert(i interface{}, parentKey string, parentID string, inArray bool, path string) (interface{}, error) {
 	var err error
 	switch x := i.(type) {
 	case map[interface{}]interface{}:
@@ -140,7 +134,7 @@ func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inA
 		m2 := map[string]interface{}{}
 		for k, v := range x {
 			key := k.(string)
-			m2[key], err = p.nuConvert(v, key, parentID, false, path)
+			m2[key], err = p.convert(v, key, parentID, false, path)
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +150,7 @@ func (p *Packer) nuConvert(i interface{}, parentKey string, parentID string, inA
 		return m2, nil
 	case []interface{}:
 		for i, v := range x {
-			x[i], err = p.nuConvert(v, parentKey, parentID, true, path)
+			x[i], err = p.convert(v, parentKey, parentID, true, path)
 			if err != nil {
 				return nil, err
 			}
