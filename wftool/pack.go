@@ -166,7 +166,10 @@ func resolveID(i interface{}, defaultID string) (string, error) {
 func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]interface{}, string, error) {
 	cwlObj := new(interface{})
 	yaml.Unmarshal(cwl, cwlObj)
-	id, err := resolveID(cwlObj, defaultID)
+	id, err := resolveID(*cwlObj, defaultID)
+	if err != nil {
+		return nil, "", err
+	}
 	i, err := p.nuConvert(*cwlObj, primaryRoutine, id, false, path)
 	if err != nil {
 		return nil, "", err
