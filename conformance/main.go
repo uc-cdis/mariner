@@ -12,6 +12,18 @@ import (
 	// wftool "github.com/uc-cdis/mariner/wftool"
 )
 
+// TestCase ..
+type TestCase struct {
+	Input      string                 `json:"job"`         // path to input.json (may also be yaml)
+	Output     map[string]interface{} `json:"output"`      // expected output
+	ShouldFail bool                   `json:"should_fail"` // if the engine is expected to fail on this cwl
+	CWL        string                 `json:"tool"`        // path to tool.cwl
+	Label      string                 `json:"label"`
+	ID         int                    `json:"id"`
+	Doc        string                 `json:"doc"`
+	Tags       []string               `json:"tags"`
+}
+
 func main() {
 
 }
