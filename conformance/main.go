@@ -24,6 +24,11 @@ type TestCase struct {
 	Tags       []string               `json:"tags"`
 }
 
+// Runner ..
+type Runner struct {
+	Token *AccessToken
+}
+
 func main() {
 
 }
@@ -50,67 +55,25 @@ func runTests(creds string) error {
 	if err != nil {
 		return err
 	}
-
-	printJSON(tok)
+	runner := Runner{Token: tok}
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
 		// go runTest(test, tok) // todo
-		runTest(test, tok) // dev with sequential, then make concurrent
+		runner.Run(test) // dev with sequential, then make concurrent
 	}
 	return nil
 }
 
-func loadConfig(config string) ([]map[string]interface{}, error) {
+func loadConfig(config string) ([]TestCase, error) {
 	b, err := ioutil.ReadFile(config)
 	if err != nil {
 		return nil, err
 	}
-	i := new(interface{})
-	err = yaml.Unmarshal(b, i)
-	if err != nil {
+	testSuite := new([]TestCase)
+	if err = yaml.Unmarshal(b, testSuite); err != nil {
 		return nil, err
 	}
-
-	arr, ok := (*i).([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("unexpected config structure")
-	}
-
-	testSuite := make([]map[string]interface{}, 0)
-	var test map[string]interface{}
-	for _, item := range arr {
-		test = make(map[string]interface{})
-		m, ok := item.(map[interface{}]interface{})
-		if !ok {
-			return nil, fmt.Errorf("unexpected test structure")
-		}
-		for k, v := range m {
-			key, ok := k.(string)
-			if !ok {
-				return nil, fmt.Errorf("unexpected test structure")
-			}
-			test[key] = v
-		}
-		testSuite = append(testSuite, test)
-	}
-
-	return testSuite, nil
-}
-
-func convert(i interface{}) interface{} {
-	switch x := i.(type) {
-	case map[interface{}]interface{}:
-		m2 := map[string]interface{}{}
-		for k, v := range x {
-			m2[k.(string)] = convert(v)
-		}
-		return m2
-	case []interface{}:
-		for i, v := range x {
-			x[i] = convert(v)
-		}
-	}
-	return i
+	return *testSuite, nil
 }
 
 // Creds is creds.json, as downloaded from the portal
@@ -167,8 +130,12 @@ func token(creds string) (*AccessToken, error) {
 	return accessToken, nil
 }
 
+// Run ..
 // here - todo
-func runTest(test map[string]interface{}, tok *AccessToken) {
+func (r *Runner) Run(test TestCase) {
+
+	fmt.Println(test)
+
 	// todo - make a type to match config test struct
 	// then these other functions can be methods of that struct
 	/*
