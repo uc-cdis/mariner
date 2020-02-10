@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"gopkg.in/yaml.v2"
+
+	// wftool "github.com/uc-cdis/mariner/wftool"
 )
 
 func main() {
@@ -56,15 +58,6 @@ func loadConfig(config string) ([]map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	/*
-		testSuite, ok := (*i).([]map[string]interface{})
-		if !ok {
-			fmt.Printf("%T", *i)
-			// printJSON(i)
-			return nil, fmt.Errorf("unexpected config structure")
-		}
-	*/
 
 	arr, ok := (*i).([]interface{})
 	if !ok {
@@ -164,12 +157,30 @@ func token(creds string) (*AccessToken, error) {
 
 // here - todo
 func runTest(test map[string]interface{}, tok *AccessToken) {
-	// tests load correctly
+	// todo - make a type to match config test struct
+	// then these other functions can be methods of that struct
 	/*
-		for k, v := range test {
-			fmt.Println(k)
-			fmt.Println(v)
+		// 1. pack the CWL to json (wf)
+		wf, err := wftool.PackWorkflow(test["tool"])
+		valid, grievances := wftool.ValidateWorkflow(wf)
+		if !valid {
+			error()
 		}
+
+		// 2. load inputs
+		input, err := loadInputs(test["job"])
+
+		// 3. make request body -> use type from mariner server
+		body, err := {
+			wf,
+			input,
+		}
+
+		// 4. pass request to mariner
+		// 5. listen for done (or err/fail)
+		// 6. match output
+		// 7. save/record result
+
 	*/
 	return
 }
