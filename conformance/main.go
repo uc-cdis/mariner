@@ -37,9 +37,11 @@ func runTests(creds string) error {
 		return err
 	}
 
+	printJSON(tok)
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
-		go runTest(test, tok) // todo
+		// go runTest(test, tok) // todo
+		runTest(test, tok) // dev with sequential, then make concurrent
 	}
 	return nil
 }
@@ -54,11 +56,56 @@ func loadConfig(config string) ([]map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	testSuite, ok := (*i).([]map[string]interface{})
+
+	/*
+		testSuite, ok := (*i).([]map[string]interface{})
+		if !ok {
+			fmt.Printf("%T", *i)
+			// printJSON(i)
+			return nil, fmt.Errorf("unexpected config structure")
+		}
+	*/
+
+	arr, ok := (*i).([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("unexpected config structure")
 	}
+
+	testSuite := make([]map[string]interface{}, 0)
+	var test map[string]interface{}
+	for _, item := range arr {
+		test = make(map[string]interface{})
+		m, ok := item.(map[interface{}]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unexpected test structure")
+		}
+		for k, v := range m {
+			key, ok := k.(string)
+			if !ok {
+				return nil, fmt.Errorf("unexpected test structure")
+			}
+			test[key] = v
+		}
+		testSuite = append(testSuite, test)
+	}
+
 	return testSuite, nil
+}
+
+func convert(i interface{}) interface{} {
+	switch x := i.(type) {
+	case map[interface{}]interface{}:
+		m2 := map[string]interface{}{}
+		for k, v := range x {
+			m2[k.(string)] = convert(v)
+		}
+		return m2
+	case []interface{}:
+		for i, v := range x {
+			x[i] = convert(v)
+		}
+	}
+	return i
 }
 
 // Creds is creds.json, as downloaded from the portal
@@ -117,5 +164,21 @@ func token(creds string) (*AccessToken, error) {
 
 // here - todo
 func runTest(test map[string]interface{}, tok *AccessToken) {
+	// tests load correctly
+	/*
+		for k, v := range test {
+			fmt.Println(k)
+			fmt.Println(v)
+		}
+	*/
 	return
+}
+
+// printJSON pretty prints a struct as JSON
+func printJSON(i interface{}) {
+	see, err := json.MarshalIndent(i, "", "   ")
+	if err != nil {
+		fmt.Printf("error printing JSON: %v\n", err)
+	}
+	fmt.Println(string(see))
 }
