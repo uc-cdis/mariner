@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 
-	// wftool "github.com/uc-cdis/mariner/wftool"
+	mariner "github.com/uc-cdis/mariner/mariner"
+	wftool "github.com/uc-cdis/mariner/wftool"
 )
 
 // TestCase ..
@@ -26,7 +28,7 @@ type TestCase struct {
 
 // Runner ..
 type Runner struct {
-	Token   *AccessToken
+	Token   string
 	Results *Results
 }
 
@@ -51,6 +53,9 @@ const (
 	// of course, avoid hardcoding
 	// could pass commons url as param
 	tokenEndpoint = "https://mattgarvin1.planx-pla.net/user/credentials/api/access_token"
+
+	// again, don't hardcode
+	runEndpoint = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs"
 )
 
 // 'creds' is path/to/creds.json which is what you get
@@ -73,7 +78,11 @@ func runTests(creds string) error {
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
 		// go runTest(test, tok) // todo
-		runner.Run(test) // dev with sequential, then make concurrent
+
+		// dev with sequential, then make concurrent
+		if err = runner.Run(test); err != nil {
+			// log/handle err
+		}
 	}
 	return nil
 }
@@ -123,25 +132,25 @@ func apiKey(creds string) ([]byte, error) {
 	return b, nil
 }
 
-func token(creds string) (*AccessToken, error) {
+func token(creds string) (string, error) {
 	body, err := apiKey(creds)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	resp, err := http.Post(tokenEndpoint, "application/json", bytes.NewBuffer(body))
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	accessToken := &AccessToken{}
-	err = json.Unmarshal(b, accessToken)
+	t := &AccessToken{}
+	err = json.Unmarshal(b, t)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return accessToken, nil
+	return t.Token, nil
 }
 
 /*
@@ -152,38 +161,140 @@ Short list (2/10/19):
 4. need a little function to match output (arbitrary map[string]interface{})
 */
 
+// WorkflowRequest ..
+type WorkflowRequest struct {
+	Workflow *wftool.WorkflowJSON
+	Input    map[string]interface{}
+	Tags     map[string]string
+}
+
+func (t *TestCase) workflow() (*wftool.WorkflowJSON, error) {
+	wf, err := wftool.PackWorkflow(t.CWL)
+	if err != nil {
+		return nil, err
+	}
+	valid, grievances := wftool.ValidateWorkflow(wf)
+	if !valid {
+		return nil, fmt.Errorf("%v", grievances)
+	}
+	return wf, nil
+}
+
+func (t *TestCase) tags() map[string]string {
+	tags := make(map[string]string)
+	tags["job"] = t.Input
+	tags["tool"] = t.CWL
+	tags["label"] = t.Label
+	tags["id"] = string(t.ID)
+	tags["doc"] = t.Doc
+	tags["tags"] = strings.Join(t.Tags, ",")
+	if t.ShouldFail {
+		tags["should_fail"] = "true"
+	} else {
+		tags["should_fail"] = "false"
+	}
+	return tags
+}
+
+// todo
+func (t *TestCase) input() (map[string]interface{}, error) {
+
+	return nil, nil
+}
+
 // Run ..
 // here - todo
 // run the test and record test result in the runner
-func (r *Runner) Run(test TestCase) {
+func (r *Runner) Run(test TestCase) error {
 
 	fmt.Println(test)
 
 	// make these fns methods of type TestCase
-	/*
-		// 1. pack the CWL to json (wf)
-		wf, err := wftool.PackWorkflow(test["tool"])
-		valid, grievances := wftool.ValidateWorkflow(wf)
-		if !valid {
-			error()
-		}
 
-		// 2. load inputs
-		input, err := loadInputs(test["job"])
+	// 1. pack the CWL to json (wf)
+	wf, err := test.workflow()
+	if err != nil {
+		return err
+	}
 
-		// 3. make request body -> use type from mariner server
-		body, err := {
-			wf,
-			input,
-		}
+	// 2. load inputs
+	in, err := test.input() // todo
+	if err != nil {
+		return err
+	}
 
-		// 4. pass request to mariner
-		// 5. listen for done (or err/fail)
-		// 6. match output
-		// 7. save/record result
+	// 3. collect tags
+	tags := test.tags()
 
-	*/
-	return
+	// 4. make run request to mariner
+	resp, err := r.requestRun(wf, in, tags)
+	if err != nil {
+		return err
+	}
+
+	// now, some conditional
+	// if + test, then get run ID and wait for finish
+	// (todo) if - test, maybe expect an error code resp from mariner server (?)
+
+	// HERE (2/11/20 1:30pm) - now that you have the runID and mariner is running the test
+	// hit status endpoint, wait for "completed" or "failed"
+	// set a stopping rule on time - e.g., if "running" for five minutes, test failed
+	// upon completion, match outputs, record test result
+	//
+	// mostly the tricky thing is just error handling..
+	// handling exceptional control flow.
+
+	// 4.5. get the runID
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	runID := &mariner.RunIDJSON{}
+	if err = json.Unmarshal(b, runID); err != nil {
+		return err
+	}
+
+	// 5. listen for done (or err/fail)
+
+	// 6. match output
+
+	// 7. save/record result
+
+	return nil
+}
+
+func (r *Runner) requestRun(wf *wftool.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {
+	b, err := body(wf, in, tags)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", runEndpoint, bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", r.Token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func body(wf *wftool.WorkflowJSON, in map[string]interface{}, tags map[string]string) ([]byte, error) {
+	req := WorkflowRequest{
+		Workflow: wf,
+		Input:    in,
+		Tags:     tags,
+	}
+	b, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // printJSON pretty prints a struct as JSON
