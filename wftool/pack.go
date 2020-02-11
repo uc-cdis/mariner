@@ -21,12 +21,8 @@ type Packer struct {
 	VersionCheck map[string][]string
 }
 
-// Pack is the top level function for the packing routine
-func Pack(inPath string, outPath string) (err error) {
-	var wf *WorkflowJSON
-	var wd string
-	wd, _ = os.Getwd()
-
+// PackWorkflow ..
+func PackWorkflow(inPath string) (wf *WorkflowJSON, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("pack routine panicked")
@@ -40,6 +36,18 @@ func Pack(inPath string, outPath string) (err error) {
 	}
 
 	if wf, err = packer.PackWorkflow(inPath); err != nil {
+		return nil, err
+	}
+	return wf, nil
+}
+
+// Pack is the top level function for the packing routine
+func Pack(inPath string, outPath string) (err error) {
+	var wd string
+	wd, _ = os.Getwd()
+
+	wf, err := PackWorkflow(inPath)
+	if err != nil {
 		return err
 	}
 
