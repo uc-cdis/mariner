@@ -26,7 +26,16 @@ type TestCase struct {
 
 // Runner ..
 type Runner struct {
-	Token *AccessToken
+	Token   *AccessToken
+	Results *Results
+}
+
+// Results captures test results
+type Results struct {
+	Pass   []int
+	Fail   []int
+	Manual []int // some tests need to be looked at closely, at least for now
+	// guarding against false positives
 }
 
 func main() {
@@ -55,7 +64,12 @@ func runTests(creds string) error {
 	if err != nil {
 		return err
 	}
-	runner := Runner{Token: tok}
+
+	runner := Runner{
+		Token:   tok,
+		Results: new(Results),
+	}
+
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
 		// go runTest(test, tok) // todo
@@ -130,14 +144,22 @@ func token(creds string) (*AccessToken, error) {
 	return accessToken, nil
 }
 
+/*
+Short list (2/10/19):
+1. when loading inputs - need to modify paths/locations/etc of file inputs
+2. need to collect all file inputs so to stage in s3
+3. use type from mariner for api request body
+4. need a little function to match output (arbitrary map[string]interface{})
+*/
+
 // Run ..
 // here - todo
+// run the test and record test result in the runner
 func (r *Runner) Run(test TestCase) {
 
 	fmt.Println(test)
 
-	// todo - make a type to match config test struct
-	// then these other functions can be methods of that struct
+	// make these fns methods of type TestCase
 	/*
 		// 1. pack the CWL to json (wf)
 		wf, err := wftool.PackWorkflow(test["tool"])
