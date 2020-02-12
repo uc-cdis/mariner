@@ -19,7 +19,7 @@ import (
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 
 	"github.com/uc-cdis/go-authutils/authutils"
-	wftool "github.com/uc-cdis/mariner/wftool"
+	wflib "github.com/uc-cdis/mariner/wflib"
 )
 
 // this file contains code for setting up the mariner-server
@@ -354,7 +354,7 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 
 	// right now just validating the workflow itself, not the whole request
 	// fixme: validate whole request
-	valid, _ := wftool.ValidateJSON([]byte(workflowRequest.Workflow), nil)
+	valid, _ := wflib.ValidateJSON([]byte(workflowRequest.Workflow), nil)
 	if !valid {
 		http.Error(w, "invalid workflow request", 400)
 		return
