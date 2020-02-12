@@ -7,11 +7,12 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"gopkg.in/yaml.v2"
 
-	mariner "github.com/uc-cdis/mariner/mariner"
+	"github.com/uc-cdis/mariner/mariner"
 	wftool "github.com/uc-cdis/mariner/wftool"
 )
 
@@ -208,8 +209,7 @@ func (t *TestCase) tags() map[string]string {
 
 /*
 short list (2/12/20, 2:30p):
-1. matchOutput()
-2. input()
+1. input()
 */
 
 // todo
@@ -313,9 +313,20 @@ func (r *Runner) matchOutput(test TestCase, runID *mariner.RunIDJSON) (bool, err
 	return res, nil
 }
 
-// todo
+// expecting this to not work as desired
 func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
-	return false, nil
+	match := reflect.DeepEqual(t.Output, testOut)
+	fmt.Println("-----------------")
+	if match {
+		fmt.Println("these are equal*")
+	} else {
+		fmt.Println("these are not equal*")
+	}
+	fmt.Println("expected:")
+	printJSON(t.Output)
+	fmt.Println("got:")
+	printJSON(testOut)
+	return match, nil
 }
 
 func (r *Runner) output(runID *mariner.RunIDJSON) (map[string]interface{}, error) {
@@ -419,8 +430,25 @@ func body(wf *wftool.WorkflowJSON, in map[string]interface{}, tags map[string]st
 	return b, nil
 }
 
+func convert(i interface{}) interface{} {
+	switch x := i.(type) {
+	case map[interface{}]interface{}:
+		m2 := map[string]interface{}{}
+		for k, v := range x {
+			m2[k.(string)] = convert(v)
+		}
+		return m2
+	case []interface{}:
+		for i, v := range x {
+			x[i] = convert(v)
+		}
+	}
+	return i
+}
+
 // printJSON pretty prints a struct as JSON
 func printJSON(i interface{}) {
+	i = convert(i)
 	see, err := json.MarshalIndent(i, "", "   ")
 	if err != nil {
 		fmt.Printf("error printing JSON: %v\n", err)
