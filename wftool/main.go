@@ -39,9 +39,7 @@ func main() {
 	case validate:
 		if valid, grievances := wflib.ValidateJSONFile(input); !valid {
 			fmt.Println("invalid - see grievances:")
-
-			fmt.Println(grievances)
-			// wflib.PrintJSON(grievances)
+			wflib.PrintJSON(grievances)
 		} else {
 			fmt.Println("valid")
 		}
