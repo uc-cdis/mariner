@@ -207,10 +207,9 @@ func (t *TestCase) tags() map[string]string {
 }
 
 /*
-short list (2/12/20, 1:40p):
-1. output()
-2. matchOutput()
-3. input()
+short list (2/12/20, 2:30p):
+1. matchOutput()
+2. input()
 */
 
 // todo
@@ -319,9 +318,23 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 	return false, nil
 }
 
-// todo
 func (r *Runner) output(runID *mariner.RunIDJSON) (map[string]interface{}, error) {
-	return nil, nil
+	url := fmt.Sprintf(flogsEndpt, runID.RunID)
+	resp, err := r.request("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	log := &mariner.MainLog{}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(b, log)
+	if err != nil {
+		return nil, err
+	}
+	return log.Main.Output, nil
 }
 
 func (r *Runner) waitForDone(test TestCase, runID *mariner.RunIDJSON) error {
