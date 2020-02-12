@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -41,7 +42,7 @@ type Results struct {
 }
 
 func main() {
-
+	return
 }
 
 // path to config: 		./common-workflow-language/v1.0/conformance_test_v1.0.yaml
@@ -55,7 +56,10 @@ const (
 	tokenEndpoint = "https://mattgarvin1.planx-pla.net/user/credentials/api/access_token"
 
 	// again, don't hardcode
-	runEndpoint = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs"
+	runEndpt = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs"
+
+	fstatusEndpt = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v/status"
+	flogsEndpt   = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v"
 )
 
 // 'creds' is path/to/creds.json which is what you get
@@ -255,12 +259,112 @@ func (r *Runner) Run(test TestCase) error {
 	}
 
 	// 5. listen for done (or err/fail)
+	// todo - handle negative test cases
+	// when test.ShouldFail is true
+	err = r.waitForDone(test, runID)
 
 	// 6. match output
+	match, err := r.matchOutput(test, runID)
+	if err != nil {
+		return err
+	}
 
 	// 7. save/record result
+	r.logResult(test, match)
 
 	return nil
+}
+
+func (r *Runner) logResult(test TestCase, match bool) {
+	/*
+		currently flagging all negative test cases as manual checks
+		not sure where or exactly how the engine should fail
+		e.g.,
+		given a negative test, the run could fail:
+		1. at wf validation
+			i.e., when it is packed,
+			and/or when the run request is POSTed to mariner server
+		2. the job may dispatch but fail mid-run
+			i.e., status during r.waitForDone() should reach "failed"
+		3. the job may run to completion but return nothing or the incorrect output
+
+		so, until I figure out where/how to check
+		that the negative test cases are failing as expected
+		they will be flagged to be checked manually
+
+		I believe there are only a handful of them anyway
+	*/
+	switch {
+	case !test.ShouldFail && match:
+		r.Results.Pass = append(r.Results.Pass, test.ID)
+	case !test.ShouldFail && !match:
+		r.Results.Fail = append(r.Results.Fail, test.ID)
+	case test.ShouldFail:
+		r.Results.Manual = append(r.Results.Manual, test.ID)
+	}
+}
+
+func (r *Runner) matchOutput(test TestCase, runID *mariner.RunIDJSON) (bool, error) {
+	out, err := r.output(runID)
+	if err != nil {
+		return false, err
+	}
+	res, err := test.matchOutput(out)
+	if err != nil {
+		return false, err
+	}
+	return res, nil
+}
+
+// todo
+func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
+	return false, nil
+}
+
+// todo
+func (r *Runner) output(runID *mariner.RunIDJSON) (map[string]interface{}, error) {
+	return nil, nil
+}
+
+func (r *Runner) waitForDone(test TestCase, runID *mariner.RunIDJSON) error {
+	done := false
+	endpt := fmt.Sprintf(fstatusEndpt, runID.RunID)
+	for !done {
+		status, err := r.status(endpt)
+		if err != nil {
+			return err
+		}
+
+		// todo - more complete case handling
+		// e.g., a negative test may be expected to fail
+		// 		 a positive test is expected to complete
+		switch status {
+		case "completed":
+			done = true
+		case "running":
+		case "failed":
+			return fmt.Errorf("run failed")
+		}
+	}
+	return nil
+}
+
+func (r *Runner) status(url string) (string, error) {
+	resp, err := r.request("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	s := &mariner.StatusJSON{}
+	if err = json.Unmarshal(b, s); err != nil {
+		return "", err
+	}
+	return s.Status, nil
 }
 
 func (r *Runner) requestRun(wf *wftool.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {
@@ -269,18 +373,26 @@ func (r *Runner) requestRun(wf *wftool.WorkflowJSON, in map[string]interface{}, 
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", runEndpoint, bytes.NewBuffer(b))
+	resp, err := r.request("POST", runEndpt, bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// add auth header, make request, return response
+func (r *Runner) request(method string, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Authorization", r.Token)
-
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	return resp, nil
 }
 
