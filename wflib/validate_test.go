@@ -31,7 +31,7 @@ func TestValidate(t *testing.T) {
 		valid, g = ValidateJSONFile(f)
 		if !valid {
 			fmt.Println("validation grievances: ")
-			printJSON(g)
+			PrintJSON(g)
 			t.Errorf("%v failed validation", f)
 		}
 	}

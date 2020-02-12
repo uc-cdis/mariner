@@ -54,7 +54,7 @@ func Pack(inPath string, outPath string) (err error) {
 	valid, grievances := ValidateWorkflow(wf)
 	if !valid {
 		fmt.Println("grievances:")
-		printJSON(grievances)
+		PrintJSON(grievances)
 		return fmt.Errorf("workflow is not valid - see grievances")
 	}
 
@@ -121,7 +121,7 @@ func (p *Packer) PackWorkflow(path string) (*WorkflowJSON, error) {
 	if len(p.VersionCheck) > 1 {
 		fmt.Println("pack operation failed - incompatible versions specified")
 		fmt.Println("version breakdown:")
-		printJSON(p.VersionCheck)
+		PrintJSON(p.VersionCheck)
 		return nil, fmt.Errorf("version error")
 	}
 
