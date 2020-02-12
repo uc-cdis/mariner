@@ -63,6 +63,8 @@ const (
 
 	fstatusEndpt = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v/status"
 	flogsEndpt   = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v"
+
+	inputPathPrefix = "USER/conformanceTesting/"
 )
 
 // 'creds' is path/to/creds.json which is what you get
@@ -234,9 +236,26 @@ func (t *TestCase) input() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	// HERE - affix the prefix to all filepaths
+	input := addPathPrefix(*in)
 
-	return *in, nil
+	return input, nil
+}
+
+func addPathPrefix(in map[string]interface{}) map[string]interface{} {
+	var f map[string]interface{}
+	var ok bool
+	var path string
+	for _, v := range in {
+		if f, ok = v.(map[string]interface{}); ok && f["class"].(string) == "File" {
+			if path = f["location"].(string); path != "" {
+				f["location"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+			}
+			if path = f["path"].(string); path != "" {
+				f["path"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+			}
+		}
+	}
+	return in
 }
 
 // Run ..
