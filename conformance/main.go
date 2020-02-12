@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -85,7 +86,7 @@ func runTests(creds string) error {
 		// could make a channel to capture errors from individual tests
 		// go runTest(test, tok)
 
-		// dev with sequential, then make concurrent
+		// dev with sequential, then make concurrent (?)
 		if err = r.Run(test); err != nil {
 			r.Results.Error[test.ID] = err
 		}
@@ -168,8 +169,6 @@ func token(creds string) (string, error) {
 Short list (2/10/19):
 1. when loading inputs - need to modify paths/locations/etc of file inputs
 2. need to collect all file inputs so to stage in s3
-3. use type from mariner for api request body
-4. need a little function to match output (arbitrary map[string]interface{})
 */
 
 // WorkflowRequest ..
@@ -209,13 +208,35 @@ func (t *TestCase) tags() map[string]string {
 
 /*
 short list (2/12/20, 2:30p):
-1. input()
+1. affix the prefix
 */
 
 // todo
 func (t *TestCase) input() (map[string]interface{}, error) {
+	ext := filepath.Ext(t.Input)
+	if ext != ".json" && ext != ".yaml" {
+		return nil, fmt.Errorf("unexpected inputs fileext: %v", ext)
+	}
 
-	return nil, nil
+	b, err := ioutil.ReadFile(t.Input)
+	if err != nil {
+		return nil, err
+	}
+
+	in := &map[string]interface{}{}
+	switch ext {
+	case ".json":
+		err = json.Unmarshal(b, in)
+	case ".yaml":
+		err = yaml.Unmarshal(b, in)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// HERE - affix the prefix to all filepaths
+
+	return *in, nil
 }
 
 // Run ..
