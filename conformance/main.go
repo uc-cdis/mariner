@@ -82,7 +82,7 @@ func runTests(creds string) error {
 
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
-		// go runTest(test, tok) // todo
+		// go runTest(test, tok)
 
 		// dev with sequential, then make concurrent
 		if err = r.Run(test); err != nil {
@@ -206,6 +206,13 @@ func (t *TestCase) tags() map[string]string {
 	return tags
 }
 
+/*
+short list (2/12/20, 1:40p):
+1. output()
+2. matchOutput()
+3. input()
+*/
+
 // todo
 func (t *TestCase) input() (map[string]interface{}, error) {
 
@@ -227,7 +234,7 @@ func (r *Runner) Run(test TestCase) error {
 	}
 
 	// 2. load inputs
-	in, err := test.input() // todo
+	in, err := test.input()
 	if err != nil {
 		return err
 	}
@@ -326,14 +333,13 @@ func (r *Runner) waitForDone(test TestCase, runID *mariner.RunIDJSON) error {
 			return err
 		}
 
-		// todo - more complete case handling
-		// e.g., a negative test may be expected to fail
-		// 		 a positive test is expected to complete
 		switch status {
 		case "completed":
 			done = true
 		case "running":
 		case "failed":
+			// this may or may not be an error
+			// in the case of a negative test
 			return fmt.Errorf("run failed")
 		}
 	}
