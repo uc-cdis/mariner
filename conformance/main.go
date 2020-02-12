@@ -14,7 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/uc-cdis/mariner/mariner"
-	wftool "github.com/uc-cdis/mariner/wftool"
+	"github.com/uc-cdis/mariner/wflib"
 )
 
 // TestCase ..
@@ -83,9 +83,6 @@ func runTests(creds string) error {
 		Token:   tok,
 		Results: new(Results),
 	}
-
-	// TESTing
-	suite = suite[:1]
 
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
@@ -177,17 +174,17 @@ Short list (2/10/19):
 
 // WorkflowRequest ..
 type WorkflowRequest struct {
-	Workflow *wftool.WorkflowJSON
+	Workflow *wflib.WorkflowJSON
 	Input    map[string]interface{}
 	Tags     map[string]string
 }
 
-func (t *TestCase) workflow() (*wftool.WorkflowJSON, error) {
-	wf, err := wftool.PackWorkflow(t.CWL)
+func (t *TestCase) workflow() (*wflib.WorkflowJSON, error) {
+	wf, err := wflib.PackWorkflow(t.CWL)
 	if err != nil {
 		return nil, err
 	}
-	valid, grievances := wftool.ValidateWorkflow(wf)
+	valid, grievances := wflib.ValidateWorkflow(wf)
 	if !valid {
 		return nil, fmt.Errorf("%v", grievances)
 	}
@@ -425,7 +422,7 @@ func (r *Runner) status(url string) (string, error) {
 	return s.Status, nil
 }
 
-func (r *Runner) requestRun(wf *wftool.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {
+func (r *Runner) requestRun(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {
 	b, err := body(wf, in, tags)
 	if err != nil {
 		return nil, err
@@ -454,7 +451,7 @@ func (r *Runner) request(method string, url string, body io.Reader) (*http.Respo
 	return resp, nil
 }
 
-func body(wf *wftool.WorkflowJSON, in map[string]interface{}, tags map[string]string) ([]byte, error) {
+func body(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) ([]byte, error) {
 	req := WorkflowRequest{
 		Workflow: wf,
 		Input:    in,
