@@ -84,6 +84,9 @@ func runTests(creds string) error {
 		Results: new(Results),
 	}
 
+	// TESTing
+	suite = suite[:1]
+
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
 		// go runTest(test, tok)
@@ -169,7 +172,6 @@ func token(creds string) (string, error) {
 
 /*
 Short list (2/10/19):
-1. when loading inputs - need to modify paths/locations/etc of file inputs
 2. need to collect all file inputs so to stage in s3
 */
 
@@ -208,12 +210,6 @@ func (t *TestCase) tags() map[string]string {
 	return tags
 }
 
-/*
-short list (2/12/20, 2:30p):
-1. affix the prefix
-*/
-
-// todo
 func (t *TestCase) input() (map[string]interface{}, error) {
 	ext := filepath.Ext(t.Input)
 	if ext != ".json" && ext != ".yaml" {
@@ -241,6 +237,7 @@ func (t *TestCase) input() (map[string]interface{}, error) {
 	return input, nil
 }
 
+// affix the prefix
 func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 	var f map[string]interface{}
 	var ok bool
