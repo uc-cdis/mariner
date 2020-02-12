@@ -265,8 +265,8 @@ func absPath(path string, refPath string) (string, error) {
 	return path, nil
 }
 
-// printJSON pretty prints a struct as JSON
-func printJSON(i interface{}) {
+// PrintJSON pretty prints a struct as JSON
+func PrintJSON(i interface{}) {
 	see, err := json.MarshalIndent(i, "", "   ")
 	if err != nil {
 		fmt.Printf("error printing JSON: %v\n", err)

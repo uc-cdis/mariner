@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+
+	"github.com/uc-cdis/mariner/wflib"
 )
 
 func main() {
@@ -31,13 +33,15 @@ func main() {
 	case input == "":
 		fmt.Println("command error - must specify input path")
 	case pack:
-		if err := Pack(input, output); err != nil {
+		if err := wflib.Pack(input, output); err != nil {
 			fmt.Println("pack operation failed due to error: ", err)
 		}
 	case validate:
-		if valid, grievances := ValidateJSONFile(input); !valid {
+		if valid, grievances := wflib.ValidateJSONFile(input); !valid {
 			fmt.Println("invalid - see grievances:")
-			printJSON(grievances)
+
+			fmt.Println(grievances)
+			// wflib.PrintJSON(grievances)
 		} else {
 			fmt.Println("valid")
 		}
