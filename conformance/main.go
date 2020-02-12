@@ -37,6 +37,7 @@ type Runner struct {
 type Results struct {
 	Pass   []int
 	Fail   []int
+	Error  map[int]error
 	Manual []int // some tests need to be looked at closely, at least for now
 	// guarding against false positives
 }
@@ -74,7 +75,7 @@ func runTests(creds string) error {
 		return err
 	}
 
-	runner := Runner{
+	r := Runner{
 		Token:   tok,
 		Results: new(Results),
 	}
@@ -84,10 +85,15 @@ func runTests(creds string) error {
 		// go runTest(test, tok) // todo
 
 		// dev with sequential, then make concurrent
-		if err = runner.Run(test); err != nil {
-			// log/handle err
+		if err = r.Run(test); err != nil {
+			r.Results.Error[test.ID] = err
 		}
 	}
+
+	// for now
+	fmt.Println("here are the results:")
+	printJSON(r.Results)
+
 	return nil
 }
 
@@ -207,7 +213,6 @@ func (t *TestCase) input() (map[string]interface{}, error) {
 }
 
 // Run ..
-// here - todo
 // run the test and record test result in the runner
 func (r *Runner) Run(test TestCase) error {
 
@@ -236,18 +241,6 @@ func (r *Runner) Run(test TestCase) error {
 		return err
 	}
 
-	// now, some conditional
-	// if + test, then get run ID and wait for finish
-	// (todo) if - test, maybe expect an error code resp from mariner server (?)
-
-	// HERE (2/11/20 1:30pm) - now that you have the runID and mariner is running the test
-	// hit status endpoint, wait for "completed" or "failed"
-	// set a stopping rule on time - e.g., if "running" for five minutes, test failed
-	// upon completion, match outputs, record test result
-	//
-	// mostly the tricky thing is just error handling..
-	// handling exceptional control flow.
-
 	// 4.5. get the runID
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -258,9 +251,7 @@ func (r *Runner) Run(test TestCase) error {
 		return err
 	}
 
-	// 5. listen for done (or err/fail)
-	// todo - handle negative test cases
-	// when test.ShouldFail is true
+	// 5. listen for done
 	err = r.waitForDone(test, runID)
 
 	// 6. match output
