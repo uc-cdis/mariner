@@ -87,6 +87,7 @@ func runTests(creds string) error {
 		Token:   tok,
 		Results: new(Results),
 	}
+	r.Results.Error = make(map[int]error)
 
 	for _, test := range suite {
 		// could make a channel to capture errors from individual tests
