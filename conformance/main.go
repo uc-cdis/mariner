@@ -68,6 +68,10 @@ const (
 	fstatusEndpt = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v/status"
 	flogsEndpt   = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v"
 
+	// directory containing all the cwl files and input json/yamls
+	// github.com/uc-cdis/mariner/conformance/common-workflow-language/v1.0/v1.0
+	pathToTests = "./common-workflow-language/v1.0/v1.0/"
+
 	inputPathPrefix = "USER/conformanceTesting/"
 )
 
@@ -111,15 +115,24 @@ func runTests(creds string) error {
 	return nil
 }
 
-func loadConfig(config string) ([]TestCase, error) {
+func loadConfig(config string) ([]*TestCase, error) {
 	b, err := ioutil.ReadFile(config)
 	if err != nil {
 		return nil, err
 	}
-	testSuite := new([]TestCase)
+	testSuite := new([]*TestCase)
 	if err = yaml.Unmarshal(b, testSuite); err != nil {
 		return nil, err
 	}
+	for _, t := range *testSuite {
+		if t.Input != "" {
+			t.Input = fmt.Sprintf("%v%v", pathToTests, filepath.Base(t.Input))
+		}
+		if t.CWL != "" {
+			t.CWL = fmt.Sprintf("%v%v", pathToTests, filepath.Base(t.CWL))
+		}
+	}
+
 	return *testSuite, nil
 }
 
@@ -251,10 +264,10 @@ func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 	var path string
 	for _, v := range in {
 		if f, ok = v.(map[string]interface{}); ok && f["class"].(string) == "File" {
-			if path = f["location"].(string); path != "" {
+			if path, ok = f["location"].(string); ok && path != "" {
 				f["location"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
 			}
-			if path = f["path"].(string); path != "" {
+			if path, ok = f["path"].(string); ok && path != "" {
 				f["path"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
 			}
 		}
@@ -264,7 +277,7 @@ func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 
 // Run ..
 // run the test and record test result in the runner
-func (r *Runner) Run(test TestCase) error {
+func (r *Runner) Run(test *TestCase) error {
 
 	// fmt.Println(test)
 
@@ -274,7 +287,7 @@ func (r *Runner) Run(test TestCase) error {
 	wf, err := test.workflow()
 	if err != nil {
 		fmt.Println("failed at workflow()")
-		fmt.Printf("%v\n\n", test)
+		// fmt.Printf("%v\n\n", test)
 		return err
 	}
 
@@ -320,7 +333,7 @@ func (r *Runner) Run(test TestCase) error {
 	return nil
 }
 
-func (r *Runner) logResult(test TestCase, match bool) {
+func (r *Runner) logResult(test *TestCase, match bool) {
 	/*
 		currently flagging all negative test cases as manual checks
 		not sure where or exactly how the engine should fail
@@ -349,7 +362,7 @@ func (r *Runner) logResult(test TestCase, match bool) {
 	}
 }
 
-func (r *Runner) matchOutput(test TestCase, runID *RunIDJSON) (bool, error) {
+func (r *Runner) matchOutput(test *TestCase, runID *RunIDJSON) (bool, error) {
 	out, err := r.output(runID)
 	if err != nil {
 		return false, err
@@ -427,7 +440,7 @@ func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
 	return log.Main.Output, nil
 }
 
-func (r *Runner) waitForDone(test TestCase, runID *RunIDJSON) error {
+func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) error {
 	done := false
 	endpt := fmt.Sprintf(fstatusEndpt, runID.RunID)
 	for !done {
