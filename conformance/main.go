@@ -18,14 +18,14 @@ import (
 
 // TestCase ..
 type TestCase struct {
-	Input      string                 `json:"job"`         // path to input.json (may also be yaml)
-	Output     map[string]interface{} `json:"output"`      // expected output
-	ShouldFail bool                   `json:"should_fail"` // if the engine is expected to fail on this cwl
-	CWL        string                 `json:"tool"`        // path to tool.cwl
-	Label      string                 `json:"label"`
-	ID         int                    `json:"id"`
-	Doc        string                 `json:"doc"`
-	Tags       []string               `json:"tags"`
+	Input      string                 `json:"job" yaml:"job"`                 // path to input.json (may also be yaml)
+	Output     map[string]interface{} `json:"output" yaml:"output"`           // expected output
+	ShouldFail bool                   `json:"should_fail" yaml:"should_fail"` // if the engine is expected to fail on this cwl
+	CWL        string                 `json:"tool" yaml:"tool"`               // path to tool.cwl
+	Label      string                 `json:"label" yaml:"label"`
+	ID         int                    `json:"id" yaml:"id"`
+	Doc        string                 `json:"doc" yaml:"doc"`
+	Tags       []string               `json:"tags" yaml:"tags"`
 }
 
 // Runner ..
@@ -95,13 +95,18 @@ func runTests(creds string) error {
 
 		// dev with sequential, then make concurrent (?)
 		if err = r.Run(test); err != nil {
+			fmt.Println("err running test: ", err)
 			r.Results.Error[test.ID] = err
 		}
 	}
 
 	// for now
-	fmt.Println("here are the results:")
-	printJSON(r.Results)
+	/*
+		fmt.Println("here are the results:")
+		printJSON(r.Results)
+	*/
+
+	fmt.Println("fin")
 
 	return nil
 }
@@ -261,19 +266,22 @@ func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 // run the test and record test result in the runner
 func (r *Runner) Run(test TestCase) error {
 
-	fmt.Println(test)
+	// fmt.Println(test)
 
 	// make these fns methods of type TestCase
 
 	// 1. pack the CWL to json (wf)
 	wf, err := test.workflow()
 	if err != nil {
+		fmt.Println("failed at workflow()")
+		fmt.Printf("%v\n\n", test)
 		return err
 	}
 
 	// 2. load inputs
 	in, err := test.input()
 	if err != nil {
+		fmt.Println("failed at input()")
 		return err
 	}
 
@@ -283,6 +291,7 @@ func (r *Runner) Run(test TestCase) error {
 	// 4. make run request to mariner
 	resp, err := r.requestRun(wf, in, tags)
 	if err != nil {
+		fmt.Println("failed at requestRun()")
 		return err
 	}
 
