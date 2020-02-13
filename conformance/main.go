@@ -13,7 +13,6 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/uc-cdis/mariner/mariner"
 	"github.com/uc-cdis/mariner/wflib"
 )
 
@@ -42,6 +41,11 @@ type Results struct {
 	Error  map[int]error
 	Manual []int // some tests need to be looked at closely, at least for now
 	// guarding against false positives
+}
+
+// RunIDJSON ..
+type RunIDJSON struct {
+	RunID string `json:"runID"`
 }
 
 func main() {
@@ -286,7 +290,7 @@ func (r *Runner) Run(test TestCase) error {
 	if err != nil {
 		return err
 	}
-	runID := &mariner.RunIDJSON{}
+	runID := &RunIDJSON{}
 	if err = json.Unmarshal(b, runID); err != nil {
 		return err
 	}
@@ -335,7 +339,7 @@ func (r *Runner) logResult(test TestCase, match bool) {
 	}
 }
 
-func (r *Runner) matchOutput(test TestCase, runID *mariner.RunIDJSON) (bool, error) {
+func (r *Runner) matchOutput(test TestCase, runID *RunIDJSON) (bool, error) {
 	out, err := r.output(runID)
 	if err != nil {
 		return false, err
@@ -363,14 +367,45 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 	return match, nil
 }
 
-func (r *Runner) output(runID *mariner.RunIDJSON) (map[string]interface{}, error) {
+// RunLog ..
+type RunLog struct {
+	// Path      string           `json:"path"` // tentative  - maybe can't write this - path to log file to write/update
+	// Request   *WorkflowRequest `json:"request"`
+	Main *Log `json:"main"`
+	// ByProcess map[string]*Log  `json:"byProcess"`
+}
+
+// Log ..
+type Log struct {
+	/*
+		Created        string                 `json:"created,omitempty"`     // okay - timezone???
+		CreatedObj     time.Time              `json:"-"`                     // okay
+		LastUpdated    string                 `json:"lastUpdated,omitempty"` // okay - timezone???
+		LastUpdatedObj time.Time              `json:"-"`                     // okay
+		JobID          string                 `json:"jobID,omitempty"`       // okay
+		JobName        string                 `json:"jobName,omitempty"`     // keeping for now, but might be redundant w jobID
+		Status         string                 `json:"status"`                // okay
+		Stats          *Stats                 `json:"stats"`                 // TODO
+		Event          EventLog               `json:"eventLog,omitempty"`    // TODO
+		Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
+		Scatter        map[int]*Log           `json:"scatter,omitempty"`
+	*/
+	Output map[string]interface{} `json:"output"` // okay
+}
+
+// StatusJSON ..
+type StatusJSON struct {
+	Status string `json:"status"`
+}
+
+func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
 	url := fmt.Sprintf(flogsEndpt, runID.RunID)
 	resp, err := r.request("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	log := &mariner.MainLog{}
+	log := &RunLog{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -382,7 +417,7 @@ func (r *Runner) output(runID *mariner.RunIDJSON) (map[string]interface{}, error
 	return log.Main.Output, nil
 }
 
-func (r *Runner) waitForDone(test TestCase, runID *mariner.RunIDJSON) error {
+func (r *Runner) waitForDone(test TestCase, runID *RunIDJSON) error {
 	done := false
 	endpt := fmt.Sprintf(fstatusEndpt, runID.RunID)
 	for !done {
@@ -415,7 +450,7 @@ func (r *Runner) status(url string) (string, error) {
 		return "", err
 	}
 
-	s := &mariner.StatusJSON{}
+	s := &StatusJSON{}
 	if err = json.Unmarshal(b, s); err != nil {
 		return "", err
 	}
