@@ -1,4 +1,4 @@
-package main
+package conformance
 
 import (
 	"encoding/json"

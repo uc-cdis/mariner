@@ -1,4 +1,4 @@
-package main
+package conformance
 
 import (
 	"encoding/json"
@@ -6,6 +6,11 @@ import (
 	"io/ioutil"
 	"reflect"
 )
+
+/*
+Short list (2/10/19):
+2. need to collect all file inputs so to stage in s3
+*/
 
 // Runner ..
 type Runner struct {
