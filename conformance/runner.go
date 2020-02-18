@@ -138,26 +138,6 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 	return match, nil
 }
 
-// return output JSON from test run with given runID
-func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
-	url := fmt.Sprintf(flogsEndpt, runID.RunID)
-	resp, err := r.request("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	log := &RunLog{}
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(b, log)
-	if err != nil {
-		return nil, err
-	}
-	return log.Main.Output, nil
-}
-
 // wait for test run to complete or fail
 func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) error {
 	done := false

@@ -11,22 +11,18 @@ import (
 	"github.com/uc-cdis/mariner/wflib"
 )
 
-// Creds is creds.json, as downloaded from the portal
-type Creds struct {
-	APIKey string `json:"api_key"`
-	KeyID  string `json:"key_id"`
-}
-
-// AccessToken response from fence /access_token endpoint
-type AccessToken struct {
-	Token string `json:"access_token"`
-}
+// some structs matching JSON request/responses to/from mariner API
 
 // WorkflowRequest ..
 type WorkflowRequest struct {
 	Workflow *wflib.WorkflowJSON
 	Input    map[string]interface{}
 	Tags     map[string]string
+}
+
+// AccessToken response from fence /access_token endpoint
+type AccessToken struct {
+	Token string `json:"access_token"`
 }
 
 // RunLog ..
@@ -74,66 +70,6 @@ const (
 	flogsEndpt    = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v"
 )
 
-func (r *Runner) status(url string) (string, error) {
-	resp, err := r.request("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	s := &StatusJSON{}
-	if err = json.Unmarshal(b, s); err != nil {
-		return "", err
-	}
-	return s.Status, nil
-}
-
-func (r *Runner) requestRun(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {
-	b, err := body(wf, in, tags)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := r.request("POST", runEndpt, bytes.NewBuffer(b))
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
-}
-
-func body(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) ([]byte, error) {
-	req := WorkflowRequest{
-		Workflow: wf,
-		Input:    in,
-		Tags:     tags,
-	}
-	b, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	return b, nil
-}
-
-// add auth header, make request, return response
-func (r *Runner) request(method string, url string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, body)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Authorization", r.Token)
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
-
 func token(creds string) (string, error) {
 	body, err := apiKey(creds)
 	if err != nil {
@@ -155,24 +91,69 @@ func token(creds string) (string, error) {
 	return t.Token, nil
 }
 
-// read creds into Creds struct
-func apiKey(creds string) ([]byte, error) {
-	// read in bytes
-	b, err := ioutil.ReadFile(creds)
+// add auth header, make request, return response
+func (r *Runner) request(method string, url string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", r.Token)
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func (r *Runner) status(url string) (string, error) {
+	resp, err := r.request("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	s := &StatusJSON{}
+	if err = json.Unmarshal(b, s); err != nil {
+		return "", err
+	}
+	return s.Status, nil
+}
+
+// return output JSON from test run with given runID
+func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
+	url := fmt.Sprintf(flogsEndpt, runID.RunID)
+	resp, err := r.request("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// validate against creds schema
-	c := &Creds{}
-	err = json.Unmarshal(b, c)
+	log := &RunLog{}
+	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	if c.APIKey == "" || c.KeyID == "" {
-		return nil, fmt.Errorf("missing credentials")
+	err = json.Unmarshal(b, log)
+	if err != nil {
+		return nil, err
+	}
+	return log.Main.Output, nil
+}
+
+func (r *Runner) requestRun(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {
+	b, err := wfBytes(wf, in, tags)
+	if err != nil {
+		return nil, err
 	}
 
-	// return bytes
-	return b, nil
+	resp, err := r.request("POST", runEndpt, bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

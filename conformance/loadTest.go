@@ -12,6 +12,13 @@ import (
 	"github.com/uc-cdis/mariner/wflib"
 )
 
+const (
+	// all path/location of files need this prefix
+	// in the user data s3 bucket, the directory structure is:
+	// -- /userID/conformanceTesting/<file>
+	inputPathPrefix = "USER/conformanceTesting/"
+)
+
 // affix the prefix
 func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 	var f map[string]interface{}
@@ -30,6 +37,7 @@ func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 	return in
 }
 
+// load inputs.json (or .yaml)
 func (t *TestCase) input() (map[string]interface{}, error) {
 	ext := filepath.Ext(t.Input)
 	if ext != ".json" && ext != ".yaml" {
@@ -57,6 +65,7 @@ func (t *TestCase) input() (map[string]interface{}, error) {
 	return input, nil
 }
 
+// return tags to apply to test case workflow request
 func (t *TestCase) tags() map[string]string {
 	tags := make(map[string]string)
 	tags["job"] = t.Input
@@ -73,6 +82,7 @@ func (t *TestCase) tags() map[string]string {
 	return tags
 }
 
+// load test case CWL as JSON
 func (t *TestCase) workflow() (*wflib.WorkflowJSON, error) {
 	wf, err := wflib.PackWorkflow(t.CWL)
 	if err != nil {
@@ -83,4 +93,18 @@ func (t *TestCase) workflow() (*wflib.WorkflowJSON, error) {
 		return nil, fmt.Errorf("%v", grievances)
 	}
 	return wf, nil
+}
+
+// returns workflow request body as []byte
+func wfBytes(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) ([]byte, error) {
+	req := WorkflowRequest{
+		Workflow: wf,
+		Input:    in,
+		Tags:     tags,
+	}
+	b, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
