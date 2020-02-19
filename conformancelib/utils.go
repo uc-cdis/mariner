@@ -23,7 +23,7 @@ func convert(i interface{}) interface{} {
 
 // printJSON pretty prints a struct as JSON
 func printJSON(i interface{}) {
-	i = convert(i)
+	i = convert(i) // NOTE: this doesn't make a difference
 	see, err := json.MarshalIndent(i, "", "   ")
 	if err != nil {
 		fmt.Printf("error printing JSON: %v\n", err)
