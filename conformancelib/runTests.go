@@ -3,33 +3,6 @@ package conformance
 import "fmt"
 
 /*
-Want to run a subset of tests
-
-Apply filters to the test suite
-
-Filter on these fields:
-	- ShouldFail (+/-)		-shouldFail	(bool)
-	- Label					-label		(string, no spaces)
-	- ID					-id			(int)
-	- Tags					-tags		(list of strings, "," sep)
-
-Additional optional parameter:
-	- AND || OR // indicates to return the union or intersection of sets defined by each filter param
-
-
-Write a function to filter the tests
-
-This will be a standalone feature of the CLI, a decoupled function
-
-send filter results to stdout:
-"conformance -filter <filter_flags>"
-
-apply filter and run resulting test set:
-"conformance -filter <filter_flags> -runTests -creds path/to/creds.json"
-// sends results to stdout (and/or write to file?)
-
----
-
 what are all the required params to run the tests?
 
 need:
@@ -53,11 +26,15 @@ the set of flags for the cli and their definitions just need to cover this space
 
 // 'creds' is path/to/creds.json which is what you get
 // when you create and download an apiKey from the portal
-func runTests(creds string) error {
+func runTests(creds string, filters *FilterSet) error {
 	suite, err := loadConfig(config)
 	if err != nil {
 		return err
 	}
+
+	// apply filter to test list
+	suite = filters.apply(suite)
+
 	tok, err := token(creds)
 	if err != nil {
 		return err
