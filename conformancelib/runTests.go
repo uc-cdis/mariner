@@ -22,6 +22,15 @@ you need:
 4. the input params for each test
 
 the set of flags for the cli and their definitions just need to cover this space
+
+e.g.,
+
+send filter results to stdout:
+"conformance -filter <filter_flags>"
+
+apply filter and run resulting test set:
+"conformance -filter <filter_flags> -runTests -creds path/to/creds.json"
+// sends results to stdout (and/or write to file?)
 */
 
 // 'creds' is path/to/creds.json which is what you get
