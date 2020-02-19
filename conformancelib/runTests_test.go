@@ -1,9 +1,35 @@
 package conformance
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
-func TestLoad(t *testing.T) {
-	if err := runTests("./creds.json"); err != nil {
-		t.Error(err)
+// incomplete
+func TestFilter(t *testing.T) {
+	suite, err := loadConfig(config)
+	if err != nil {
+		t.Errorf("failed to load tests")
 	}
+
+	// trueVal := true
+	filters := &FilterSet{
+		// ShouldFail: &trueVal,
+		Tags:  []string{},
+		Label: "",
+		ID:    []int{},
+	}
+
+	fmt.Println("original length: ", len(suite))
+
+	// apply filter to test list
+	filtered := filters.apply(suite)
+
+	fmt.Println("filtered length: ", len(filtered))
+
+	fmt.Println("filters:")
+	printJSON(filters)
+
+	fmt.Println("filtered results:")
+	printJSON(filtered)
 }
