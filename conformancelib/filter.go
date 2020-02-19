@@ -34,6 +34,13 @@ type FilterSet struct {
 
 // given a populated FilterSet, filter these tests
 func (f *FilterSet) apply(tests []*TestCase) []*TestCase {
+
+	// if no filters specified, then return unfiltered list
+	if f.ShouldFail == nil && f.Label == "" && len(f.ID) == 0 && len(f.Tags) == 0 {
+		return tests
+	}
+
+	// at least one filter is specified, so we return a subset of the original test list
 	out := []*TestCase{}
 	var pass bool
 	for _, test := range tests {
@@ -46,20 +53,22 @@ func (f *FilterSet) apply(tests []*TestCase) []*TestCase {
 
 // checks whether or not this test passes through the filter
 func (f *FilterSet) check(test *TestCase) bool {
-	switch {
-	case f.ShouldFail != nil:
+	if f.ShouldFail != nil {
 		if test.ShouldFail == *f.ShouldFail {
 			return true
 		}
-	case f.Label != "" && f.Label == test.Label:
+	}
+	if f.Label != "" && f.Label == test.Label {
 		return true
-	case len(f.ID) > 0:
+	}
+	if len(f.ID) > 0 {
 		for _, id := range f.ID {
 			if test.ID == id {
 				return true
 			}
 		}
-	case len(f.Tags) > 0:
+	}
+	if len(f.Tags) > 0 {
 		for _, filterTag := range f.Tags {
 			for _, testTag := range test.Tags {
 				if filterTag == testTag {
