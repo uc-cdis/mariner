@@ -39,11 +39,18 @@ func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 	return in
 }
 
+var inputFileExt = map[string]bool{
+	".json": true,
+	".yaml": true,
+	".yml":  true,
+}
+
 // load inputs.json (or .yaml)
 func (t *TestCase) input() (map[string]interface{}, error) {
 	ext := filepath.Ext(t.Input)
-	if ext != ".json" && ext != ".yaml" {
-		return nil, fmt.Errorf("unexpected inputs fileext: %v", ext)
+	if !inputFileExt[ext] {
+		// HERE - FRIDAY - fix and finalize fn to fetch list of required input files given a test list
+		return nil, fmt.Errorf("unexpected inputs file: %v ; testID: %v", t.Input, t.ID)
 	}
 
 	b, err := ioutil.ReadFile(t.Input)
