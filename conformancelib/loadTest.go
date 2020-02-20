@@ -23,14 +23,16 @@ const (
 func addPathPrefix(in map[string]interface{}) map[string]interface{} {
 	var f map[string]interface{}
 	var ok bool
-	var path string
+	var class, path string
 	for _, v := range in {
-		if f, ok = v.(map[string]interface{}); ok && f["class"].(string) == "File" {
-			if path, ok = f["location"].(string); ok && path != "" {
-				f["location"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
-			}
-			if path, ok = f["path"].(string); ok && path != "" {
-				f["path"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+		if f, ok = v.(map[string]interface{}); ok {
+			if class, ok = f["class"].(string); ok && class == "File" {
+				if path, ok = f["location"].(string); ok && path != "" {
+					f["location"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+				}
+				if path, ok = f["path"].(string); ok && path != "" {
+					f["path"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+				}
 			}
 		}
 	}

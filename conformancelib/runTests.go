@@ -31,6 +31,9 @@ send filter results to stdout:
 apply filter and run resulting test set:
 "conformance -filter <filter_flags> -runTests -creds path/to/creds.json"
 // sends results to stdout (and/or write to file?)
+
+send list of input files to stdout (optional filter flag):
+"conformance -inputFiles"
 */
 
 // 'creds' is path/to/creds.json which is what you get

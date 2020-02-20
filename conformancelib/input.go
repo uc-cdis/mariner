@@ -56,8 +56,10 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 	for _, input := range inputs {
 		switch reflVal := reflect.ValueOf(input); reflVal.Kind() {
 		case reflect.Array:
+			fmt.Println("handling reflected array")
 			for _, i := range input.([]interface{}) {
 				if err = c.collectIfFile(i); err != nil {
+					fmt.Println("failed handling reflected array")
 					return err
 				}
 			}
@@ -72,15 +74,28 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 
 // determines whether a map i represents a CWL file object
 // lifted straight from the mariner package
+// NOTE: there's gonna be some problems here, need to make changes in mariner code
 func isFile(i interface{}) (f bool) {
+	// here //
+	if i == nil {
+		return false
+	}
+	/////
+
 	iType := reflect.TypeOf(i)
+	fmt.Println("itType: ", iType)
 	iKind := iType.Kind()
 	if iKind == reflect.Map {
 		iMap := reflect.ValueOf(i)
 		for _, key := range iMap.MapKeys() {
 			if key.Type() == reflect.TypeOf("") {
 				if key.String() == "class" {
-					if iMap.MapIndex(key).Interface() == "File" {
+					// here //
+					switch {
+					case iMap.MapIndex(key).IsNil():
+						// not a file (?)
+						// double check this logic
+					case iMap.MapIndex(key).Interface() == "File":
 						f = true
 					}
 				}
