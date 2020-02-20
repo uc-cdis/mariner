@@ -6,7 +6,7 @@ import (
 )
 
 // incomplete
-func TestFilter(t *testing.T) {
+func NotTestFilter(t *testing.T) {
 	suite, err := loadConfig(config)
 	if err != nil {
 		t.Errorf("failed to load tests")
@@ -32,4 +32,20 @@ func TestFilter(t *testing.T) {
 
 	fmt.Println("filtered results:")
 	printJSON(filtered)
+}
+
+func TestInputsCollector(t *testing.T) {
+	suite, err := loadConfig(config)
+	if err != nil {
+		t.Errorf("failed to load tests")
+	}
+	// fixme: assignment to nil error
+	inputs, err := inputFiles(suite)
+
+	fmt.Println("inputs:")
+	printJSON(inputs)
+
+	if err != nil {
+		t.Errorf("collect routine failed: %v", err)
+	}
 }
