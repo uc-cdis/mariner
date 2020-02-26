@@ -11,11 +11,12 @@ type InputsCollector struct {
 	Collected map[string]bool
 }
 
+// InputFiles ..
 // given a test list
 // return the list of files which must be staged
 // -- to the target test environment
 // -- in order for the tests to run as expected
-func inputFiles(tests []*TestCase) ([]string, error) {
+func InputFiles(tests []*TestCase) ([]string, error) {
 	var inputs map[string]interface{}
 	var err error
 

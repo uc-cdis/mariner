@@ -40,7 +40,7 @@ func TestInputsCollector(t *testing.T) {
 		t.Errorf("failed to load tests")
 	}
 	// fixme: assignment to nil error
-	inputs, err := inputFiles(suite)
+	inputs, err := InputFiles(suite)
 
 	fmt.Println("inputs:")
 	printJSON(inputs)

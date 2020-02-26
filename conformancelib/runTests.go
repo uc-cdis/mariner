@@ -36,9 +36,10 @@ send list of input files to stdout (optional filter flag):
 "conformance -listInput"
 */
 
+// RunTests ..
 // 'creds' is path/to/creds.json which is what you get
 // when you create and download an apiKey from the portal
-func runTests(creds string, filters *FilterSet) error {
+func RunTests(creds string, filters *FilterSet) error {
 	suite, err := loadConfig(config)
 	if err != nil {
 		return err
