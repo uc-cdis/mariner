@@ -3,6 +3,7 @@ package conformance
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // InputsCollector collects paths of input parameters of type File
@@ -23,16 +24,16 @@ func inputFiles(tests []*TestCase) ([]string, error) {
 	}
 
 	for _, test := range tests {
-		inputs, err = test.input() // this is fine
+		inputs, err = test.input()
 		if err != nil {
 			return nil, err
 		}
-		collector.inspectInputs(inputs) // this is busted
+		collector.inspectInputs(inputs)
 	}
 
 	out := []string{}
 	for path := range collector.Collected {
-		out = append(out, path)
+		out = append(out, strings.TrimPrefix(path, inputPathPrefix))
 	}
 
 	return out, nil
@@ -68,7 +69,6 @@ func (c *InputsCollector) collectSecondary(i interface{}) error {
 			return err
 		}
 		c.Collected[path] = true
-		fmt.Println("collected this secondaryFile: ", path)
 	}
 
 	return nil
@@ -80,7 +80,6 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 	for _, input := range inputs {
 		switch reflVal := reflect.ValueOf(input); reflVal.Kind() {
 		case reflect.Array:
-			fmt.Println("handling reflected array")
 			for _, i := range input.([]interface{}) {
 				if err = c.collectIfFile(i); err != nil {
 					fmt.Println("failed handling reflected array")
@@ -88,8 +87,6 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 				}
 			}
 		default:
-			// fmt.Println("not an array - handling this input val:")
-			// fmt.Println(input)
 			if err = c.collectIfFile(input); err != nil {
 				return err
 			}

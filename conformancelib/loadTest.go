@@ -82,7 +82,7 @@ var inputFileExt = map[string]bool{
 
 // load inputs.json (or .yaml)
 func (t *TestCase) input() (map[string]interface{}, error) {
-	fmt.Println("handling param set: ", t.Input)
+	// fmt.Println("handling param set: ", t.Input)
 	if t.Input == "" {
 		return make(map[string]interface{}), nil
 	}

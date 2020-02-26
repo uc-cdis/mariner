@@ -33,7 +33,7 @@ apply filter and run resulting test set:
 // sends results to stdout (and/or write to file?)
 
 send list of input files to stdout (optional filter flag):
-"conformance -inputFiles"
+"conformance -listInput"
 */
 
 // 'creds' is path/to/creds.json which is what you get
