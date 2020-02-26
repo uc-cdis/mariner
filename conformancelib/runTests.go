@@ -39,27 +39,27 @@ send list of input files to stdout (optional filter flag):
 // RunTests ..
 // 'creds' is path/to/creds.json which is what you get
 // when you create and download an apiKey from the portal
-func RunTests(creds string, filters *FilterSet) error {
-	suite, err := loadConfig(config)
-	if err != nil {
-		return err
-	}
-
-	// apply filter to test list
-	suite = filters.apply(suite)
+func RunTests(tests []*TestCase, creds string) error {
 
 	tok, err := token(creds)
 	if err != nil {
 		return err
 	}
+	r := NewRunner(tok)
+	r.runTests(tests)
 
-	r := Runner{
-		Token:   tok,
-		Results: new(Results),
-	}
-	r.Results.Error = make(map[int]error)
+	// for now
+	fmt.Println("here are the results:")
+	printJSON(r.Results)
 
-	for _, test := range suite {
+	fmt.Println("fin")
+
+	return nil
+}
+
+func (r *Runner) runTests(tests []*TestCase) error {
+	var err error
+	for _, test := range tests {
 		// could make a channel to capture errors from individual tests
 		// go runTest(test, tok)
 
@@ -69,14 +69,15 @@ func RunTests(creds string, filters *FilterSet) error {
 			r.Results.Error[test.ID] = err
 		}
 	}
-
-	// for now
-	/*
-		fmt.Println("here are the results:")
-		printJSON(r.Results)
-	*/
-
-	fmt.Println("fin")
-
 	return nil
+}
+
+// NewRunner ..
+func NewRunner(tok string) *Runner {
+	r := &Runner{
+		Token:   tok,
+		Results: new(Results),
+	}
+	r.Results.Error = make(map[int]error)
+	return r
 }
