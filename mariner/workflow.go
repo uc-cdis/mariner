@@ -48,8 +48,8 @@ type Task struct {
 	Children      map[string]*Task       // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
 	OutputIDMap   map[string]string      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	InputIDMap    map[string]string
-	OriginalStep  cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
-	Done          *bool    // false until all output for this task has been collected, then true
+	OriginalStep  *cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
+	Done          *bool     // false until all output for this task has been collected, then true
 	// --- New Fields ---
 	Log           *Log           // contains Status, Stats, Event
 	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
@@ -124,7 +124,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			newTask := &Task{
 				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
-				OriginalStep: step,
+				OriginalStep: &step,
 				Done:         &falseVal,
 				Log:          logger(),
 			}
@@ -285,7 +285,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 	curStep := task.OriginalStep
 	stepIDMap := make(map[string]string)
 	for _, input := range curStep.In {
-		taskInput := step2taskID(&curStep, input.ID)
+		taskInput := step2taskID(curStep, input.ID)
 		stepIDMap[input.ID] = taskInput // step input ID maps to [sub]task input ID
 
 		// presently not handling the case of multiple sources for a given input parameter
@@ -378,7 +378,7 @@ func (task *Task) mergeChildOutputs() error {
 			if !ok {
 				panic(fmt.Sprintf("Can't find output source %v", source))
 			}
-			subtaskOutputID := step2taskID(&task.Children[stepID].OriginalStep, source)
+			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
 			fmt.Printf("Waiting to merge child outputs for workflow %v ..\n", task.Root.ID)
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
 				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {

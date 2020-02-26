@@ -307,7 +307,7 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteIntermediateFiles for: ", step.ID, outputParam)
 	childTask := task.Children[step.ID]
-	subtaskOutputID := step2taskID(&task.Children[step.ID].OriginalStep, outputParam)
+	subtaskOutputID := step2taskID(task.Children[step.ID].OriginalStep, outputParam)
 	fileOutput := childTask.Outputs[subtaskOutputID]
 	fmt.Println("\there is fileOutput:")
 	printJSON(fileOutput)
