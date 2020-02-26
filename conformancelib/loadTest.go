@@ -19,6 +19,16 @@ const (
 	inputPathPrefix = "USER/conformanceTesting/"
 )
 
+// UserDataSpaceLocation ..
+// returns prefix appended to all input files/dirs
+// this is the location (dir) in the user data space
+// where all the input files/dirs will be staged
+// i.e., where mariner will expect them to be,
+// because all the paths get this path prefix affixed to them
+func UserDataSpaceLocation() string {
+	return inputPathPrefix
+}
+
 // affix the prefix
 func processInputs(in map[string]interface{}) map[string]interface{} {
 	for _, v := range in {
