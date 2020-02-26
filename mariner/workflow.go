@@ -129,7 +129,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			newTask := &Task{
 				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
-				OriginalStep: &step,
+				OriginalStep: &step, // this might be the problem
 				Done:         &falseVal,
 				Log:          logger(),
 			}
@@ -198,6 +198,9 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
 	engine.resolveGraph(flatRoots, mainTask)
+
+	fmt.Println("here is the resolved main task:")
+	printJSON(mainTask)
 
 	// run the workflow
 	engine.run(mainTask)
