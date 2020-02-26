@@ -117,6 +117,8 @@ func (r *Runner) status(url string) (string, error) {
 		return "", err
 	}
 
+	fmt.Println("status body: ", string(b))
+
 	s := &StatusJSON{}
 	if err = json.Unmarshal(b, s); err != nil {
 		return "", err

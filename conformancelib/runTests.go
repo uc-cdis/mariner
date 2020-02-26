@@ -64,7 +64,7 @@ func (r *Runner) runTests(tests []*TestCase) error {
 		// go runTest(test, tok)
 
 		// dev with sequential, then make concurrent (?)
-		if err = r.Run(test); err != nil {
+		if err = r.run(test); err != nil {
 			fmt.Println("err running test: ", err)
 			r.Results.Error[test.ID] = err
 		}

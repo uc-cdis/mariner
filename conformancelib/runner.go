@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"time"
 )
 
 /*
@@ -29,9 +30,10 @@ type Results struct {
 
 // Run ..
 // Runner runs the given test and logs the test result
-func (r *Runner) Run(test *TestCase) error {
+func (r *Runner) run(test *TestCase) error {
 
 	// 1. pack the CWL to json (wf)
+	fmt.Println("--- 1. packing cwl to json")
 	wf, err := test.workflow()
 	if err != nil {
 		fmt.Println("failed at workflow()")
@@ -40,6 +42,7 @@ func (r *Runner) Run(test *TestCase) error {
 	}
 
 	// 2. load inputs
+	fmt.Println("--- 2. loading inputs")
 	in, err := test.input()
 	if err != nil {
 		fmt.Println("failed at input()")
@@ -47,9 +50,11 @@ func (r *Runner) Run(test *TestCase) error {
 	}
 
 	// 3. collect tags
+	fmt.Println("--- 3. collecting tags")
 	tags := test.tags()
 
 	// 4. make run request to mariner
+	fmt.Println("--- 4. POSTing request to mariner")
 	resp, err := r.requestRun(wf, in, tags)
 	if err != nil {
 		fmt.Println("failed at requestRun()")
@@ -57,6 +62,7 @@ func (r *Runner) Run(test *TestCase) error {
 	}
 
 	// 4.5. get the runID
+	fmt.Println("--- 5. extracting the runID")
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -65,17 +71,27 @@ func (r *Runner) Run(test *TestCase) error {
 	if err = json.Unmarshal(b, runID); err != nil {
 		return err
 	}
+	fmt.Println("--- runID: ", runID.RunID)
+
+	///// good all the way through here /////
 
 	// 5. listen for done
+	fmt.Println("--- 6. waiting for run to finish")
 	err = r.waitForDone(test, runID)
+	if err != nil {
+		// simplistic case, assuming positive test
+		r.Results.Fail = append(r.Results.Fail, test.ID)
+	}
 
 	// 6. match output
+	fmt.Println("--- 7. matching output")
 	match, err := r.matchOutput(test, runID)
 	if err != nil {
 		return err
 	}
 
 	// 7. save/record result
+	fmt.Println("--- 8. logging result")
 	r.logResult(test, match)
 
 	return nil
@@ -161,7 +177,10 @@ func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) error {
 			// this may or may not be an error
 			// in the case of a negative test
 			return fmt.Errorf("run failed")
+		default:
+			fmt.Println("unexpected status: ", status)
 		}
+		time.Sleep(3 * time.Second)
 	}
 	return nil
 }
