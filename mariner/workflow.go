@@ -284,7 +284,11 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 	fmt.Printf("\tProcessing Step: %v\n", curStepID)
 	curStep := task.OriginalStep
 	stepIDMap := make(map[string]string)
+	fmt.Println("iterating through step inputs..")
+	fmt.Println("curStep:")
+	printJSON(curStep)
 	for _, input := range curStep.In {
+		fmt.Println("looking at input: ", input.ID)
 		taskInput := step2taskID(curStep, input.ID)
 		stepIDMap[input.ID] = taskInput // step input ID maps to [sub]task input ID
 
