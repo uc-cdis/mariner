@@ -47,9 +47,12 @@ var inputFileExt = map[string]bool{
 
 // load inputs.json (or .yaml)
 func (t *TestCase) input() (map[string]interface{}, error) {
+	fmt.Println("handling param set: ", t.Input)
+	if t.Input == "" {
+		return make(map[string]interface{}), nil
+	}
 	ext := filepath.Ext(t.Input)
 	if !inputFileExt[ext] {
-		// HERE - FRIDAY - fix and finalize fn to fetch list of required input files given a test list
 		return nil, fmt.Errorf("unexpected inputs file: %v ; testID: %v", t.Input, t.ID)
 	}
 
@@ -62,7 +65,7 @@ func (t *TestCase) input() (map[string]interface{}, error) {
 	switch ext {
 	case ".json":
 		err = json.Unmarshal(b, in)
-	case ".yaml":
+	case ".yaml", ".yml":
 		err = yaml.Unmarshal(b, in)
 	}
 	if err != nil {

@@ -2,6 +2,7 @@ package conformance
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 )
 
@@ -23,11 +24,11 @@ func inputFiles(tests []*TestCase) ([]string, error) {
 	}
 
 	for _, test := range tests {
-		inputs, err = test.input()
+		inputs, err = test.input() // this is fine
 		if err != nil {
 			return nil, err
 		}
-		collector.inspectInputs(inputs)
+		collector.inspectInputs(inputs) // this is busted
 	}
 
 	out := []string{}
@@ -38,14 +39,28 @@ func inputFiles(tests []*TestCase) ([]string, error) {
 	return out, nil
 }
 
+/*
+Monday
+
+Short list:
+1. pickup secondary files
+2. what about directories?
+
+general:
+- handling the nil value
+- covering all possible cases
+	- i.e., covering negative cases - exceptional control flow
+*/
+
 // if this is a file object, collect the path
 func (c *InputsCollector) collectIfFile(i interface{}) error {
 	if isFile(i) {
 		path, err := filePath(i)
+		// HERE - fixme: collect secondary file paths as well
 		if err != nil {
 			return err
 		}
-		c.Collected[path] = true
+		c.Collected[filepath.Base(path)] = true
 	}
 	return nil
 }
@@ -64,6 +79,8 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 				}
 			}
 		default:
+			// fmt.Println("not an array - handling this input val:")
+			// fmt.Println(input)
 			if err = c.collectIfFile(input); err != nil {
 				return err
 			}
@@ -73,8 +90,10 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 }
 
 // determines whether a map i represents a CWL file object
-// lifted straight from the mariner package
-// NOTE: there's gonna be some problems here, need to make changes in mariner code
+// lifted from the mariner package
+// NOTE: need to make changes in mariner code
+//
+// HERE - Friday afternoon - fix this fn
 func isFile(i interface{}) (f bool) {
 	// here //
 	if i == nil {
@@ -83,34 +102,32 @@ func isFile(i interface{}) (f bool) {
 	/////
 
 	iType := reflect.TypeOf(i)
-	fmt.Println("itType: ", iType)
 	iKind := iType.Kind()
 	if iKind == reflect.Map {
 		iMap := reflect.ValueOf(i)
 		for _, key := range iMap.MapKeys() {
-			if key.Type() == reflect.TypeOf("") {
-				if key.String() == "class" {
-					// here //
-					switch {
-					case iMap.MapIndex(key).IsNil():
-						// not a file (?)
-						// double check this logic
-					case iMap.MapIndex(key).Interface() == "File":
-						f = true
-					}
+			if key.Interface() == "class" {
+				// here //
+				switch {
+				case iMap.MapIndex(key).IsNil():
+					// covering a wild, unfortunately possible case
+				case iMap.MapIndex(key).Interface() == "File":
+					f = true
 				}
 			}
 		}
 	}
+
 	return f
 }
 
 // get path from a file object which
-// also from the mariner package
+// also from the mariner package - todo: make corresponding changes to mariner code
 func filePath(i interface{}) (path string, err error) {
 	iter := reflect.ValueOf(i).MapRange()
 	for iter.Next() {
-		key, val := iter.Key().String(), iter.Value()
+		k, val := iter.Key(), iter.Value()
+		key := k.Interface().(string)
 		if key == "location" || key == "path" {
 			return val.Interface().(string), nil
 		}
