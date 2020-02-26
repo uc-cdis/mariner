@@ -2,7 +2,6 @@ package conformance
 
 import (
 	"fmt"
-	"path/filepath"
 	"reflect"
 )
 
@@ -39,29 +38,39 @@ func inputFiles(tests []*TestCase) ([]string, error) {
 	return out, nil
 }
 
-/*
-Monday
-
-Short list:
-1. pickup secondary files
-2. what about directories?
-
-general:
-- handling the nil value
-- covering all possible cases
-	- i.e., covering negative cases - exceptional control flow
-*/
-
 // if this is a file object, collect the path
 func (c *InputsCollector) collectIfFile(i interface{}) error {
-	if isFile(i) {
+	if isClass(i, "File") {
 		path, err := filePath(i)
-		// HERE - fixme: collect secondary file paths as well
 		if err != nil {
 			return err
 		}
-		c.Collected[filepath.Base(path)] = true
+		c.Collected[path] = true
+		if err = c.collectSecondary(i); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+func (c *InputsCollector) collectSecondary(i interface{}) error {
+	var path string
+	var err error
+
+	files := secondaryFiles(i)
+	if files == nil {
+		return nil
+	}
+
+	for _, f := range files {
+		path, err = filePath(f)
+		if err != nil {
+			return err
+		}
+		c.Collected[path] = true
+		fmt.Println("collected this secondaryFile: ", path)
+	}
+
 	return nil
 }
 
@@ -92,14 +101,10 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 // determines whether a map i represents a CWL file object
 // lifted from the mariner package
 // NOTE: need to make changes in mariner code
-//
-// HERE - Friday afternoon - fix this fn
-func isFile(i interface{}) (f bool) {
-	// here //
+func isClass(i interface{}, class string) (f bool) {
 	if i == nil {
 		return false
 	}
-	/////
 
 	iType := reflect.TypeOf(i)
 	iKind := iType.Kind()
@@ -107,11 +112,10 @@ func isFile(i interface{}) (f bool) {
 		iMap := reflect.ValueOf(i)
 		for _, key := range iMap.MapKeys() {
 			if key.Interface() == "class" {
-				// here //
 				switch {
 				case iMap.MapIndex(key).IsNil():
-					// covering a wild, unfortunately possible case
-				case iMap.MapIndex(key).Interface() == "File":
+					return false
+				case iMap.MapIndex(key).Interface() == class:
 					f = true
 				}
 			}

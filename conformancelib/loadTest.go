@@ -20,23 +20,58 @@ const (
 )
 
 // affix the prefix
-func addPathPrefix(in map[string]interface{}) map[string]interface{} {
-	var f map[string]interface{}
-	var ok bool
-	var class, path string
+func processInputs(in map[string]interface{}) map[string]interface{} {
 	for _, v := range in {
-		if f, ok = v.(map[string]interface{}); ok {
-			if class, ok = f["class"].(string); ok && class == "File" {
-				if path, ok = f["location"].(string); ok && path != "" {
-					f["location"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
-				}
-				if path, ok = f["path"].(string); ok && path != "" {
-					f["path"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+		if isClass(v, "File") || isClass(v, "Directory") {
+			addPrefix(v)
+			if sFiles := secondaryFiles(v); sFiles != nil {
+				for _, sf := range sFiles {
+					if isClass(sf, "File") || isClass(sf, "Directory") {
+						addPrefix(sf)
+					}
 				}
 			}
 		}
 	}
 	return in
+}
+
+// this is painful to look at
+// fixme: reflection can be used to fix this code
+func addPrefix(f interface{}) {
+	var path string
+	var ok bool
+	switch m := f.(type) {
+	case map[string]interface{}:
+		if path, ok = m["location"].(string); ok && path != "" {
+			m["location"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+		}
+		if path, ok = m["path"].(string); ok && path != "" {
+			m["path"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+		}
+	case map[interface{}]interface{}:
+		if path, ok = m["location"].(string); ok && path != "" {
+			m["location"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+		}
+		if path, ok = m["path"].(string); ok && path != "" {
+			m["path"] = fmt.Sprintf("%v%v", inputPathPrefix, path)
+		}
+	}
+}
+
+// return list (or nil) of secondaryFiles for a given file object
+func secondaryFiles(i interface{}) []interface{} {
+	var files interface{}
+	switch m := i.(type) {
+	case map[string]interface{}:
+		files = m["secondaryFiles"]
+	case map[interface{}]interface{}:
+		files = m["secondaryFiles"]
+	}
+	if files == nil {
+		return nil
+	}
+	return files.([]interface{})
 }
 
 var inputFileExt = map[string]bool{
@@ -72,7 +107,7 @@ func (t *TestCase) input() (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	input := addPathPrefix(*in)
+	input := processInputs(*in)
 
 	return input, nil
 }
