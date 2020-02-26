@@ -114,6 +114,7 @@ func outputParamFile(output cwl.Output) bool {
 // so the graph gets "resolved" via creating one big task (`mainTask`) which contains the entire workflow
 // i.e., the whole workflow and its graphical structure are represented as a nested collection of Task objects
 func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
+	fmt.Println("resolving graph..")
 	if curTask.Root.Class == "Workflow" {
 		curTask.Children = make(map[string]*Task)
 		for _, step := range curTask.Root.Steps {
@@ -121,6 +122,10 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			if !ok {
 				panic(fmt.Sprintf("can't find workflow %v", step.Run.Value))
 			}
+
+			fmt.Println("step:")
+			printJSON(step)
+
 			newTask := &Task{
 				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
