@@ -117,7 +117,14 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 	fmt.Println("resolving graph..")
 	if curTask.Root.Class == "Workflow" {
 		curTask.Children = make(map[string]*Task)
-		for _, step := range curTask.Root.Steps {
+
+		// serious "gotcha": https://medium.com/@betable/3-go-gotchas-590b8c014e0a
+		/*
+			"Go uses a copy of the value instead of the value itself within a range clause.
+			So when we take the pointer of value, we’re actually taking the pointer of a copy
+			of the value. This copy gets reused throughout the range clause [...]"
+		*/
+		for i, step := range curTask.Root.Steps {
 			stepRoot, ok := rootMap[step.Run.Value]
 			if !ok {
 				panic(fmt.Sprintf("can't find workflow %v", step.Run.Value))
@@ -129,7 +136,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			newTask := &Task{
 				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
-				OriginalStep: &step, // this might be the problem
+				OriginalStep: &curTask.Root.Steps[i], // this might be the problem
 				Done:         &falseVal,
 				Log:          logger(),
 			}
@@ -199,6 +206,8 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
 	engine.resolveGraph(flatRoots, mainTask)
 
+	// here there is already an error here
+	// originalStep value is the same for both child tasks
 	fmt.Println("here is the resolved main task:")
 	printJSON(mainTask)
 
