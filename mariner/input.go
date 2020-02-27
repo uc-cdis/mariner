@@ -362,7 +362,9 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
 	prefix := tool.Task.Root.ID + "/" // need to trim this from all the input.ID's
-	// fmt.Println("loading inputs to vm..")
+	fmt.Println("loading inputs to vm..")
+	fmt.Println("the whole tool:")
+	printJSON(tool)
 	tool.Task.Root.InputsVM = otto.New()
 	context := make(map[string]interface{})
 	var f interface{}
