@@ -175,6 +175,9 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// PrintJSON(out)
 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
+	// HERE - Th post lunch
+	// fixme: handle array of files
+	// Q: what about directories (?)
 	if isFile(out) {
 		// fmt.Println("is a file object")
 		path, err := filePath(out)
@@ -241,6 +244,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		if strings.HasPrefix(valueFrom, "$") {
 			vm := otto.New()
 			var context interface{}
+			// fixme: handle array of files
 			if _, f := out.(*File); f {
 				// fmt.Println("context is a file")
 				context, err = preProcessContext(out)
@@ -321,6 +325,7 @@ func (tool *Tool) inputsToVM() (err error) {
 			PrintJSON(input.Provided)
 		*/
 		inputID := strings.TrimPrefix(input.ID, prefix)
+		// fixme: handle array of files
 		if input.Types[0].Type == "File" {
 			if input.Provided.Entry != nil {
 				// no valueFrom specified in inputBinding
