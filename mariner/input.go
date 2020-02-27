@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -79,6 +80,82 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 		}
 	}
 	return nil
+}
+
+// called in transformInput() routine
+// handles path prefix issue
+func processFile(f interface{}) (*File, error) {
+	path, err := filePath(f)
+	if err != nil {
+		return nil, err
+	}
+
+	// handle the filepath prefix issue
+	//
+	// Mapping:
+	// ---- COMMONS/<guid> -> /commons-data/by-guid/<guid>
+	// ---- USER/<path> -> /user-data/<path> // not implemented yet
+	// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
+	switch {
+	case strings.HasPrefix(path, commonsPrefix):
+		/*
+			~ Path represenations/handling for commons-data ~
+
+			inputs.json: 				"COMMONS/<guid>"
+			mariner: "/commons-data/data/by-guid/<guid>"
+
+			gen3-fuse mounts those objects whose GUIDs appear in the manifest
+			gen3-fuse mounts to /commons-data/data/
+			and mounts the directories "by-guid/", "by-filepath/", and "by-filename/"
+
+			commons files can be accessed via the full path "/commons-data/data/by-guid/<guid>"
+
+			so the mapping that happens in this path processing step is this:
+			"COMMONS/<guid>" -> "/commons-data/data/by-guid/<guid>"
+		*/
+		GUID := strings.TrimPrefix(path, commonsPrefix)
+		path = strings.Join([]string{pathToCommonsData, GUID}, "")
+	case strings.HasPrefix(path, userPrefix):
+		/*
+			~ Path representations/handling for user-data ~
+
+			s3: 			   "/userID/path/to/file"
+			inputs.json: 	      "USER/path/to/file"
+			mariner: 		"/engine-workspace/path/to/file"
+
+			user-data bucket gets mounted at the 'userID' prefix to dir /engine-workspace/
+
+			so the mapping that happens in this path processing step is this:
+			"USER/path/to/file" -> "/engine-workspace/path/to/file"
+		*/
+		trimmedPath := strings.TrimPrefix(path, userPrefix)
+		path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+	}
+	return fileObject(path), nil
+}
+
+// called in transformInput() routine
+func processFileList(l interface{}) ([]*File, error) {
+	if reflect.TypeOf(l).Kind() != reflect.Array {
+		return nil, fmt.Errorf("not an array")
+	}
+
+	var err error
+	var f *File
+	var i interface{}
+	out := []*File{}
+	s := reflect.ValueOf(l)
+	for j := 0; j < s.Len(); j++ {
+		i = s.Index(j)
+		if !isFile(i) {
+			return nil, fmt.Errorf("nonFile object found in file array: %v", i)
+		}
+		if f, err = processFile(i); err != nil {
+			return nil, fmt.Errorf("failed to process file %v", i)
+		}
+		out = append(out, f)
+	}
+	return out, nil
 }
 
 // if err and input is not optional, it is a fatal error and the run should fail out
@@ -175,59 +252,29 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	// PrintJSON(out)
 
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
-	// HERE - Th post lunch
-	// fixme: handle array of files
-	// Q: what about directories (?)
-	if isFile(out) {
-		// fmt.Println("is a file object")
-		path, err := filePath(out)
-		if err != nil {
+	/*
+		fixme: handle array of files
+		Q: what about directories (?)
+
+		do this:
+
+		switch statement:
+		case file
+		case []file
+
+		note: check types in the param type list?
+		vs. checking types of actual values
+	*/
+	switch {
+	case isFile(out):
+		if out, err = processFile(out); err != nil {
 			return nil, err
 		}
-
-		// HERE -> handle the filepath prefix issue
-		//
-		// Mapping:
-		// ---- COMMONS/<guid> -> /commons-data/by-guid/<guid>
-		// ---- USER/<path> -> /user-data/<path> // not implemented yet
-		// ---- <path> -> <path> // no path processing required, implies file lives in engine workspace
-		switch {
-		case strings.HasPrefix(path, commonsPrefix):
-			/*
-				~ Path represenations/handling for commons-data ~
-
-				inputs.json: 				"COMMONS/<guid>"
-				mariner: "/commons-data/data/by-guid/<guid>"
-
-				gen3-fuse mounts those objects whose GUIDs appear in the manifest
-				gen3-fuse mounts to /commons-data/data/
-				and mounts the directories "by-guid/", "by-filepath/", and "by-filename/"
-
-				commons files can be accessed via the full path "/commons-data/data/by-guid/<guid>"
-
-				so the mapping that happens in this path processing step is this:
-				"COMMONS/<guid>" -> "/commons-data/data/by-guid/<guid>"
-			*/
-			GUID := strings.TrimPrefix(path, commonsPrefix)
-			path = strings.Join([]string{pathToCommonsData, GUID}, "")
-		case strings.HasPrefix(path, userPrefix):
-			/*
-				~ Path representations/handling for user-data ~
-
-				s3: 			   "/userID/path/to/file"
-				inputs.json: 	      "USER/path/to/file"
-				mariner: 		"/engine-workspace/path/to/file"
-
-				user-data bucket gets mounted at the 'userID' prefix to dir /engine-workspace/
-
-				so the mapping that happens in this path processing step is this:
-				"USER/path/to/file" -> "/engine-workspace/path/to/file"
-			*/
-			trimmedPath := strings.TrimPrefix(path, userPrefix)
-			path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+	case isArrayOfFile(out):
+		if out, err = processFileList(out); err != nil {
+			return nil, err
 		}
-		out = fileObject(path)
-	} else {
+	default:
 		fmt.Println("is not a file object")
 	}
 
@@ -245,16 +292,18 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 			vm := otto.New()
 			var context interface{}
 			// fixme: handle array of files
-			if _, f := out.(*File); f {
-				// fmt.Println("context is a file")
+			switch out.(type) {
+			case *File, []*File:
+				// fmt.Println("context is a file or array of files")
 				context, err = preProcessContext(out)
 				if err != nil {
 					return nil, err
 				}
-			} else {
+			default:
 				// fmt.Println("context is not a file")
 				context = out
 			}
+
 			vm.Set("self", context) // NOTE: again, will more than likely need additional context here to cover other cases
 			if out, err = evalExpression(valueFrom, vm); err != nil {
 				return nil, err
@@ -325,6 +374,7 @@ func (tool *Tool) inputsToVM() (err error) {
 			PrintJSON(input.Provided)
 		*/
 		inputID := strings.TrimPrefix(input.ID, prefix)
+
 		// fixme: handle array of files
 		if input.Types[0].Type == "File" {
 			if input.Provided.Entry != nil {

@@ -178,6 +178,19 @@ func isFile(i interface{}) (f bool) {
 	return f
 }
 
+func isArrayOfFile(i interface{}) (f bool) {
+	if reflect.TypeOf(i).Kind() == reflect.Array {
+		s := reflect.ValueOf(i)
+		f = true
+		for j := 0; j < s.Len() && f; j++ {
+			if !isFile(s.Index(j)) {
+				f = false
+			}
+		}
+	}
+	return f
+}
+
 // returns whether the given file or directory exists
 func exists(path string) (bool, error) {
 	_, err := os.Stat(path)
