@@ -30,7 +30,7 @@ func (tool *Tool) loadInputs() (err error) {
 		if err != nil {
 			return err
 		}
-		// HERE - map parameter to value for log
+		// map parameter to value for log
 		tool.Task.Log.Input[in.ID] = in.Provided.Raw
 	}
 	return nil
@@ -66,6 +66,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 		return err
 	}
 
+	// fixme
 	if input.Default == nil && input.Binding == nil && input.Provided == nil {
 		return fmt.Errorf("input `%s` doesn't have default field but not provided", input.ID)
 	}
@@ -337,7 +338,11 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 	out, ok = tool.Task.Parameters[input.ID]
 	if !ok || out == nil {
 		// 2. take default value
-		if out = input.Default; out == nil {
+
+		// HERE: Th last thing:
+		// fixme: this default value is a cwl.go input struct - need to handle
+
+		if out = input.Default.Self; out == nil {
 			// so there's no value provided in the params
 			// AND there's no default value provided
 
@@ -379,6 +384,7 @@ func (tool *Tool) inputsToVM() (err error) {
 
 		// fixme: handle array of files
 		// note: this code block is extraordinarily janky and needs to be refactored
+		// error here.
 		if input.Types[0].Type == "File" {
 			if input.Provided.Entry != nil {
 				// no valueFrom specified in inputBinding
