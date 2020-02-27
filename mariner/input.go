@@ -391,6 +391,9 @@ func (tool *Tool) inputsToVM() (err error) {
 				case *File, []*File:
 					f = input.Provided.Raw
 				default:
+					fmt.Println("gonna panic I guess")
+					printJSON(input.Provided.Raw)
+					fmt.Printf("%T", input.Provided.Raw)
 					panic("unexpected datatype representing file object in input.Provided.Raw")
 				}
 			}
