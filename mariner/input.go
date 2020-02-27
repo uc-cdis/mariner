@@ -18,6 +18,7 @@ import (
 //  - tool.Task.Root.Inputs[i].inputBinding.ValueFrom, OR
 //  - tool.OriginalStep.In[i].ValueFrom
 // need to handle both cases - first eval at the workflowStepInput level, then eval at the tool input level
+// if err and input is not optional, it is a fatal error and the run should fail out
 func (tool *Tool) loadInputs() (err error) {
 	sort.Sort(tool.Task.Root.Inputs)
 	fmt.Println("building step input map..")
@@ -80,6 +81,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	return nil
 }
 
+// if err and input is not optional, it is a fatal error and the run should fail out
 func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
 	/*
 		NOTE: presently only context loaded into js vm's here is `self`
@@ -96,7 +98,6 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1
 	*/
-	var ok bool
 	localID := lastInPath(input.ID)
 
 	// stepInput ValueFrom case
@@ -115,7 +116,11 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				// preprocess struct/array so that fields can be accessed in vm
 				// Question: how to handle non-array/struct data types?
 				// --------- no preprocessing should have to happen in this case.
-				self, err := preProcessContext(tool.Task.Parameters[input.ID])
+				self, err := tool.loadInputValue(input)
+				if err != nil {
+					return nil, err
+				}
+				self, err = preProcessContext(self)
 				if err != nil {
 					return nil, err
 				}
@@ -156,11 +161,13 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	}
 
 	// if this tool is not a step of a parent workflow
-	// OR if this tool is a step of a parent workflow but the valueFrom is empty
+	// OR
+	// if this tool is a step of a parent workflow but the valueFrom is empty
 	if out == nil {
-		if out, ok = tool.Task.Parameters[input.ID]; !ok {
-			fmt.Println("error: input not found in tool's parameters")
-			return nil, fmt.Errorf("input not found in tool's parameters")
+		out, err = tool.loadInputValue(input)
+		if err != nil {
+			// fatal error - tool fails, workflow fails
+			return nil, err
 		}
 	}
 
@@ -256,6 +263,45 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 
 	// fmt.Println("Here's tranformed input:")
 	// PrintJSON(out)
+	return out, nil
+}
+
+/*
+loadInputValue logic:
+1. take value from params
+2. if not given in params:
+	i) take default value
+	ii) if no default provided:
+		a) if optional param, return nil, nil
+		b) if required param, return nil, err (fatal error)
+*/
+
+// handles all cases of input params
+// i.e., handles all optional/null/default param/value logic
+func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) {
+	var required, ok bool
+	// 1. take value from given param value set
+	out, ok = tool.Task.Parameters[input.ID]
+	if !ok || out == nil {
+		// 2. take default value
+		if out = input.Default; out == nil {
+			// so there's no value provided in the params
+			// AND there's no default value provided
+
+			// 3. determine if this param is required or optional
+			required = true
+			for _, t := range input.Types {
+				if t.Type == nullType {
+					required = false
+				}
+			}
+
+			// 4. return error if this is a required param
+			if required {
+				return nil, fmt.Errorf("missing value for required input param %v", input.ID)
+			}
+		}
+	}
 	return out, nil
 }
 

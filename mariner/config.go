@@ -46,6 +46,11 @@ const (
 	k8sPodAPI     = "k8sPodAPI"
 	k8sMetricsAPI = "k8sMetricsAPI"
 
+	// cwl things
+	nullType = "null"
+	fileType = "File"
+	// add the rest ..
+
 	// log levels
 	infoLogLevel    = "INFO"
 	warningLogLevel = "WARNING"
