@@ -365,7 +365,7 @@ func (tool *Tool) inputsToVM() (err error) {
 	// fmt.Println("loading inputs to vm..")
 	tool.Task.Root.InputsVM = otto.New()
 	context := make(map[string]interface{})
-	var fileObj *File
+	var f interface{}
 	for _, input := range tool.Task.Root.Inputs {
 		/*
 			fmt.Println("input:")
@@ -376,24 +376,25 @@ func (tool *Tool) inputsToVM() (err error) {
 		inputID := strings.TrimPrefix(input.ID, prefix)
 
 		// fixme: handle array of files
+		// note: this code block is extraordinarily janky and needs to be refactored
 		if input.Types[0].Type == "File" {
 			if input.Provided.Entry != nil {
 				// no valueFrom specified in inputBinding
 				if input.Provided.Entry.Location != "" {
-					fileObj = fileObject(input.Provided.Entry.Location)
+					f = fileObject(input.Provided.Entry.Location)
 				}
 			} else {
 				// valueFrom specified in inputBinding - resulting value stored in input.Provided.Raw
 				switch input.Provided.Raw.(type) {
 				case string:
-					fileObj = fileObject(input.Provided.Raw.(string))
-				case *File:
-					fileObj = input.Provided.Raw.(*File)
+					f = fileObject(input.Provided.Raw.(string))
+				case *File, []*File:
+					f = input.Provided.Raw
 				default:
 					panic("unexpected datatype representing file object in input.Provided.Raw")
 				}
 			}
-			fileContext, err := preProcessContext(fileObj)
+			fileContext, err := preProcessContext(f)
 			if err != nil {
 				return err
 			}
