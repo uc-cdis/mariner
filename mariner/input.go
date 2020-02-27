@@ -37,6 +37,13 @@ func (tool *Tool) loadInputs() (err error) {
 // used in loadInput() to handle case of workflow step input valueFrom case
 func (tool *Tool) buildStepInputMap() {
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
+
+	// if this tool is not a child task of some parent workflow
+	// i.e., if this whole "workflow" consists of just a single tool
+	if tool.Task.OriginalStep == nil {
+		return
+	}
+
 	for _, in := range tool.Task.OriginalStep.In {
 		localID := lastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
@@ -89,64 +96,71 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		2. handle ValueFrom case at toolInput level
 		 - initial value is `out` from step 1
 	*/
+	var ok bool
 	localID := lastInPath(input.ID)
+
 	// stepInput ValueFrom case
-	if tool.StepInputMap[localID].ValueFrom == "" {
+	if len(tool.StepInputMap) > 0 {
 		// no processing needs to happen if the valueFrom field is empty
-		fmt.Println("no value from to handle")
-		var ok bool
+		if tool.StepInputMap[localID].ValueFrom != "" {
+
+			// here the valueFrom field is not empty, so we need to handle valueFrom
+			valueFrom := tool.StepInputMap[localID].ValueFrom
+			if strings.HasPrefix(valueFrom, "$") {
+				// valueFrom is an expression that needs to be eval'd
+
+				// get a js vm
+				vm := otto.New()
+
+				// preprocess struct/array so that fields can be accessed in vm
+				// Question: how to handle non-array/struct data types?
+				// --------- no preprocessing should have to happen in this case.
+				self, err := preProcessContext(tool.Task.Parameters[input.ID])
+				if err != nil {
+					return nil, err
+				}
+
+				// set `self` variable in vm
+				vm.Set("self", self)
+
+				/*
+					// Troubleshooting js
+					// note: when accessing object fields using keys must use otto.Run("obj.key"), NOT otto.Get("obj.key")
+
+					fmt.Println("self in js:")
+					jsSelf, err := vm.Get("self")
+					jsSelfVal, err := jsSelf.Export()
+					PrintJSON(jsSelfVal)
+
+					fmt.Println("Expression:")
+					PrintJSON(valueFrom)
+
+					fmt.Println("Object.keys(self)")
+					keys, err := vm.Run("Object.keys(self)")
+					if err != nil {
+						fmt.Printf("Error evaluating Object.keys(self): %v\n", err)
+					}
+					keysVal, err := keys.Export()
+					PrintJSON(keysVal)
+				*/
+
+				//  eval the expression in the vm, capture result in `out`
+				if out, err = evalExpression(valueFrom, vm); err != nil {
+					return nil, err
+				}
+			} else {
+				// valueFrom is not an expression - take raw string/val as value
+				out = valueFrom
+			}
+		}
+	}
+
+	// if this tool is not a step of a parent workflow
+	// OR if this tool is a step of a parent workflow but the valueFrom is empty
+	if out == nil {
 		if out, ok = tool.Task.Parameters[input.ID]; !ok {
 			fmt.Println("error: input not found in tool's parameters")
 			return nil, fmt.Errorf("input not found in tool's parameters")
-		}
-	} else {
-		// here the valueFrom field is not empty, so we need to handle valueFrom
-		valueFrom := tool.StepInputMap[localID].ValueFrom
-		if strings.HasPrefix(valueFrom, "$") {
-			// valueFrom is an expression that needs to be eval'd
-
-			// get a js vm
-			vm := otto.New()
-
-			// preprocess struct/array so that fields can be accessed in vm
-			// Question: how to handle non-array/struct data types?
-			// --------- no preprocessing should have to happen in this case.
-			self, err := preProcessContext(tool.Task.Parameters[input.ID])
-			if err != nil {
-				return nil, err
-			}
-
-			// set `self` variable in vm
-			vm.Set("self", self)
-
-			/*
-				// Troubleshooting js
-				// note: when accessing object fields using keys must use otto.Run("obj.key"), NOT otto.Get("obj.key")
-
-				fmt.Println("self in js:")
-				jsSelf, err := vm.Get("self")
-				jsSelfVal, err := jsSelf.Export()
-				PrintJSON(jsSelfVal)
-
-				fmt.Println("Expression:")
-				PrintJSON(valueFrom)
-
-				fmt.Println("Object.keys(self)")
-				keys, err := vm.Run("Object.keys(self)")
-				if err != nil {
-					fmt.Printf("Error evaluating Object.keys(self): %v\n", err)
-				}
-				keysVal, err := keys.Export()
-				PrintJSON(keysVal)
-			*/
-
-			//  eval the expression in the vm, capture result in `out`
-			if out, err = evalExpression(valueFrom, vm); err != nil {
-				return nil, err
-			}
-		} else {
-			// valueFrom is not an expression - take raw string/val as value
-			out = valueFrom
 		}
 	}
 

@@ -159,6 +159,7 @@ func (f *File) delete() error {
 // determines whether a map i represents a CWL file object
 // NOTE: since objects of type File are not maps, they return false -> unfortunate, but not a critical problem
 // ----- maybe do some renaming to clear this up
+// fixme - see conformancelib
 func isFile(i interface{}) (f bool) {
 	iType := reflect.TypeOf(i)
 	iKind := iType.Kind()
@@ -191,6 +192,7 @@ func exists(path string) (bool, error) {
 
 // get path from a file object which is not of type File
 // NOTE: maybe shouldn't be an error if no path but the contents field is populated
+// fixme - see conformancelib
 func filePath(i interface{}) (path string, err error) {
 	iter := reflect.ValueOf(i).MapRange()
 	for iter.Next() {
