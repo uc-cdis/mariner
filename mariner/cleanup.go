@@ -13,6 +13,7 @@ import (
 
 // collect all paths to not delete during basic file cleanup
 func (engine *K8sEngine) collectKeepFiles() {
+	engine.Log.Main.Event.info("begin collect paths to keep")
 	engine.KeepFiles = make(map[string]bool)
 
 	// be sure to not delete to logfile
@@ -39,20 +40,22 @@ func (engine *K8sEngine) collectKeepFiles() {
 			for _, f := range files {
 				path, err = filePath(f)
 				if err != nil {
-					fmt.Println("error extracting path from 'file' in array:")
-					printJSON(f)
+					engine.Log.Main.Event.warnf("failed to extract path from file: %v", f)
 					continue
 				}
 				engine.KeepFiles[path] = true
 			}
 		}
 	}
+	engine.Log.Main.Event.info("end collect paths to keep")
 	return
 }
 
 // called after main workflow finishes running
 // deletes all paths in run working directory which are not associated with a main workflow output param
 func (engine *K8sEngine) basicCleanup() {
+	engine.Log.Main.Event.info("begin intermediate file cleanup")
+
 	// collect all paths to keep
 	engine.collectKeepFiles()
 
@@ -61,18 +64,20 @@ func (engine *K8sEngine) basicCleanup() {
 	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
 	_ = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
 		if (!info.IsDir() && !engine.KeepFiles[path]) || isEmptyDir(path) {
-			os.Remove(path)
+			if err = os.Remove(path); err != nil {
+				engine.Log.Main.Event.warnf("failed to delete file: %v; error: %v", path, err)
+			}
 		}
 		// if the parent directory is now empty, delete that path as well
 		parentDir = filepath.Dir(path)
 		if isEmptyDir(parentDir) {
-			err = os.Remove(parentDir)
-			if err != nil {
-				fmt.Println("error deleting parentDir: ", err)
+			if err = os.Remove(parentDir); err != nil {
+				engine.Log.Main.Event.warnf("failed to delete dir: %v; error: %v", parentDir, err)
 			}
 		}
 		return nil
 	})
+	engine.Log.Main.Event.info("end intermediate file cleanupf")
 	return
 }
 

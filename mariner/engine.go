@@ -54,13 +54,22 @@ type Tool struct {
 
 // Engine runs an instance of the mariner engine job
 func Engine(runID string) error {
+	// fixme #log
+	// create the log first thing
+	// so any error that happens can be logged
+	// and then the engine can fail out gracefully
 	request, err := request(runID)
 	if err != nil {
+		// log
 		return err
 	}
-	engine := engine(request, runID)
-	engine.runWorkflow(request.Workflow, request.Input, request.JobName)
+	engine := engine(request, runID) // log instantiated here
+	if err = engine.runWorkflow(request.Workflow, request.Input, request.JobName); err != nil {
+		// log
+		return err
+	}
 	if err = done(runID); err != nil {
+		// log
 		return err
 	}
 	return nil
@@ -184,35 +193,35 @@ func (task *Task) workingDir(runID string) string {
 
 // create working directory for this Tool
 func (tool *Tool) makeWorkingDir() error {
+	tool.Task.Log.Event.info("begin make tool working dir")
 	err := os.MkdirAll(tool.WorkingDir, 0777)
 	if err != nil {
-		fmt.Printf("error while making directory: %v\n", err)
 		return err
 	}
+	tool.Task.Log.Event.info("end make tool working dir")
 	return nil
 }
 
 // performs some setup for a Tool to prepare for the engine to run the Tool
 func (tool *Tool) setupTool() (err error) {
-	err = tool.makeWorkingDir()
-	if err != nil {
-		return err
+	if err = tool.makeWorkingDir(); err != nil {
+		return tool.Task.Log.Event.errorf("failed to make working dir: %v", err)
 	}
-	err = tool.loadInputs() // pass parameter values to input.Provided for each input
-	if err != nil {
-		fmt.Printf("\tError loading inputs: %v\n", err)
-		return err
+
+	// pass parameter values to input.Provided for each input
+	if err = tool.loadInputs(); err != nil {
+		return tool.Task.Log.Event.errorf("failed to load inputs: %v", err)
 	}
-	err = tool.inputsToVM() // loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
-	if err != nil {
-		fmt.Printf("\tError loading inputs to js VM: %v\n", err)
-		return err
+
+	// loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
+	if err = tool.inputsToVM(); err != nil {
+		return tool.Task.Log.Event.errorf("failed to load inputs to js vm: %v", err)
 	}
-	err = tool.initWorkDir()
-	if err != nil {
-		fmt.Println("Error handling initWorkDir req")
-		return err
+
+	if err = tool.initWorkDir(); err != nil {
+		return tool.Task.Log.Event.errorf("failed to handle initWorkDir requirement: %v", err)
 	}
+
 	return nil
 }
 

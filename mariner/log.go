@@ -267,6 +267,7 @@ func logger() *Log {
 		Input:  make(map[string]interface{}),
 		Stats:  &Stats{},
 	}
+	logger.Event.info("init log")
 	return logger
 }
 
@@ -330,13 +331,14 @@ func (log *EventLog) warn(m string) {
 	log.write(warningLogLevel, m)
 }
 
-func (log *EventLog) errorf(f string, v ...interface{}) {
+func (log *EventLog) errorf(f string, v ...interface{}) error {
 	m := fmt.Sprintf(f, v...)
-	log.error(m)
+	return log.error(m)
 }
 
-func (log *EventLog) error(m string) {
+func (log *EventLog) error(m string) error {
 	log.write(errorLogLevel, m)
+	return fmt.Errorf(m)
 }
 
 // get string timestamp for right now

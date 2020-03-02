@@ -21,39 +21,43 @@ import (
 // need to handle both cases - first eval at the workflowStepInput level, then eval at the tool input level
 // if err and input is not optional, it is a fatal error and the run should fail out
 func (tool *Tool) loadInputs() (err error) {
+	tool.Task.Log.Event.info("begin load inputs")
 	sort.Sort(tool.Task.Root.Inputs)
-	fmt.Println("building step input map..")
 	tool.buildStepInputMap()
 	for _, in := range tool.Task.Root.Inputs {
-		fmt.Printf("loading input %v..\n", in.ID)
-		err = tool.loadInput(in)
-		if err != nil {
-			return err
+		if err = tool.loadInput(in); err != nil {
+			return tool.Task.Log.Event.errorf("failed to load input: %v", err)
 		}
 		// map parameter to value for log
 		tool.Task.Log.Input[in.ID] = in.Provided.Raw
 	}
+	tool.Task.Log.Event.info("end load inputs")
 	return nil
 }
 
 // used in loadInput() to handle case of workflow step input valueFrom case
 func (tool *Tool) buildStepInputMap() {
-	tool.StepInputMap = make(map[string]*cwl.StepInput)
-
 	// if this tool is not a child task of some parent workflow
 	// i.e., if this whole "workflow" consists of just a single tool
 	if tool.Task.OriginalStep == nil {
+		tool.Task.Log.Event.info("tool has no parent workflow")
 		return
 	}
 
+	tool.Task.Log.Event.info("begin build step input map")
+
+	tool.StepInputMap = make(map[string]*cwl.StepInput)
 	for _, in := range tool.Task.OriginalStep.In {
 		localID := lastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
 		tool.StepInputMap[localID] = &in
 	}
+
+	tool.Task.Log.Event.info("end build step input map")
 }
 
 // loadInput passes input parameter value to input.Provided
 func (tool *Tool) loadInput(input *cwl.Input) (err error) {
+	tool.Task.Log.Event.infof("begin load input: %v", input.ID)
 	// transformInput() handles any valueFrom statements at the workflowStepInput level and the tool input level
 	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
 	// so that would be specified in a cwl workflow file like Workflow.cwl
@@ -62,13 +66,11 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	if provided, err := tool.transformInput(input); err == nil {
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 	} else {
-		fmt.Printf("error transforming input: %v\ninput: %v\n", err, input.ID)
-		return err
+		return tool.Task.Log.Event.errorf("error transforming input: %v\ninput: %v\n", err, input.ID)
 	}
 
-	// fixme
 	if input.Default == nil && input.Binding == nil && input.Provided == nil {
-		return fmt.Errorf("input `%s` doesn't have default field but not provided", input.ID)
+		return tool.Task.Log.Event.errorf("input `%s` doesn't have default field but not provided", input.ID)
 	}
 	if key, needed := input.Types[0].NeedRequirement(); needed {
 		for _, req := range tool.Task.Root.Requirements {
@@ -80,6 +82,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 			}
 		}
 	}
+	tool.Task.Log.Event.infof("end load input: %v", input.ID)
 	return nil
 }
 
@@ -161,6 +164,7 @@ func processFileList(l interface{}) ([]*File, error) {
 
 // if err and input is not optional, it is a fatal error and the run should fail out
 func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
+	tool.Task.Log.Event.infof("begin transform input: %v", input.ID)
 	/*
 		NOTE: presently only context loaded into js vm's here is `self`
 		Will certainly need to add more context to handle all cases
@@ -196,15 +200,17 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				// --------- no preprocessing should have to happen in this case.
 				self, err := tool.loadInputValue(input)
 				if err != nil {
-					return nil, err
+					return nil, tool.Task.Log.Event.errorf("failed to load value: %v", err)
 				}
 				self, err = preProcessContext(self)
 				if err != nil {
-					return nil, err
+					return nil, tool.Task.Log.Event.errorf("failed to preprocess context: %v", err)
 				}
 
 				// set `self` variable in vm
-				vm.Set("self", self)
+				if err = vm.Set("self", self); err != nil {
+					return nil, tool.Task.Log.Event.errorf("failed to set 'self' value in js vm: %v", err)
+				}
 
 				/*
 					// Troubleshooting js
@@ -229,7 +235,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 
 				//  eval the expression in the vm, capture result in `out`
 				if out, err = evalExpression(valueFrom, vm); err != nil {
-					return nil, err
+					return nil, tool.Task.Log.Event.errorf("failed to eval js expression: %v; error: %v", valueFrom, err)
 				}
 			} else {
 				// valueFrom is not an expression - take raw string/val as value
@@ -244,8 +250,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	if out == nil {
 		out, err = tool.loadInputValue(input)
 		if err != nil {
-			// fatal error - tool fails, workflow fails
-			return nil, err
+			return nil, tool.Task.Log.Event.errorf("failed to load input value: %v", err)
 		}
 	}
 
@@ -269,14 +274,14 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	switch {
 	case isFile(out):
 		if out, err = processFile(out); err != nil {
-			return nil, err
+			return nil, tool.Task.Log.Event.errorf("failed to process file: %v; error: %v", out, err)
 		}
 	case isArrayOfFile(out):
 		if out, err = processFileList(out); err != nil {
-			return nil, err
+			return nil, tool.Task.Log.Event.errorf("failed to process file list: %v; error: %v", out, err)
 		}
 	default:
-		fmt.Println("is not a file object")
+		// fmt.Println("is not a file object")
 	}
 
 	// fmt.Println("after creating file object:")
@@ -298,7 +303,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				// fmt.Println("context is a file or array of files")
 				context, err = preProcessContext(out)
 				if err != nil {
-					return nil, err
+					return nil, tool.Task.Log.Event.errorf("failed to preprocess context: %v", err)
 				}
 			default:
 				// fmt.Println("context is not a file")
@@ -307,7 +312,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 
 			vm.Set("self", context) // NOTE: again, will more than likely need additional context here to cover other cases
 			if out, err = evalExpression(valueFrom, vm); err != nil {
-				return nil, err
+				return nil, tool.Task.Log.Event.errorf("failed to eval expression: %v; error: %v", valueFrom, err)
 			}
 		} else {
 			// not an expression, so no eval necessary - take raw value
@@ -317,6 +322,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 
 	// fmt.Println("Here's tranformed input:")
 	// PrintJSON(out)
+	tool.Task.Log.Event.infof("end transform input: %v", input.ID)
 	return out, nil
 }
 
@@ -333,6 +339,7 @@ loadInputValue logic:
 // handles all cases of input params
 // i.e., handles all optional/null/default param/value logic
 func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) {
+	tool.Task.Log.Event.infof("begin load input value for input: %v", input.ID)
 	var required, ok bool
 	// 1. take value from given param value set
 	out, ok = tool.Task.Parameters[input.ID]
@@ -352,20 +359,19 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 
 			// 4. return error if this is a required param
 			if required {
-				return nil, fmt.Errorf("missing value for required input param %v", input.ID)
+				return nil, tool.Task.Log.Event.errorf("missing value for required input param %v", input.ID)
 			}
 		}
 	}
+	tool.Task.Log.Event.infof("end load input value for input: %v", input.ID)
 	return out, nil
 }
 
 // inputsToVM loads tool.Task.Root.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
+	tool.Task.Log.Event.info("begin load inputs to js vm")
 	prefix := tool.Task.Root.ID + "/" // need to trim this from all the input.ID's
-	fmt.Println("loading inputs to vm..")
-	fmt.Println("the whole tool:")
-	printJSON(tool)
 	tool.Task.Root.InputsVM = otto.New()
 	context := make(map[string]interface{})
 	var f interface{}
@@ -395,23 +401,22 @@ func (tool *Tool) inputsToVM() (err error) {
 				case *File, []*File:
 					f = input.Provided.Raw
 				default:
-					fmt.Println("gonna panic I guess")
-					printJSON(input.Provided.Raw)
-					fmt.Printf("%T", input.Provided.Raw)
-					panic("unexpected datatype representing file object in input.Provided.Raw")
+					tool.Task.Log.Event.error("unexpected datatype representing file object in input.Provided.Raw")
+					return fmt.Errorf("unexpected datatype representing file object in input.Provided.Raw")
 				}
 			}
 			fileContext, err := preProcessContext(f)
 			if err != nil {
-				return err
+				return tool.Task.Log.Event.errorf("failed to preprocess file context: %v; error: %v", f, err)
 			}
 			context[inputID] = fileContext
 		} else {
 			context[inputID] = input.Provided.Raw // not sure if this will work in general - so far, so good though - need to test further
 		}
 	}
-	// fmt.Println("Here's the context")
-	// PrintJSON(context)
-	tool.Task.Root.InputsVM.Set("inputs", context)
+	if err = tool.Task.Root.InputsVM.Set("inputs", context); err != nil {
+		return tool.Task.Log.Event.errorf("failed to set inputs context in js vm: %v", err)
+	}
+	tool.Task.Log.Event.info("end load inputs to js vm")
 	return nil
 }

@@ -46,9 +46,18 @@ const (
 	k8sPodAPI     = "k8sPodAPI"
 	k8sMetricsAPI = "k8sMetricsAPI"
 
-	// cwl things
+	// top-level workflow ID
+	mainProcessID = "#main"
+
+	// cwl things //
+	// parameter type
 	nullType = "null"
 	fileType = "File"
+	// object class
+	CWLWorkflow        = "Workflow"
+	CWLCommandLineTool = "CommandLineTool"
+	// requirements
+	initialWorkDirRequirement = "InitialWorkDirRequirement"
 	// add the rest ..
 
 	// log levels
