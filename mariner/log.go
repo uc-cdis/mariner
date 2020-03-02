@@ -306,11 +306,11 @@ type ResourceUsageSamplePoint struct {
 type EventLog []string
 
 // a record is "<timestamp> - <level> - <message>"
-func (log EventLog) write(level, message string) {
+func (log *EventLog) write(level, message string) {
 	timestamp := ts()
 	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
-	log = append(log, record)
+	*log = append(*log, record)
 }
 
 func (log *EventLog) infof(f string, v ...interface{}) {
