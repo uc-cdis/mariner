@@ -33,6 +33,11 @@ type RunLog struct {
 	// ByProcess map[string]*Log  `json:"byProcess"`
 }
 
+// LogJSON ..
+type LogJSON struct {
+	Log *RunLog `json:"log"`
+}
+
 // StatusJSON ..
 type StatusJSON struct {
 	Status string `json:"status"`
@@ -134,16 +139,32 @@ func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
 		return nil, err
 	}
 
-	log := &RunLog{}
+	j := &LogJSON{}
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	err = json.Unmarshal(b, log)
+
+	/*
+		fmt.Println("response body:")
+		fmt.Println(string(b))
+	*/
+
+	// HERE fixme
+	// resp body is {"log": mainLog}
+	// need to fix RunLog type struct to match this
+
+	err = json.Unmarshal(b, j)
 	if err != nil {
 		return nil, err
 	}
-	return log.Main.Output, nil
+
+	/*
+		fmt.Println("main log of test run:")
+		printJSON(j)
+	*/
+
+	return j.Log.Main.Output, nil
 }
 
 func (r *Runner) requestRun(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {

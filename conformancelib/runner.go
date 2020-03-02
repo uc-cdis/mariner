@@ -73,8 +73,6 @@ func (r *Runner) run(test *TestCase) error {
 	}
 	fmt.Println("--- runID: ", runID.RunID)
 
-	///// good all the way through here /////
-
 	// 5. listen for done
 	fmt.Println("--- 6. waiting for run to finish")
 	err = r.waitForDone(test, runID)
