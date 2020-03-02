@@ -244,14 +244,18 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 	container.Image = tool.dockerImage()
 
 	// if not specified use config
-	container.Resources = tool.resourceReqs()
+	if container.Resources, err = tool.resourceReqs(); err != nil {
+		return nil, tool.Task.Log.Event.errorf("failed to load cpu/mem info: %v", err)
+	}
 
 	// if not specified use config
 	container.Command = []string{tool.cltBash()} // FIXME - please
 
 	container.Args = tool.cltArgs() // FIXME - make string constant or something
 
-	container.Env = tool.env()
+	if container.Env, err = tool.env(); err != nil {
+		return nil, tool.Task.Log.Event.errorf("failed to load env info: %v", err)
+	}
 
 	return container, nil
 }
@@ -308,14 +312,14 @@ func (tool *Tool) cltArgs() []string {
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 // and: https://godoc.org/k8s.io/api/core/v1#EnvVar
 // and: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
-func (tool *Tool) env() (env []k8sv1.EnvVar) {
+func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 	env = []k8sv1.EnvVar{}
 	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "EnvVarRequirement" {
 			for _, envDef := range requirement.EnvDef {
 				varValue, _, err := tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
 				if err != nil {
-					panic("failed to resolve expressions in envVar def")
+					return nil, tool.Task.Log.Event.errorf("failed to resolve expression: %v; error: %v", envDef.Value, err)
 				}
 				envVar := k8sv1.EnvVar{
 					Name:  envDef.Name,
@@ -325,7 +329,7 @@ func (tool *Tool) env() (env []k8sv1.EnvVar) {
 			}
 		}
 	}
-	return env
+	return env, nil
 }
 
 // for marinerTask job
@@ -415,9 +419,14 @@ func (tool *Tool) cltBash() string {
 // for k8s resource info see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 //
 // NOTE: presently only supporting req's for cpu cores and RAM - need to implement outdir and tmpdir and whatever other fields are allowed
-func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
+func (tool *Tool) resourceReqs() (k8sv1.ResourceRequirements, error) {
 	var cpuReq, cpuLim int64
 	var memReq, memLim int64
+
+	// start with default settings
+	resourceReqs := Config.Containers.Task.resourceRequirements()
+
+	// discern user specified settings
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
 	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "ResourceRequirement" {
@@ -454,30 +463,28 @@ func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
 	reqVals := []int64{cpuReq, cpuLim, memReq, memLim}
 	for _, val := range reqVals {
 		if val < 0 {
-			panic("negative memory or cores requirement specified")
+			return resourceReqs, tool.Task.Log.Event.error("negative memory or cores requirement specified")
 		}
 	}
 
 	// verify valid bounds if both min and max specified
 	if memLim > 0 && memReq > 0 && memLim < memReq {
-		panic("memory maximum specified less than memory minimum specified")
+		return resourceReqs, tool.Task.Log.Event.error("memory maximum specified less than memory minimum specified")
 	}
 
 	if cpuLim > 0 && cpuReq > 0 && cpuLim < cpuReq {
-		panic("cores maximum specified less than cores minimum specified")
+		return resourceReqs, tool.Task.Log.Event.error("cores maximum specified less than cores minimum specified")
 	}
 
-	// start with default settings
-	resourceReqs := Config.Containers.Task.resourceRequirements()
-
-	// only want to overwrite default limits if requirements specified in the CWL
+	// only overwrite default limits if requirements specified in the CWL by user
 	if len(requests) > 0 {
 		resourceReqs.Requests = requests
 	}
 	if len(limits) > 0 {
 		resourceReqs.Limits = limits
 	}
-	return resourceReqs
+
+	return resourceReqs, nil
 }
 
 /////// General purpose - for marinerTask & marinerEngine -> ///////

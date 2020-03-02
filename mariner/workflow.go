@@ -261,7 +261,8 @@ concurrency notes:
 // recall: a Task is either a workflow or a Tool
 // workflows are processed into a collection of Tools via Task.RunSteps()
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
-func (engine *K8sEngine) run(task *Task) error {
+// HERE - #log
+func (engine *K8sEngine) run(task *Task) (err error) {
 	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
 	engine.startTask(task)
 	switch {
@@ -272,7 +273,9 @@ func (engine *K8sEngine) run(task *Task) error {
 		// this is not a leaf in the graph
 		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
-		engine.mergeChildParams(task)
+		if err = engine.mergeChildParams(task); err != nil {
+			return engine.errorf("failed to merge child params for task: %v; error: %v", task.Root.ID, err)
+		}
 	default:
 		// this is a leaf in the graph
 		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
@@ -282,11 +285,18 @@ func (engine *K8sEngine) run(task *Task) error {
 	return nil
 }
 
-func (engine *K8sEngine) mergeChildParams(task *Task) {
-	task.mergeChildOutputs()
+func (engine *K8sEngine) mergeChildParams(task *Task) (err error) {
+	if err = task.mergeChildOutputs(); err != nil {
+		return task.Log.Event.errorf("failed to merge child outputs: %v", err)
+	}
+
+	// fixme: return and #log an error here
 	task.mergeChildInputs() // for logging
+
+	return nil
 }
 
+// fixme: return an error
 func (task *Task) mergeChildInputs() {
 	for _, child := range task.Children {
 		for param := range child.Parameters {
@@ -397,7 +407,7 @@ func step2taskID(step *cwl.Step, stepParam string) string {
 func (task *Task) mergeChildOutputs() error {
 	task.Outputs = make(map[string]interface{})
 	if task.Children == nil {
-		panic(fmt.Sprintf("Can't call merge child outputs without childs %v \n", task.Root.ID))
+		return task.Log.Event.errorf("failed to merge child outputs - no child tasks exist")
 	}
 	for _, output := range task.Root.Outputs {
 		if len(output.Source) == 1 {
@@ -405,7 +415,7 @@ func (task *Task) mergeChildOutputs() error {
 			source := output.Source[0]
 			stepID, ok := task.OutputIDMap[source]
 			if !ok {
-				panic(fmt.Sprintf("Can't find output source %v", source))
+				return task.Log.Event.errorf("failed to find output source: %v", source)
 			}
 			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
 			fmt.Printf("Waiting to merge child outputs for workflow %v ..\n", task.Root.ID)
@@ -415,7 +425,8 @@ func (task *Task) mergeChildOutputs() error {
 				}
 			}
 		} else {
-			panic(fmt.Sprintf("NOT SUPPORTED: don't know how to handle empty or array outputsource"))
+			// fixme
+			return task.Log.Event.error("NOT SUPPORTED: engine can't handle empty or array outputsource (this is a bug)")
 		}
 	}
 	task.Log.Output = task.Outputs

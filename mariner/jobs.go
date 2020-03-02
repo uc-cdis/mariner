@@ -229,6 +229,8 @@ func containerResourceUsage(targetPod k8sCore.Pod, targetContainer string) (int6
 	return cpu, mem
 }
 
+// fixme #log - don't panic
+// first thing Tuesday
 func k8sClient(k8sAPI string) (jobsClient batchtypev1.JobInterface, podsClient corev1.PodInterface, podMetricsClient metricsTyped.PodMetricsInterface) {
 	namespace := os.Getenv("GEN3_NAMESPACE")
 	config, err := rest.InClusterConfig()
