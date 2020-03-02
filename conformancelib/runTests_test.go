@@ -74,7 +74,25 @@ you should be able to get this simply from the API
 Short List of Errors
 0. don't panic
 1. non-unique k8s job names for two running instances of the same test case
-2.
+
+live text:
+'''
+loading input #main/args.py..
+panic: runtime error: invalid memory address or nil pointer dereference
+'''
+pretty sure this is because this input param isn't specified in inputs.json
+and currently the code doesn't handle default values
+even though one is provided
+
+SO
+
+can support the default input value case right now
+
+to handle:
+1. default values
+2. optional params
+---> when to fail out?
+
 */
 
 func TestRun(t *testing.T) {
