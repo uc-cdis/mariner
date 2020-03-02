@@ -129,7 +129,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 		for i, step := range curTask.Root.Steps {
 			stepRoot, ok := rootMap[step.Run.Value]
 			if !ok {
-				return engine.Log.Main.Event.errorf("failed to find workflow: %v", step.Run.Value)
+				return engine.errorf("failed to find workflow: %v", step.Run.Value)
 			}
 
 			newTask := &Task{
@@ -153,7 +153,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 }
 
 // RunWorkflow parses a workflow and inputs and run it
-func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName string) error {
+func (engine *K8sEngine) runWorkflow() error {
 	var root cwl.Root
 	var err error
 	var originalParams cwl.Parameters
@@ -163,13 +163,13 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	var mainTask *Task
 
 	// unmarshal the packed workflow JSON from the request body
-	if err = json.Unmarshal(workflow, &root); err != nil {
+	if err = json.Unmarshal(engine.Log.Request.Workflow, &root); err != nil {
 		// #log
 		return err
 	}
 
 	// unmarshal the inputs JSON from the request body
-	if err = json.Unmarshal(inputs, &originalParams); err != nil {
+	if err = json.Unmarshal(engine.Log.Request.Input, &originalParams); err != nil {
 		// #log
 		return err
 	}
@@ -177,7 +177,7 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// small preprocessing step to get the right input param IDs for the top level workflow
 	params := make(cwl.Parameters)
 	for id, value := range originalParams {
-		params["#main/"+id] = value
+		params[fmt.Sprintf("%v/%v", mainProcessID, id)] = value
 	}
 
 	// a flat map to store all the "root" objects (basically a representation of a CWL file) which comprise the workflow
@@ -208,22 +208,18 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	// fixme: refactor
 	engine.Log.Main = mainTask.Log
 
-	mainTask.Log.JobName = jobName
+	mainTask.Log.JobName = engine.Log.Request.JobName
 	jobsClient, _, _ := k8sClient(k8sJobAPI)
-	mainTask.Log.JobID = engineJobID(jobsClient, jobName)
+	mainTask.Log.JobID = engineJobID(jobsClient, engine.Log.Request.JobName)
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
 	if err = engine.resolveGraph(flatRoots, mainTask); err != nil {
-		// #log
-		// fatal error, run ends and engine should fail out gracefully
-		// p sure all these are fatal errs
-		return err
+		return engine.errorf("failed to resolve graph: %v", err)
 	}
 
 	// run the workflow
 	if err = engine.run(mainTask); err != nil {
-		// #log
-		return err
+		return engine.errorf("failed to run main task: %v", err)
 	}
 
 	// not sure if this should be dangling here

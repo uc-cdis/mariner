@@ -109,10 +109,10 @@ func fetchMainLog(userID, runID string) (*MainLog, error) {
 	return log, nil
 }
 
-func mainLog(path string, request *WorkflowRequest) *MainLog {
+func mainLog(path string) *MainLog {
 	log := &MainLog{
 		Path:      path,
-		Request:   request,
+		Main:      logger(),
 		ByProcess: make(map[string]*Log),
 	}
 	return log

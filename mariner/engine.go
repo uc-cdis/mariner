@@ -53,24 +53,18 @@ type Tool struct {
 }
 
 // Engine runs an instance of the mariner engine job
-func Engine(runID string) error {
-	// fixme #log
-	// create the log first thing
-	// so any error that happens can be logged
-	// and then the engine can fail out gracefully
-	request, err := request(runID)
-	if err != nil {
-		// log
-		return err
+func Engine(runID string) (err error) {
+	// don't panic
+
+	engine := engine(runID)
+	if err = engine.loadRequest(runID); err != nil {
+		return engine.errorf("failed to load workflow request: %v", err)
 	}
-	engine := engine(request, runID) // log instantiated here
-	if err = engine.runWorkflow(request.Workflow, request.Input, request.JobName); err != nil {
-		// log
-		return err
+	if err = engine.runWorkflow(); err != nil {
+		return engine.errorf("failed to run workflow: %v", err)
 	}
 	if err = done(runID); err != nil {
-		// log
-		return err
+		return engine.errorf("failed to signal engine completion to sidecar containers: %v", err)
 	}
 	return nil
 }
@@ -94,21 +88,29 @@ func request(runID string) (*WorkflowRequest, error) {
 }
 
 // instantiate a K8sEngine object
-func engine(request *WorkflowRequest, runID string) *K8sEngine {
+func engine(runID string) *K8sEngine {
 	e := &K8sEngine{
 		FinishedProcs:   make(map[string]bool),
 		UnfinishedProcs: make(map[string]bool),
 		CleanupProcs:    make(map[CleanupKey]bool),
-		Manifest:        &request.Manifest,
-		UserID:          request.UserID,
 		RunID:           runID,
+		Log:             mainLog(fmt.Sprintf(pathToLogf, runID)),
 	}
 
-	// check if log already exists! if yes, then this is a 'restart'
-	pathToLog := fmt.Sprintf(pathToLogf, runID)
-	e.Log = mainLog(pathToLog, request)
+	// note: check if log already exists - if yes, then this is a 'restart'
 
 	return e
+}
+
+func (engine *K8sEngine) loadRequest(runID string) error {
+	request, err := request(runID)
+	if err != nil {
+		return engine.errorf("failed to load workflow request: %v", err)
+	}
+	engine.Manifest = &request.Manifest
+	engine.UserID = request.UserID
+	engine.Log.Request = request
+	return nil
 }
 
 // tell sidecar containers the workflow is done running so the engine job can finish
@@ -118,6 +120,13 @@ func done(runID string) error {
 	}
 	time.Sleep(15 * time.Second)
 	return nil
+}
+
+// update log (i.e., write to log file) each time there's an error, to capture point of failure
+func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
+	err := engine.Log.Main.Event.errorf(f, v...)
+	engine.Log.write()
+	return err
 }
 
 // DispatchTask does some setup for and dispatches workflow Tools
