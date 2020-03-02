@@ -338,10 +338,6 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 	out, ok = tool.Task.Parameters[input.ID]
 	if !ok || out == nil {
 		// 2. take default value
-
-		// HERE: Th last thing:
-		// fixme: this default value is a cwl.go input struct - need to handle
-
 		if out = input.Default.Self; out == nil {
 			// so there's no value provided in the params
 			// AND there's no default value provided
