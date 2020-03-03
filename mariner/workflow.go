@@ -209,7 +209,10 @@ func (engine *K8sEngine) runWorkflow() error {
 	engine.Log.Main = mainTask.Log
 
 	mainTask.Log.JobName = engine.Log.Request.JobName
-	jobsClient, _, _ := k8sClient(k8sJobAPI)
+	jobsClient, _, _, err := k8sClient(k8sJobAPI)
+	if err != nil {
+		return engine.errorf("%v", err)
+	}
 	mainTask.Log.JobID = engineJobID(jobsClient, engine.Log.Request.JobName)
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
