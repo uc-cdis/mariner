@@ -54,8 +54,6 @@ type Tool struct {
 
 // Engine runs an instance of the mariner engine job
 func Engine(runID string) (err error) {
-	// don't panic
-
 	engine := engine(runID)
 	if err = engine.loadRequest(runID); err != nil {
 		return engine.errorf("failed to load workflow request: %v", err)
@@ -63,6 +61,7 @@ func Engine(runID string) (err error) {
 	if err = engine.runWorkflow(); err != nil {
 		return engine.errorf("failed to run workflow: %v", err)
 	}
+	engine.basicCleanup()
 	if err = done(runID); err != nil {
 		return engine.errorf("failed to signal engine completion to sidecar containers: %v", err)
 	}
@@ -156,8 +155,6 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 
 // move proc from unfinished to finished stack
 func (engine *K8sEngine) finishTask(task *Task) {
-	engine.Log.Main.Event.infof("finish task: %v", task.Root.ID)
-	task.Log.Event.info("finish task")
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
@@ -167,8 +164,6 @@ func (engine *K8sEngine) finishTask(task *Task) {
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	engine.Log.Main.Event.infof("start task: %v", task.Root.ID)
-	task.Log.Event.info("start task")
 	engine.UnfinishedProcs[task.Root.ID] = true
 	engine.Log.start(task)
 }

@@ -11,23 +11,26 @@ import (
 // this file contains code for processing scattered workflow steps
 // NOTE: scattered subtasks get run concurrently -> see runScatterTasks()
 // what does "scatter" mean? great question -> see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
-
 func (engine *K8sEngine) runScatter(task *Task) (err error) {
+	engine.Log.Main.Event.infof("begin run scatter for task: %v", task.Root.ID)
 	if err = task.validateScatterMethod(); err != nil {
-		return err
+		// probably this really means "invalid", not "error"
+		// fixme
+		return engine.errorf("failed at scatter method validation for task: %v; error: %v", task.Root.ID, err)
 	}
 	scatterParams, err := task.scatterParams()
 	if err != nil {
-		return err
+		return engine.errorf("failed to load scatter params for task: %v; error: %v", task.Root.ID, err)
 	}
 	err = task.buildScatterTasks(scatterParams)
 	if err != nil {
-		return err
+		return engine.errorf("failed to build subtasks for scatter task: %v; error: %v", task.Root.ID, err)
 	}
 	err = engine.runScatterTasks(task)
 	if err != nil {
-		return err
+		return engine.errorf("failed to run subtasks for scatter task: %v; error: %v", task.Root.ID, err)
 	}
+	engine.Log.Main.Event.infof("end run scatter for task: %v", task.Root.ID)
 	return nil
 }
 
@@ -71,7 +74,7 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 }
 
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
-	fmt.Println("gathering scatter outputs..")
+	engine.Log.Main.Event.infof("begin gather scatter outputs for task: %v", task.Root.ID)
 	task.Outputs = make(map[string]interface{})
 	totalOutput := make(map[string][]interface{})
 	for _, param := range task.Root.Outputs {
@@ -97,6 +100,7 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 		task.Outputs[param] = val
 	}
 	task.Log.Output = task.Outputs
+	engine.Log.Main.Event.infof("end gather scatter outputs for task: %v", task.Root.ID)
 	return nil
 }
 
@@ -125,7 +129,7 @@ func (task *Task) validateScatterMethod() (err error) {
 
 // run all scatter tasks concurrently
 func (engine *K8sEngine) runScatterTasks(task *Task) (err error) {
-	fmt.Println("running scatter tasks concurrently..")
+	engine.Log.Main.Event.infof("begin run subtasks for scatter task: %v", task.Root.ID)
 	var wg sync.WaitGroup
 	for _, scattertask := range task.ScatterTasks {
 		wg.Add(1)
@@ -135,6 +139,7 @@ func (engine *K8sEngine) runScatterTasks(task *Task) (err error) {
 		}(scattertask)
 	}
 	wg.Wait()
+	engine.Log.Main.Event.infof("end run subtasks for scatter task: %v", task.Root.ID)
 	return nil
 }
 

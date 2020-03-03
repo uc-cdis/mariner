@@ -148,23 +148,21 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	return nil
 }
 
-// HERE - Tues afternoon
 func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
-	fmt.Println("\tCreating k8s job spec..")
-	batchJob, nil := engine.taskJob(tool)
+	engine.Log.Main.Event.infof("begin dispatch task job: %v", tool.Task.Root.ID)
+	batchJob, err := engine.taskJob(tool)
+	if err != nil {
+		return engine.errorf("failed to load job spec for task: %v; error: %v", tool.Task.Root.ID, err)
+	}
 	jobsClient, _, _, err := k8sClient(k8sJobAPI)
 	if err != nil {
 		return engine.errorf("%v", err)
 	}
-	fmt.Println("\tRunning k8s job..")
 	newJob, err := jobsClient.Create(batchJob)
 	if err != nil {
-		fmt.Printf("\tError creating job: %v\n", err)
-		return err
+		return engine.errorf("failed to create job for task: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	fmt.Println("\tSuccessfully created job.")
-	fmt.Printf("\tNew job name: %v\n", newJob.Name)
-	fmt.Printf("\tNew job UID: %v\n", newJob.GetUID())
+	engine.Log.Main.Event.infof("created job with (name, id) (%v, %v) for task: %v", newJob.Name, newJob.GetUID(), tool.Task.Root.ID)
 
 	// probably can make this nicer to look at
 	tool.JobID = string(newJob.GetUID())
@@ -172,6 +170,7 @@ func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 
 	tool.Task.Log.JobID = tool.JobID
 	tool.Task.Log.JobName = tool.JobName
+	engine.Log.Main.Event.infof("end dispatch task job: %v", tool.Task.Root.ID)
 	return nil
 }
 
