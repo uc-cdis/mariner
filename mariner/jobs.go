@@ -57,24 +57,27 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err er
 	return runID, nil
 }
 
-func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label string) {
-	cpu, mem := tool.resourceUsage(podsClient, label)
+func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label string) error {
+	cpu, mem, err := tool.resourceUsage(podsClient, label)
+	if err != nil {
+		return err
+	}
 	p := ResourceUsageSamplePoint{
 		CPU:    cpu,
 		Memory: mem,
 	}
 	tool.Task.Log.Stats.ResourceUsage.Series.append(p)
 
-	// log
+	// #log
 	fmt.Printf("collected (cpu, mem) of (%v, %v)\n", cpu, mem)
+	return nil
 }
 
-func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (cpu, mem int64) {
+func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (cpu int64, mem int64, err error) {
 	podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
 	if err != nil {
-		// log
-		fmt.Println("error fetching task pod: ", err)
-		return 0, 0
+		// #log
+		return 0, 0, err
 	}
 
 	// nil value for a resource usage timepoint is (0, 0)
@@ -83,8 +86,8 @@ func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (c
 	// i.e., still log the event where resource usage was not available, as a (0,0) value
 	switch l := len(podList.Items); l {
 	case 0:
-		// log
-		fmt.Println("no pod found for task job ", tool.Task.Log.JobName)
+		// #log
+		return 0, 0, fmt.Errorf("no pod found for task job: %v", tool.Task.Log.JobName)
 	case 1:
 		cpu, mem = containerResourceUsage(podList.Items[0], taskContainerName)
 	default:
@@ -92,15 +95,16 @@ func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (c
 		// if one pod is created but fails or errors, and the job controller creates a second pod
 		// while the other one is error'ing or terminating
 		// need to handle this case
-		fmt.Println("found an unexpected number of pods associated with task job ", tool.Task.Log.JobName, l)
+		return 0, 0, fmt.Errorf("found an unexpected number of pods associated with task job: %v; njobs: %v ", tool.Task.Log.JobName, l)
 		// log
 	}
 
-	return cpu, mem
+	return cpu, mem, nil
 }
 
 // routine for collecting (cpu, mem) usage over time per-task
 func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
+	engine.Log.Main.Event.infof("begin collect metrics for task: %v", tool.Task.Root.ID)
 	// need to wait til pod exists
 	// til metrics become available
 	// as soon as they're available, begin logging them
@@ -125,13 +129,12 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 
 	tool.Task.Log.Stats.ResourceUsage.init()
 
-	// log
-	fmt.Println("initiating metrics monitoring for task ", tool.Task.Root.ID)
-
 	for !*tool.Task.Done {
 
 		// collect (cpu, mem) sample point
-		tool.sampleResourceUsage(podsClient, label)
+		if err = tool.sampleResourceUsage(podsClient, label); err != nil {
+			engine.Log.Main.Event.warnf("failed to sample resource usage for task: %v; error: %v", tool.Task.Root.ID, err)
+		}
 
 		// update logdb
 		engine.Log.write()
@@ -140,11 +143,12 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 		time.Sleep(metricsSamplingPeriod * time.Second)
 	}
 
-	// log
-	fmt.Printf("task %v complete, exiting metrics monitoring loop\n", tool.Task.Root.ID)
+	engine.Log.Main.Event.infof("end collect metrics for task: %v", tool.Task.Root.ID)
+
 	return nil
 }
 
+// HERE - Tues afternoon
 func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	fmt.Println("\tCreating k8s job spec..")
 	batchJob, nil := engine.taskJob(tool)

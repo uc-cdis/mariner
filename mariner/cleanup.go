@@ -163,6 +163,8 @@ type CleanupKey struct {
 // dev'ing this feature
 // need to refactor and make nice
 // also need to add logging for this process
+//
+// note: this fn is currently not being used
 func (engine *K8sEngine) cleanupByStep(task *Task) error {
 
 	fmt.Println("\tin cleanupByStep..")
@@ -260,6 +262,8 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 
 // 'task' is a workflow
 // monitors status of steps depending on files corresponding to the given output param of the given step; updates param queue appropriately
+//
+// note: this fn is currently not being used
 func (engine *K8sEngine) monitorParamDeps(task *Task, stepID string, param string) {
 	condition := (*task.CleanupByStep)[stepID][param]
 	for depStepID := range condition.DependentSteps {
@@ -279,6 +283,8 @@ func (engine *K8sEngine) monitorParamDeps(task *Task, stepID string, param strin
 //
 // BIG NOTE: only need to monitor params of type FILE
 // --------	 need to check param type, ensure that it is 'file', before monitoring/deleting
+//
+// note: this fn is currently not being used
 func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteFilesAtCondition for: ", step.ID, outputParam)
 	condition := (*task.CleanupByStep)[step.ID][outputParam]
@@ -309,6 +315,8 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 //
 // Q: what about secondaryFiles? probably those should be deleted as well
 // -- assuming an intermediate file's secondaryFiles are also "intermediate" and ultimately not needed
+//
+// note: this fn is currently not being used
 func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteIntermediateFiles for: ", step.ID, outputParam)
 	childTask := task.Children[step.ID]

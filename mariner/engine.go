@@ -103,6 +103,7 @@ func engine(runID string) *K8sEngine {
 }
 
 func (engine *K8sEngine) loadRequest(runID string) error {
+	engine.Log.Main.Event.info("begin load workflow request")
 	request, err := request(runID)
 	if err != nil {
 		return engine.errorf("failed to load workflow request: %v", err)
@@ -110,6 +111,7 @@ func (engine *K8sEngine) loadRequest(runID string) error {
 	engine.Manifest = &request.Manifest
 	engine.UserID = request.UserID
 	engine.Log.Request = request
+	engine.Log.Main.Event.info("end load workflow request")
 	return nil
 }
 
@@ -131,30 +133,31 @@ func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
 
 // DispatchTask does some setup for and dispatches workflow Tools
 func (engine K8sEngine) dispatchTask(task *Task) (err error) {
+	engine.Log.Main.Event.infof("begin dispatch task: %v", task.Root.ID)
 	tool := task.tool(engine.RunID)
 	err = tool.setupTool()
 	if err != nil {
-		fmt.Printf("ERROR setting up tool: %v\n", err)
-		return err
+		return engine.errorf("failed to setup tool: %v; error: %v", task.Root.ID, err)
 	}
 
 	// {Q: when should the process get pushed onto the stack?}
 
 	// engine.UnfinishedProcs[tool.Task.Root.ID] = nil
 	if err = engine.runTool(tool); err != nil {
-		fmt.Printf("\tError running tool: %v\n", err)
-		return err
+		return engine.errorf("failed to run tool: %v; error: %v", task.Root.ID, err)
 	}
 	if err = engine.collectOutput(tool); err != nil {
-		fmt.Printf("\tError collecting output from tool: %v\n", err)
-		return err
+		return engine.errorf("failed to collect output for tool: %v; error: %v", task.Root.ID, err)
 	}
 	// engine.updateStack(task) // tools AND workflows need to be updated in the stack
+	engine.Log.Main.Event.infof("end dispatch task: %v", task.Root.ID)
 	return nil
 }
 
 // move proc from unfinished to finished stack
 func (engine *K8sEngine) finishTask(task *Task) {
+	engine.Log.Main.Event.infof("finish task: %v", task.Root.ID)
+	task.Log.Event.info("finish task")
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
@@ -164,14 +167,19 @@ func (engine *K8sEngine) finishTask(task *Task) {
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
+	engine.Log.Main.Event.infof("start task: %v", task.Root.ID)
+	task.Log.Event.info("start task")
 	engine.UnfinishedProcs[task.Root.ID] = true
 	engine.Log.start(task)
 }
 
-// maybe this is a pointless wrapper?
 func (engine *K8sEngine) collectOutput(tool *Tool) error {
-	err := tool.collectOutput()
-	return err
+	engine.Log.Main.Event.infof("begin collect output for task: %v", tool.Task.Root.ID)
+	if err := tool.collectOutput(); err != nil {
+		return engine.errorf("failed to collect output for tool: %v; error: %v", tool.Task.Root.ID, err)
+	}
+	engine.Log.Main.Event.infof("end collect output for task: %v", tool.Task.Root.ID)
+	return nil
 }
 
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
@@ -238,27 +246,29 @@ func (tool *Tool) setupTool() (err error) {
 // If ExpressionTool, passes to appropriate handler to eval the expression
 // If CommandLineTool, passes to appropriate handler to create k8s job
 func (engine *K8sEngine) runTool(tool *Tool) (err error) {
+	engine.Log.Main.Event.infof("begin run tool: %v", tool.Task.Root.ID)
 	switch class := tool.Task.Root.Class; class {
 	case "ExpressionTool":
 		if err = engine.runExpressionTool(tool); err != nil {
-			return err
+			return engine.errorf("failed to run ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
 	case "CommandLineTool":
 		if err = engine.runCommandLineTool(tool); err != nil {
-			return err
+			return engine.errorf("failed to run CommandLineTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
 
 		// collect resource metrics via k8s api
 		// NOTE: at present, metrics are NOT collected for expressionTools
-		// probably this should be fixed
+		// this should be fixed
 		go engine.collectResourceMetrics(tool)
 
 		if err = engine.listenForDone(tool); err != nil {
-			return fmt.Errorf("error listening for done: %v", err)
+			return engine.errorf("failed to listen for task to finish: %v; error: %v", tool.Task.Root.ID, err)
 		}
 	default:
-		return fmt.Errorf("unexpected class: %v", class)
+		return engine.errorf("failed to run CWL object of unexpected class: %v", class)
 	}
+	engine.Log.Main.Event.infof("end run tool: %v", tool.Task.Root.ID)
 	return nil
 }
 
@@ -266,15 +276,16 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 // 1. generates the command to execute
 // 2. makes call to RunK8sJob to dispatch job to run the commandline tool
 func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
-	fmt.Println("\tRunning CommandLineTool")
+	engine.Log.Main.Event.infof("begin run CommandLineTool: %v", tool.Task.Root.ID)
 	err = tool.generateCommand()
 	if err != nil {
-		return err
+		return engine.errorf("failed to generate command for tool: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	err = engine.dispatchTaskJob(tool)
 	if err != nil {
-		return err
+		return engine.errorf("failed to dispatch task job: %v; error: %v", tool.Task.Root.ID, err)
 	}
+	engine.Log.Main.Event.infof("end run CommandLineTool: %v", tool.Task.Root.ID)
 	return nil
 }
 
@@ -283,26 +294,28 @@ func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
 // TODO: implement error handling, listen for errors and failures, retries as well
 // ----- handle the cases where the job status is not COMPLETED or RUNNING
 func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
-	fmt.Println("\tListening for job to finish..")
+	engine.Log.Main.Event.infof("begin listen for task to finish: %v", tool.Task.Root.ID)
 	status := ""
 	for status != completed {
 		jobInfo, err := jobStatusByID(tool.JobID)
 		if err != nil {
-			return err
+			return engine.errorf("failed to get task job info: %v; error: %v", tool.Task.Root.ID, err)
 		}
 		status = jobInfo.Status
 	}
+	engine.Log.Main.Event.infof("end listen for task to finish: %v", tool.Task.Root.ID)
 	return nil
 }
 
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
+	engine.Log.Main.Event.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
 	// note: context has already been loaded
 	if err = os.Chdir(tool.WorkingDir); err != nil {
-		return err
+		return engine.errorf("failed to move to tool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	result, err := evalExpression(tool.Task.Root.Expression, tool.Task.Root.InputsVM)
 	if err != nil {
-		return err
+		return engine.errorf("failed to eval expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
 
@@ -312,7 +325,8 @@ func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	var ok bool
 	tool.ExpressionResult, ok = result.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("expressionTool expression did not return a JSON object")
+		return engine.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
 	}
+	engine.Log.Main.Event.infof("end run ExpressionTool: %v", tool.Task.Root.ID)
 	return nil
 }
