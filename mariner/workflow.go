@@ -57,9 +57,9 @@ type Task struct {
 
 // fileParam returns a bool indicating whether the given step-level input param corresponds to a set of files
 // 'task' here is a workflow
-// HERE
-func (task *Task) stepParamFile(step *cwl.Step, stepParam string) bool {
-	fmt.Println("in stepParamFile..")
+func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {
+	task.infof("begin check if step param %v is a File param", stepParam)
+	defer task.infof("end check if step param %v is a File param", stepParam)
 	childTaskParam := step2taskID(step, stepParam)
 	childTask := task.Children[step.ID]
 	for _, input := range childTask.Root.Inputs {
@@ -272,6 +272,7 @@ func (engine *K8sEngine) mergeChildParams(task *Task) (err error) {
 }
 
 func (task *Task) mergeChildInputs() {
+	task.infof("begin merge child inputs")
 	for _, child := range task.Children {
 		for param := range child.Parameters {
 			if wfParam, ok := task.InputIDMap[param]; ok {
@@ -279,6 +280,7 @@ func (task *Task) mergeChildInputs() {
 			}
 		}
 	}
+	task.infof("end merge child inputs")
 }
 
 // fixme - this function needs to be refactored - there's too much going on here
@@ -384,20 +386,22 @@ func step2taskID(step *cwl.Step, stepParam string) string {
 // and outputValue is the value for that output parameter for the workflow step
 // -> this outputValue gets mapped from the workflow step's outputs to the output of the workflow itself
 func (task *Task) mergeChildOutputs() error {
+	task.infof("begin merge child outputs")
 	task.Outputs = make(map[string]interface{})
 	if task.Children == nil {
-		return task.Log.Event.errorf("failed to merge child outputs - no child tasks exist")
+		return task.errorf("failed to merge child outputs - no child tasks found")
 	}
 	for _, output := range task.Root.Outputs {
+		task.infof("begin handle output param: %v", output.ID)
 		if len(output.Source) == 1 {
-			// FIXME - again, here assuming len(source) is exactly 1
+			// fixme - again, here assuming len(source) is exactly 1
 			source := output.Source[0]
 			stepID, ok := task.OutputIDMap[source]
 			if !ok {
-				return task.Log.Event.errorf("failed to find output source: %v", source)
+				return task.errorf("failed to find output source: %v", source)
 			}
 			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
-			fmt.Printf("Waiting to merge child outputs for workflow %v ..\n", task.Root.ID)
+			task.infof("waiting to merge child outputs")
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
 				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {
 					task.Outputs[output.ID] = outputVal
@@ -405,10 +409,12 @@ func (task *Task) mergeChildOutputs() error {
 			}
 		} else {
 			// fixme
-			return task.Log.Event.error("NOT SUPPORTED: engine can't handle empty or array outputsource (this is a bug)")
+			return task.errorf("NOT SUPPORTED: engine can't handle empty or array outputsource (this is a bug)")
 		}
+		task.infof("end handle output param: %v", output.ID)
 	}
 	task.Log.Output = task.Outputs
+	task.infof("end merge child outputs")
 	return nil
 }
 
@@ -419,12 +425,13 @@ func (task *Task) mergeChildOutputs() error {
 // -> that's a dependency between steps,
 // and so the dependency step must finish running
 // before the dependent step can execute
-func (task *Task) setupOutputMap() error {
+func (task *Task) setupOutputMap() {
+	task.infof("begin setup output map")
 	task.OutputIDMap = make(map[string]string)
 	for _, step := range task.Root.Steps {
 		for _, stepOutput := range step.Out {
 			task.OutputIDMap[stepOutput.ID] = step.ID
 		}
 	}
-	return nil
+	task.infof("end setup output map")
 }

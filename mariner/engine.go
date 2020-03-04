@@ -172,12 +172,14 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 func (task *Task) tool(runID string) *Tool {
+	task.infof("begin make tool object")
 	task.Outputs = make(map[string]interface{})
 	task.Log.Output = task.Outputs
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
 	}
+	task.infof("end make tool object")
 	return tool
 }
 
@@ -187,12 +189,14 @@ func (task *Task) tool(runID string) *Tool {
 // NOTE: should make the mount point a go constant - i.e., const MountPoint = "/engine-workspace/"
 // ----- could come up with a better/more uniform naming scheme
 func (task *Task) workingDir(runID string) string {
+	task.infof("begin make task working dir")
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
 	dir := fmt.Sprintf(pathToWorkingDirf, runID, safeID)
 	if task.ScatterIndex > 0 {
 		dir = fmt.Sprintf("%v-scatter-%v", dir, task.ScatterIndex)
 	}
 	dir += "/"
+	task.infof("end make task working dir: %v", dir)
 	return dir
 }
 

@@ -213,7 +213,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 						// NOTE: assuming one source specified here - certainly require case handling
 						// I *think* every input should have at least one source specified though
 						// need to check that param corresponds to files
-						if input.Source[0] == stepOutput.ID && task.stepParamFile(&otherStep, input.ID) {
+						if input.Source[0] == stepOutput.ID && task.stepParamIsFile(&otherStep, input.ID) {
 							fmt.Println("\tfound step dependency!")
 
 							deleteCondition.DependentSteps[otherStep.ID] = true
