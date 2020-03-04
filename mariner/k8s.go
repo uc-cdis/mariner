@@ -194,7 +194,7 @@ type TokenUser struct {
 ////// marinerTask -> ///////
 
 func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
-	engine.Log.Main.Event.infof("begin load job spec for task: %v", tool.Task.Root.ID)
+	engine.infof("begin load job spec for task: %v", tool.Task.Root.ID)
 	jobName := tool.jobName()
 	tool.JobName = jobName
 	job = jobSpec(marinerTask, jobName, engine.UserID)
@@ -203,12 +203,12 @@ func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
 	if err != nil {
 		return nil, engine.errorf("failed to load container spec for task: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	engine.Log.Main.Event.infof("end load job spec for task: %v", tool.Task.Root.ID)
+	engine.infof("end load job spec for task: %v", tool.Task.Root.ID)
 	return job, nil
 }
 
 func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Container, err error) {
-	engine.Log.Main.Event.infof("begin load container spec for tool: %v", tool.Task.Root.ID)
+	engine.infof("begin load container spec for tool: %v", tool.Task.Root.ID)
 	task, err := tool.taskContainer()
 	if err != nil {
 		return nil, engine.errorf("failed to load task main container: %v; error: %v", tool.Task.Root.ID, err)
@@ -221,13 +221,13 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	}
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
-	engine.Log.Main.Event.infof("end load container spec for tool: %v", tool.Task.Root.ID)
+	engine.infof("end load container spec for tool: %v", tool.Task.Root.ID)
 	return containers, nil
 }
 
 // for marinerTask job
 func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Container) {
-	engine.Log.Main.Event.infof("load s3 sidecar container spec for task: %v", tool.Task.Root.ID)
+	engine.infof("load s3 sidecar container spec for task: %v", tool.Task.Root.ID)
 	container = baseContainer(&Config.Containers.S3sidecar, s3sidecar)
 	container.Lifecycle = s3PrestopHook
 	container.Env = engine.s3SidecarEnv(tool)
@@ -339,7 +339,7 @@ func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 
 // for marinerTask job
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
-	engine.Log.Main.Event.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
+	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",

@@ -305,6 +305,33 @@ type ResourceUsageSamplePoint struct {
 // EventLog is an event logger for a mariner component (i.e., engine or task)
 type EventLog []string
 
+// update log (i.e., write to log file) each time there's an error, to capture point of failure
+func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
+	err := engine.Log.Main.Event.errorf(f, v...)
+	engine.Log.write()
+	return err
+}
+
+func (engine *K8sEngine) warnf(f string, v ...interface{}) {
+	engine.Log.Main.Event.warnf(f, v...)
+}
+
+func (engine *K8sEngine) infof(f string, v ...interface{}) {
+	engine.infof(f, v...)
+}
+
+func (task *Task) errorf(f string, v ...interface{}) error {
+	return task.Log.Event.errorf(f, v...)
+}
+
+func (task *Task) warnf(f string, v ...interface{}) {
+	task.Log.Event.warnf(f, v...)
+}
+
+func (task *Task) infof(f string, v ...interface{}) {
+	task.Log.Event.infof(f, v...)
+}
+
 // a record is "<timestamp> - <level> - <message>"
 func (log *EventLog) write(level, message string) {
 	timestamp := ts()

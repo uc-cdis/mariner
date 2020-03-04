@@ -115,7 +115,7 @@ func outputParamFile(output cwl.Output) bool {
 // i.e., the whole workflow and its graphical structure are represented as a nested collection of Task objects
 func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
 	if curTask.Root.ID == mainProcessID {
-		engine.Log.Main.Event.info("begin resolve graph")
+		engine.infof("begin resolve graph")
 	}
 	if curTask.Root.Class == CWLWorkflow {
 		curTask.Children = make(map[string]*Task)
@@ -147,14 +147,14 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 		}
 	}
 	if curTask.Root.ID == mainProcessID {
-		engine.Log.Main.Event.info("end resolve graph")
+		engine.infof("end resolve graph")
 	}
 	return nil
 }
 
 // RunWorkflow parses a workflow and inputs and run it
 func (engine *K8sEngine) runWorkflow() error {
-	engine.Log.Main.Event.info("begin run workflow")
+	engine.infof("begin run workflow")
 
 	var root cwl.Root
 	var err error
@@ -224,7 +224,7 @@ func (engine *K8sEngine) runWorkflow() error {
 		return engine.errorf("failed to run main task: %v", err)
 	}
 
-	engine.Log.Main.Event.info("end run workflow")
+	engine.infof("end run workflow")
 	engine.Log.write()
 	return nil
 }
@@ -240,7 +240,7 @@ concurrency notes:
 // workflows are processed into a collection of Tools via Task.RunSteps()
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) (err error) {
-	engine.Log.Main.Event.infof("begin run task: %v", task.Root.ID)
+	engine.infof("begin run task: %v", task.Root.ID)
 	engine.startTask(task)
 	switch {
 	case task.Scatter != nil:
@@ -257,17 +257,17 @@ func (engine *K8sEngine) run(task *Task) (err error) {
 		engine.dispatchTask(task)
 	}
 	engine.finishTask(task)
-	engine.Log.Main.Event.infof("end run task: %v", task.Root.ID)
+	engine.infof("end run task: %v", task.Root.ID)
 	return nil
 }
 
 func (engine *K8sEngine) mergeChildParams(task *Task) (err error) {
-	engine.Log.Main.Event.infof("begin merge child params for task: %v", task.Root.ID)
+	engine.infof("begin merge child params for task: %v", task.Root.ID)
 	if err = task.mergeChildOutputs(); err != nil {
 		return task.Log.Event.errorf("failed to merge child outputs: %v", err)
 	}
 	task.mergeChildInputs()
-	engine.Log.Main.Event.infof("end merge child params for task: %v", task.Root.ID)
+	engine.infof("end merge child params for task: %v", task.Root.ID)
 	return nil
 }
 
@@ -288,7 +288,7 @@ func (task *Task) mergeChildInputs() {
 // for concurrent processing of steps of a workflow
 // key point: the task does not get Run() until its input params are populated - that's how/where the dependencies get handled
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
-	engine.Log.Main.Event.infof("begin run step %v of parent task %v", curStepID, parentTask.Root.ID)
+	engine.infof("begin run step %v of parent task %v", curStepID, parentTask.Root.ID)
 
 	curStep := task.OriginalStep
 	stepIDMap := make(map[string]string)
@@ -309,13 +309,13 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			depTask := parentTask.Children[depStepID]
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
-			engine.Log.Main.Event.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
+			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
 				if *depTask.Done {
 					task.Parameters[taskInput] = depTask.Outputs[outputID]
 					// fmt.Println("\tDependency task complete!")
 					// fmt.Println("\tSuccessfully collected output from dependency task.")
-					engine.Log.Main.Event.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
+					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
 				}
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {
@@ -343,12 +343,12 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 
 	// run this step
 	engine.run(task)
-	engine.Log.Main.Event.infof("end run step %v of parent task %v", curStepID, parentTask.Root.ID)
+	engine.infof("end run step %v of parent task %v", curStepID, parentTask.Root.ID)
 }
 
 // concurrently run steps of a workflow
 func (engine *K8sEngine) runSteps(task *Task) {
-	engine.Log.Main.Event.infof("begin run steps for workflow: %v", task.Root.ID)
+	engine.infof("begin run steps for workflow: %v", task.Root.ID)
 
 	// store a map of {outputID: stepID} pairs to trace step i/o dependency (edit: AND create CleanupByStep field)
 	task.setupOutputMap()
@@ -368,7 +368,7 @@ func (engine *K8sEngine) runSteps(task *Task) {
 	// because the go routines launch, and this log happens immediately after that
 	// though this log occurs while the steps are actually running
 	// fixme, or just don't log this (here) (?)
-	engine.Log.Main.Event.infof("end run steps for workflow: %v", task.Root.ID)
+	engine.infof("end run steps for workflow: %v", task.Root.ID)
 }
 
 // "#expressiontool_test.cwl" + "[#subworkflow_test.cwl]/test_expr/file_array"

@@ -13,7 +13,7 @@ import (
 
 // collect all paths to not delete during basic file cleanup
 func (engine *K8sEngine) collectKeepFiles() {
-	engine.Log.Main.Event.info("begin collect paths to keep")
+	engine.infof("begin collect paths to keep")
 	engine.KeepFiles = make(map[string]bool)
 
 	// be sure to not delete to logfile
@@ -47,7 +47,7 @@ func (engine *K8sEngine) collectKeepFiles() {
 			}
 		}
 	}
-	engine.Log.Main.Event.info("end collect paths to keep")
+	engine.infof("end collect paths to keep")
 	return
 }
 
@@ -56,7 +56,7 @@ func (engine *K8sEngine) collectKeepFiles() {
 // ----- which are not paths associated with a main workflow output param
 // called after main workflow finishes running
 func (engine *K8sEngine) basicCleanup() {
-	engine.Log.Main.Event.info("begin intermediate file cleanup")
+	engine.infof("begin intermediate file cleanup")
 
 	// collect all paths to keep
 	engine.collectKeepFiles()
@@ -79,7 +79,7 @@ func (engine *K8sEngine) basicCleanup() {
 		}
 		return nil
 	})
-	engine.Log.Main.Event.info("end intermediate file cleanupf")
+	engine.infof("end intermediate file cleanupf")
 	return
 }
 

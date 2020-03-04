@@ -49,6 +49,7 @@ func (cmdElts CommandElements) Less(i, j int) bool { return cmdElts[i].Position 
 
 // GenerateCommand ..
 func (tool *Tool) generateCommand() (err error) {
+	tool.Task.Log.Event.info("begin generate command")
 	cmdElts, err := tool.cmdElts()
 	if err != nil {
 		return err

@@ -104,7 +104,7 @@ func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (c
 
 // routine for collecting (cpu, mem) usage over time per-task
 func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
-	engine.Log.Main.Event.infof("begin collect metrics for task: %v", tool.Task.Root.ID)
+	engine.infof("begin collect metrics for task: %v", tool.Task.Root.ID)
 	// need to wait til pod exists
 	// til metrics become available
 	// as soon as they're available, begin logging them
@@ -143,13 +143,13 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 		time.Sleep(metricsSamplingPeriod * time.Second)
 	}
 
-	engine.Log.Main.Event.infof("end collect metrics for task: %v", tool.Task.Root.ID)
+	engine.infof("end collect metrics for task: %v", tool.Task.Root.ID)
 
 	return nil
 }
 
 func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
-	engine.Log.Main.Event.infof("begin dispatch task job: %v", tool.Task.Root.ID)
+	engine.infof("begin dispatch task job: %v", tool.Task.Root.ID)
 	batchJob, err := engine.taskJob(tool)
 	if err != nil {
 		return engine.errorf("failed to load job spec for task: %v; error: %v", tool.Task.Root.ID, err)
@@ -162,7 +162,7 @@ func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 	if err != nil {
 		return engine.errorf("failed to create job for task: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	engine.Log.Main.Event.infof("created job with (name, id) (%v, %v) for task: %v", newJob.Name, newJob.GetUID(), tool.Task.Root.ID)
+	engine.infof("created job with (name, id) (%v, %v) for task: %v", newJob.Name, newJob.GetUID(), tool.Task.Root.ID)
 
 	// probably can make this nicer to look at
 	tool.JobID = string(newJob.GetUID())
@@ -170,7 +170,7 @@ func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
 
 	tool.Task.Log.JobID = tool.JobID
 	tool.Task.Log.JobName = tool.JobName
-	engine.Log.Main.Event.infof("end dispatch task job: %v", tool.Task.Root.ID)
+	engine.infof("end dispatch task job: %v", tool.Task.Root.ID)
 	return nil
 }
 
