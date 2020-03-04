@@ -12,7 +12,7 @@ import (
 // TODO: support cases where File or dirent is returned from `entry`
 // NOTE: this function really needs to be cleaned up/revised
 func (tool *Tool) initWorkDir() (err error) {
-	tool.Task.Log.Event.info("begin handle InitialWorkDirRequirement")
+	tool.Task.infof("begin handle InitialWorkDirRequirement")
 	var resFile interface{}
 	var path string
 	for _, requirement := range tool.Task.Root.Requirements {
@@ -29,20 +29,20 @@ func (tool *Tool) initWorkDir() (err error) {
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
 				switch {
 				case err != nil:
-					return tool.Task.Log.Event.errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
+					return tool.Task.errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
 				case resultFile != nil:
 					contents = resultFile
 				case resultText != "":
 					contents = resultText
 				default:
-					return tool.Task.Log.Event.errorf("entry returned empty value: %v", listing.Entry)
+					return tool.Task.errorf("entry returned empty value: %v", listing.Entry)
 				}
 
 				// `entryName` for sure is a string literal or an expression which evaluates to a string
 				// `entryName` is the name of the file to be created
 				entryName, _, err := tool.resolveExpressions(listing.EntryName)
 				if err != nil {
-					return tool.Task.Log.Event.errorf("failed to resolve expressions in entry name: %v; error: %v", listing.EntryName, err)
+					return tool.Task.errorf("failed to resolve expressions in entry name: %v; error: %v", listing.EntryName, err)
 				}
 
 				/*
@@ -59,21 +59,21 @@ func (tool *Tool) initWorkDir() (err error) {
 					// NOTE: the "designated output directory" is just the directory corresponding to the Tool
 					// not sure what the purpose/meaning/use of this feature is - pretty sure all i/o for Tools gets handled already
 					// presently not supporting this case - will implement this feature once I find an example to work with
-					tool.Task.Log.Event.error("feature not supported: entry expression returned a file object")
+					tool.Task.errorf("feature not supported: entry expression returned a file object")
 				} else {
 					// create tool working dir if it doesn't already exist
 					// might be unnecessary to put here if dir already created earlier in processing this tool - need to check
 					os.MkdirAll(tool.WorkingDir, os.ModePerm)
 					path = filepath.Join(tool.WorkingDir, entryName)
 
-					tool.Task.Log.Event.infof("begin create path: %v", path)
+					tool.Task.infof("begin create path: %v", path)
 					f, err := os.Create(path)
 					if err != nil {
-						return tool.Task.Log.Event.errorf("failed to create file: %v; error: %v", path, err)
+						return tool.Task.errorf("failed to create file: %v; error: %v", path, err)
 					}
-					tool.Task.Log.Event.infof("end create path: %v", path)
+					tool.Task.infof("end create path: %v", path)
 
-					tool.Task.Log.Event.info("begin write bytes to file")
+					tool.Task.infof("begin write bytes to file")
 					var b []byte
 					switch contents.(type) {
 					case string:
@@ -81,19 +81,19 @@ func (tool *Tool) initWorkDir() (err error) {
 					case *File:
 						b, err = json.Marshal(contents)
 						if err != nil {
-							return tool.Task.Log.Event.errorf("error marshalling contents to file: %v", err)
+							return tool.Task.errorf("error marshalling contents to file: %v", err)
 						}
 					}
 					if _, err = f.Write(b); err != nil {
-						return tool.Task.Log.Event.error("failed to write bytes to file")
+						return tool.Task.errorf("failed to write bytes to file")
 					}
-					tool.Task.Log.Event.info("end write bytes to file")
+					tool.Task.infof("end write bytes to file")
 
 					f.Close()
 				}
 			}
 		}
 	}
-	tool.Task.Log.Event.info("end handle InitialWorkDirRequirement")
+	tool.Task.infof("end handle InitialWorkDirRequirement")
 	return nil
 }

@@ -56,6 +56,7 @@ const (
 	// object class
 	CWLWorkflow        = "Workflow"
 	CWLCommandLineTool = "CommandLineTool"
+	CWLExpressionTool  = "ExpressionTool"
 	// requirements
 	initialWorkDirRequirement = "InitialWorkDirRequirement"
 	// add the rest ..
