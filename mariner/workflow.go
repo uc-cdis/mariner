@@ -285,11 +285,8 @@ func (task *Task) mergeChildInputs() {
 // ---- need to break it down into smaller parts
 // ---- also should make these processes run concurrently
 // ---- i.e., concurrently wait for each input parameter - not in sequence
-// ---- because files should be deleted as soon as they become unnecessary
 // for concurrent processing of steps of a workflow
 // key point: the task does not get Run() until its input params are populated - that's how/where the dependencies get handled
-//
-// HERE - first thing Wednesday #log
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
 	engine.Log.Main.Event.infof("begin run step %v of parent task %v", curStepID, parentTask.Root.ID)
 
@@ -312,22 +309,19 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			depTask := parentTask.Children[depStepID]
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
-			// #log
-			fmt.Println("\tWaiting for dependency task to finish running..")
+			engine.Log.Main.Event.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
 				if *depTask.Done {
-					// #log
-					fmt.Println("\tDependency task complete!")
 					task.Parameters[taskInput] = depTask.Outputs[outputID]
-					fmt.Println("\tSuccessfully collected output from dependency task.")
+					// fmt.Println("\tDependency task complete!")
+					// fmt.Println("\tSuccessfully collected output from dependency task.")
+					engine.Log.Main.Event.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
 				}
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {
 			// if the input source to this step is not the outputID of another step
 			// but is an input of the parent workflow
 			// assign input parameter of parent workflow to input parameter of this step
-			//
-			// #log
 			task.Parameters[taskInput] = parentTask.Parameters[source]
 
 			// used for logging to merge child inputs for a workflow
@@ -347,10 +341,9 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 		}
 	}
 
-	// #log
-
 	// run this step
 	engine.run(task)
+	engine.Log.Main.Event.infof("end run step %v of parent task %v", curStepID, parentTask.Root.ID)
 }
 
 // concurrently run steps of a workflow
