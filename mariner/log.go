@@ -205,6 +205,12 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 
 // Log stores the eventLog and runtime stats for a mariner component (i.e., engine or task)
 // see: https://golang.org/pkg/time/
+//
+// note: could log the job spec per task
+// ----- or at least the task container spec
+// ----- need to double check there is no sensitive info in the job spec
+// ----- should be fine
+// ----- for now: log container image pulled for task
 type Log struct {
 	Created        string                 `json:"created,omitempty"`     // okay - timezone???
 	CreatedObj     time.Time              `json:"-"`                     // okay

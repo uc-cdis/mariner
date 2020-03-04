@@ -239,30 +239,30 @@ func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Contai
 // additionally, add logic to check if the tool has specified each field
 // if a field is not specified, the spec should be filled out using values from the mariner-config
 func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
+	tool.Task.infof("begin load main container spec")
 	conf := Config.Containers.Task
 	container = new(k8sv1.Container)
 	container.Name = conf.Name
 	container.VolumeMounts = volumeMounts(marinerTask)
 	container.ImagePullPolicy = conf.pullPolicy()
 
-	// if not specified use config
 	container.Image = tool.dockerImage()
 	tool.Task.Log.ContainerImage = container.Image
 
-	// if not specified use config
 	if container.Resources, err = tool.resourceReqs(); err != nil {
-		return nil, tool.Task.Log.Event.errorf("failed to load cpu/mem info: %v", err)
+		return nil, tool.Task.errorf("failed to load cpu/mem info: %v", err)
 	}
 
 	// if not specified use config
-	container.Command = []string{tool.cltBash()} // FIXME - please
+	container.Command = []string{tool.cltBash()} // fixme - please
 
-	container.Args = tool.cltArgs() // FIXME - make string constant or something
+	container.Args = tool.cltArgs() // fixme - make string constant or something
 
 	if container.Env, err = tool.env(); err != nil {
-		return nil, tool.Task.Log.Event.errorf("failed to load env info: %v", err)
+		return nil, tool.Task.errorf("failed to load env info: %v", err)
 	}
 
+	tool.Task.infof("begin load main container spec")
 	return container, nil
 }
 
@@ -274,8 +274,10 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 // - won't have the mariner repo, and we shouldn't clone it in there
 // so, just make this string a constant or something in the config file
 // TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
-// HERE - how to handle case of different possible bash, depending on CLT image specified in CWL?
+// Q: how to handle case of different possible bash, depending on CLT image specified in CWL?
+// fixme
 func (tool *Tool) cltArgs() []string {
+	tool.Task.infof("begin load CommandLineTool container args")
 	// Uncomment after debugging
 	args := []string{
 		"-c",
@@ -310,6 +312,7 @@ func (tool *Tool) cltArgs() []string {
 		}
 	*/
 
+	tool.Task.infof("end load CommandLineTool container args")
 	return args
 }
 
@@ -319,22 +322,26 @@ func (tool *Tool) cltArgs() []string {
 // and: https://godoc.org/k8s.io/api/core/v1#EnvVar
 // and: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
 func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
+	tool.Task.infof("begin load environment variables")
 	env = []k8sv1.EnvVar{}
 	for _, requirement := range tool.Task.Root.Requirements {
-		if requirement.Class == "EnvVarRequirement" {
+		if requirement.Class == CWLEnvVarRequirement {
 			for _, envDef := range requirement.EnvDef {
+				tool.Task.infof("begin handle envVar: %v", envDef.Name)
 				varValue, _, err := tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
 				if err != nil {
-					return nil, tool.Task.Log.Event.errorf("failed to resolve expression: %v; error: %v", envDef.Value, err)
+					return nil, tool.Task.errorf("failed to resolve expression: %v; error: %v", envDef.Value, err)
 				}
 				envVar := k8sv1.EnvVar{
 					Name:  envDef.Name,
 					Value: varValue,
 				}
 				env = append(env, envVar)
+				tool.Task.infof("end handle envVar: %v", envDef.Name)
 			}
 		}
 	}
+	tool.Task.infof("end load environment variables")
 	return env, nil
 }
 
@@ -381,8 +388,8 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 // for marinerTask job
 // replace disallowed job name characters
 // Q: is there a better job-naming scheme?
-// -- should every mariner task job have `mariner` as a prefix, for easy identification?
 func (tool *Tool) jobName() string {
+	tool.Task.infof("begin resolve k8s job name")
 	taskID := tool.Task.Root.ID
 	jobName := strings.ReplaceAll(taskID, "#", "")
 	jobName = strings.ReplaceAll(jobName, "_", "-")
@@ -392,26 +399,29 @@ func (tool *Tool) jobName() string {
 		// in order to not dupliate k8s job names - append suffix with ScatterIndex to job name
 		jobName = fmt.Sprintf("%v-scattered-%v", jobName, tool.Task.ScatterIndex)
 	}
+	tool.Task.infof("end resolve k8s job name. resolved job name: %v", jobName)
 	return jobName
 }
 
 // handles the DockerRequirement if specified and returns the image to be used for the CommandLineTool
 // note: presently only supporting use of the `dockerPull` CWL field
-// fixme
+// fixme - handle remaining DockerRequirement options
 func (tool *Tool) dockerImage() string {
 	tool.Task.infof("begin load docker image")
 	for _, requirement := range tool.Task.Root.Requirements {
-		if requirement.Class == "DockerRequirement" {
+		if requirement.Class == CWLDockerRequirement {
 			if requirement.DockerPull != "" {
+				tool.Task.infof("end load docker image. loaded image: %v", string(requirement.DockerPull))
 				return string(requirement.DockerPull)
 			}
 		}
 	}
-	tool.Task.infof("end load docker image")
+	tool.Task.infof("end load docker image. loaded default task image: %v", defaultTaskContainerImage)
 	return defaultTaskContainerImage
 }
 
 // fixme
+// Q: how to handle case of different possible bash, depending on CLT image specified in CWL?
 func (tool *Tool) cltBash() string {
 	if tool.dockerImage() == "alpine" {
 		return "/bin/sh"

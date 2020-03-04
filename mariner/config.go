@@ -65,6 +65,8 @@ const (
 	// requirements
 	CWLInitialWorkDirRequirement = "InitialWorkDirRequirement"
 	CWLResourceRequirement       = "ResourceRequirement"
+	CWLDockerRequirement         = "DockerRequirement"
+	CWLEnvVarRequirement         = "EnvVarRequirement"
 	// add the rest ..
 
 	// log levels
