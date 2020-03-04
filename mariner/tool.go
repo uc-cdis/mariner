@@ -16,7 +16,7 @@ func (tool *Tool) initWorkDir() (err error) {
 	var resFile interface{}
 	var path string
 	for _, requirement := range tool.Task.Root.Requirements {
-		if requirement.Class == initialWorkDirRequirement {
+		if requirement.Class == CWLInitialWorkDirRequirement {
 			for _, listing := range requirement.Listing {
 				// handling the case where `entry` is content (expression or string) to be written to a file
 				// and `entryname` is the name of the file to be created

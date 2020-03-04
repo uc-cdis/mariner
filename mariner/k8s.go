@@ -247,6 +247,7 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 
 	// if not specified use config
 	container.Image = tool.dockerImage()
+	tool.Task.Log.ContainerImage = container.Image
 
 	// if not specified use config
 	if container.Resources, err = tool.resourceReqs(); err != nil {
@@ -395,23 +396,22 @@ func (tool *Tool) jobName() string {
 }
 
 // handles the DockerRequirement if specified and returns the image to be used for the CommandLineTool
-// NOTE: if no image specified, returns `ubuntu` as a default image - need to ask/check if there is a better default image to use
-// NOTE: presently only supporting use of the `dockerPull` CWL field
-// FIXME
+// note: presently only supporting use of the `dockerPull` CWL field
+// fixme
 func (tool *Tool) dockerImage() string {
+	tool.Task.infof("begin load docker image")
 	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == "DockerRequirement" {
 			if requirement.DockerPull != "" {
-				// NOTE: Shenglai made comment about adding `sha256` tag in order to pull exactly the latest image you want
-				// ----- ask for detail/example and ask others to see if I should implement that
 				return string(requirement.DockerPull)
 			}
 		}
 	}
-	return "ubuntu"
+	tool.Task.infof("end load docker image")
+	return defaultTaskContainerImage
 }
 
-// FIXME
+// fixme
 func (tool *Tool) cltBash() string {
 	if tool.dockerImage() == "alpine" {
 		return "/bin/sh"
@@ -426,6 +426,7 @@ func (tool *Tool) cltBash() string {
 //
 // NOTE: presently only supporting req's for cpu cores and RAM - need to implement outdir and tmpdir and whatever other fields are allowed
 func (tool *Tool) resourceReqs() (k8sv1.ResourceRequirements, error) {
+	tool.Task.infof("begin handle resource requirements")
 	var cpuReq, cpuLim int64
 	var memReq, memLim int64
 
@@ -435,7 +436,7 @@ func (tool *Tool) resourceReqs() (k8sv1.ResourceRequirements, error) {
 	// discern user specified settings
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
 	for _, requirement := range tool.Task.Root.Requirements {
-		if requirement.Class == "ResourceRequirement" {
+		if requirement.Class == CWLResourceRequirement {
 			// for info on quantities, see: https://godoc.org/k8s.io/apimachinery/pkg/api/resource#Quantity
 			if requirement.CoresMin > 0 {
 				cpuReq = int64(requirement.CoresMin)
@@ -469,17 +470,17 @@ func (tool *Tool) resourceReqs() (k8sv1.ResourceRequirements, error) {
 	reqVals := []int64{cpuReq, cpuLim, memReq, memLim}
 	for _, val := range reqVals {
 		if val < 0 {
-			return resourceReqs, tool.Task.Log.Event.error("negative memory or cores requirement specified")
+			return resourceReqs, tool.Task.errorf("negative memory or cores requirement specified")
 		}
 	}
 
 	// verify valid bounds if both min and max specified
 	if memLim > 0 && memReq > 0 && memLim < memReq {
-		return resourceReqs, tool.Task.Log.Event.error("memory maximum specified less than memory minimum specified")
+		return resourceReqs, tool.Task.errorf("memory maximum specified less than memory minimum specified")
 	}
 
 	if cpuLim > 0 && cpuReq > 0 && cpuLim < cpuReq {
-		return resourceReqs, tool.Task.Log.Event.error("cores maximum specified less than cores minimum specified")
+		return resourceReqs, tool.Task.errorf("cores maximum specified less than cores minimum specified")
 	}
 
 	// only overwrite default limits if requirements specified in the CWL by user
@@ -490,6 +491,7 @@ func (tool *Tool) resourceReqs() (k8sv1.ResourceRequirements, error) {
 		resourceReqs.Limits = limits
 	}
 
+	tool.Task.infof("end handle resource requirements")
 	return resourceReqs, nil
 }
 

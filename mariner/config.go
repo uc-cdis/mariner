@@ -20,6 +20,11 @@ const (
 	s3sidecar     = "s3sidecar"
 	gen3fuse      = "gen3fuse"
 
+	// default task docker image
+	// this should be in the external config
+	// not in the codebase
+	defaultTaskContainerImage = "ubuntu"
+
 	// volume names
 	engineWorkspaceVolumeName = "engine-workspace"
 	commonsDataVolumeName     = "commons-data"
@@ -58,7 +63,8 @@ const (
 	CWLCommandLineTool = "CommandLineTool"
 	CWLExpressionTool  = "ExpressionTool"
 	// requirements
-	initialWorkDirRequirement = "InitialWorkDirRequirement"
+	CWLInitialWorkDirRequirement = "InitialWorkDirRequirement"
+	CWLResourceRequirement       = "ResourceRequirement"
 	// add the rest ..
 
 	// log levels

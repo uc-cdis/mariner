@@ -212,11 +212,12 @@ type Log struct {
 	LastUpdatedObj time.Time              `json:"-"`                     // okay
 	JobID          string                 `json:"jobID,omitempty"`       // okay
 	JobName        string                 `json:"jobName,omitempty"`     // keeping for now, but might be redundant w jobID
-	Status         string                 `json:"status"`                // okay
-	Stats          *Stats                 `json:"stats"`                 // TODO
-	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
-	Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
-	Output         map[string]interface{} `json:"output"`                // okay
+	ContainerImage string                 `json:"containerImage,omitempty"`
+	Status         string                 `json:"status"`             // okay
+	Stats          *Stats                 `json:"stats"`              // TODO
+	Event          EventLog               `json:"eventLog,omitempty"` // TODO
+	Input          map[string]interface{} `json:"input"`              // TODO for workflow; okay for task
+	Output         map[string]interface{} `json:"output"`             // okay
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
 }
 
