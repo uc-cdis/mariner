@@ -262,7 +262,7 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 		return nil, tool.Task.errorf("failed to load env info: %v", err)
 	}
 
-	tool.Task.infof("begin load main container spec")
+	tool.Task.infof("end load main container spec")
 	return container, nil
 }
 
