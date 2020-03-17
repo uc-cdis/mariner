@@ -202,35 +202,35 @@ func (task *Task) workingDir(runID string) string {
 
 // create working directory for this Tool
 func (tool *Tool) makeWorkingDir() error {
-	tool.Task.Log.Event.info("begin make tool working dir")
-	err := os.MkdirAll(tool.WorkingDir, 0777)
-	if err != nil {
-		return err
+	tool.Task.infof("begin make tool working dir")
+	if err := os.MkdirAll(tool.WorkingDir, 0777); err != nil {
+		return tool.Task.errorf("%v", err)
 	}
-	tool.Task.Log.Event.info("end make tool working dir")
+	tool.Task.infof("end make tool working dir")
 	return nil
 }
 
 // performs some setup for a Tool to prepare for the engine to run the Tool
 func (tool *Tool) setupTool() (err error) {
+	tool.Task.infof("begin setup tool")
 	if err = tool.makeWorkingDir(); err != nil {
-		return tool.Task.Log.Event.errorf("failed to make working dir: %v", err)
+		return tool.Task.errorf("failed to make working dir: %v", err)
 	}
 
 	// pass parameter values to input.Provided for each input
 	if err = tool.loadInputs(); err != nil {
-		return tool.Task.Log.Event.errorf("failed to load inputs: %v", err)
+		return tool.Task.errorf("failed to load inputs: %v", err)
 	}
 
 	// loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
 	if err = tool.inputsToVM(); err != nil {
-		return tool.Task.Log.Event.errorf("failed to load inputs to js vm: %v", err)
+		return tool.Task.errorf("failed to load inputs to js vm: %v", err)
 	}
 
 	if err = tool.initWorkDir(); err != nil {
-		return tool.Task.Log.Event.errorf("failed to handle initWorkDir requirement: %v", err)
+		return tool.Task.errorf("failed to handle initWorkDir requirement: %v", err)
 	}
-
+	tool.Task.infof("end setup tool")
 	return nil
 }
 
