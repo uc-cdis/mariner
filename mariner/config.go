@@ -56,8 +56,9 @@ const (
 
 	// cwl things //
 	// parameter type
-	nullType = "null"
-	fileType = "File"
+	CWLNullType      = "null"
+	CWLFileType      = "File"
+	CWLDirectoryType = "Directory"
 	// object class
 	CWLWorkflow        = "Workflow"
 	CWLCommandLineTool = "CommandLineTool"

@@ -28,7 +28,7 @@ import (
 // --- could just create a wrapper around the File type,
 // --- like FileLog or something, which implements the desired, stripped JSON encodings
 type File struct {
-	Class          string  `json:"class"`          // always "File"
+	Class          string  `json:"class"`          // always CWLFileType
 	Location       string  `json:"location"`       // path to file (same as `path`)
 	Path           string  `json:"path"`           // path to file
 	Basename       string  `json:"basename"`       // last element of location path
@@ -46,7 +46,7 @@ type File struct {
 func fileObject(path string) (fileObj *File) {
 	base, root, ext := fileFields(path)
 	fileObj = &File{
-		Class:    "File",
+		Class:    CWLFileType,
 		Location: path, // stores the full path
 		Path:     path,
 		Basename: base,
@@ -168,7 +168,7 @@ func isFile(i interface{}) (f bool) {
 		for _, key := range iMap.MapKeys() {
 			if key.Type() == reflect.TypeOf("") {
 				if key.String() == "class" {
-					if iMap.MapIndex(key).Interface() == "File" {
+					if iMap.MapIndex(key).Interface() == CWLFileType {
 						f = true
 					}
 				}

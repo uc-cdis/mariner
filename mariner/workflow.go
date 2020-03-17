@@ -78,12 +78,12 @@ func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {
 func inputParamFile(input *cwl.Input) bool {
 	fmt.Println("input.Types:")
 	printJSON(input.Types)
-	if input.Types[0].Type == "File" {
+	if input.Types[0].Type == CWLFileType {
 		return true
 	}
 	if input.Types[0].Type == "array" {
 		for _, itemType := range input.Types[0].Items {
-			if itemType.Type == "File" {
+			if itemType.Type == CWLFileType {
 				return true
 			}
 		}
@@ -95,12 +95,12 @@ func inputParamFile(input *cwl.Input) bool {
 func outputParamFile(output cwl.Output) bool {
 	fmt.Println("output.Types:")
 	printJSON(output.Types)
-	if output.Types[0].Type == "File" {
+	if output.Types[0].Type == CWLFileType {
 		return true
 	}
 	if output.Types[0].Type == "array" {
 		for _, itemType := range output.Types[0].Items {
-			if itemType.Type == "File" {
+			if itemType.Type == CWLFileType {
 				return true
 			}
 		}

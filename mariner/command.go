@@ -279,7 +279,7 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 
 	case "string", "number":
 		s, err = valFromRaw(rawInput)
-	case "File", "Directory":
+	case CWLFileType, CWLDirectoryType:
 		s, err = pathFromRaw(rawInput)
 	}
 	// string/number and file/directory share the same processing here
@@ -336,7 +336,7 @@ func itemHandler(itemType string) (handler func(interface{}) (string, error), er
 	switch itemType {
 	case "string", "number":
 		return valFromRaw, nil
-	case "File", "Directory":
+	case CWLFileType, CWLDirectoryType:
 		return pathFromRaw, nil
 	default:
 		return nil, fmt.Errorf("binding on input array with items of type %T not supported", itemType)

@@ -168,9 +168,9 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
 		// at this point we have file results captured in `results`
-		// output should be a "File" or "array of Files"
+		// output should be a CWLFileType or "array of Files"
 		// fixme - make this case handling more specific in the else condition - don't just catch anything
-		if output.Types[0].Type == "File" {
+		if output.Types[0].Type == CWLFileType {
 			// fmt.Println("output type is file")
 
 			// fixme - add error handling for cases len(results) != 1
@@ -269,7 +269,7 @@ func (tool *Tool) outputEval(output *cwl.Output, fileArray []*File) (err error) 
 
 	// here `self` is the file or array of files returned by glob (with contents loaded if so specified)
 	var self interface{}
-	if output.Types[0].Type == "File" {
+	if output.Types[0].Type == CWLFileType {
 		// indicates `self` should be a file object with keys exposed
 		// should check length fileArray - room for error here
 		self, err = preProcessContext(fileArray[0])
@@ -277,7 +277,7 @@ func (tool *Tool) outputEval(output *cwl.Output, fileArray []*File) (err error) 
 			return tool.Task.errorf("%v", err)
 		}
 	} else {
-		// Not "File" means "array of Files"
+		// Not CWLFileType means "array of Files"
 		self, err = preProcessContext(fileArray)
 		if err != nil {
 			return tool.Task.errorf("%v", err)
