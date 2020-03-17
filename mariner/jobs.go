@@ -58,26 +58,25 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err er
 }
 
 func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label string) error {
+	tool.Task.infof("begin sample resource usage")
 	cpu, mem, err := tool.resourceUsage(podsClient, label)
 	if err != nil {
-		return err
+		return tool.Task.errorf("failed to sample resource usage: %v", err)
 	}
 	p := ResourceUsageSamplePoint{
 		CPU:    cpu,
 		Memory: mem,
 	}
 	tool.Task.Log.Stats.ResourceUsage.Series.append(p)
-
-	// #log
-	fmt.Printf("collected (cpu, mem) of (%v, %v)\n", cpu, mem)
+	tool.Task.infof("end sample resource usage")
 	return nil
 }
 
 func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (cpu int64, mem int64, err error) {
+	tool.Task.infof("begin get metrics from pod")
 	podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
 	if err != nil {
-		// #log
-		return 0, 0, err
+		return 0, 0, tool.Task.errorf("failed to fetch pod list: %v", err)
 	}
 
 	// nil value for a resource usage timepoint is (0, 0)
@@ -86,19 +85,18 @@ func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (c
 	// i.e., still log the event where resource usage was not available, as a (0,0) value
 	switch l := len(podList.Items); l {
 	case 0:
-		// #log
-		return 0, 0, fmt.Errorf("no pod found for task job: %v", tool.Task.Log.JobName)
+		return 0, 0, tool.Task.errorf("no pod found for task job")
 	case 1:
 		cpu, mem = containerResourceUsage(podList.Items[0], taskContainerName)
 	default:
-		// expecting exactly one pod - though maybe it's possible there will be multiple pods,
+		// fixme - decide what to do here
+		// currently expecting exactly one pod - though maybe it's possible there will be multiple pods,
 		// if one pod is created but fails or errors, and the job controller creates a second pod
 		// while the other one is error'ing or terminating
 		// need to handle this case
-		return 0, 0, fmt.Errorf("found an unexpected number of pods associated with task job: %v; njobs: %v ", tool.Task.Log.JobName, l)
-		// log
+		return 0, 0, tool.Task.errorf("found an unexpected number of pods associated with task job; njobs: %v ", l)
 	}
-
+	tool.Task.infof("end get metrics from pod; collected (cpu, mem) of (%v, %v)", cpu, mem)
 	return cpu, mem, nil
 }
 
