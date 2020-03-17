@@ -95,6 +95,8 @@ func trimLeading(s string, char string) (suffix string, count int) {
 // creates File object for secondaryFile and loads into fileObj.SecondaryFiles field
 // unsure of where/what to check here to potentially return an error
 func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int) (err error) {
+	tool.Task.infof("begin load secondaryFiles from pattern for file: %v", fileObj.Path)
+
 	path := fileObj.Location // full path -> no need to handle prefix issue here
 	// however many chars there are
 	// trim that number of file extentions from the end of the path
@@ -106,13 +108,13 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 	path = path + suffix // append suffix (which is the original pattern with leading carats trimmed)
 
 	// check whether file exists
-	fileExists, err := exists(path)
-	// HERE - TODO - decide how to handle case of secondaryFiles that don't exist - warning or error? still append file obj to list or not?
+	// fixme: decide how to handle case of secondaryFiles that don't exist - warning or error? still append file obj to list or not?
 	// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
+	fileExists, err := exists(path)
 	switch {
 	case fileExists:
 		// the secondaryFile exists
-		fmt.Printf("\tfound secondary file %v\n", path)
+		tool.Task.infof("found secondaryFile: %v", path)
 
 		// construct file object for this secondary file
 		sFile := fileObject(path)
@@ -124,8 +126,9 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 		// the secondaryFile does not exist
 		// if anything, this should be a warning - not an error
 		// presently in this case, the secondaryFile object does NOT get appended to fileObj.SecondaryFiles
-		fmt.Printf("\tWARNING: secondary file %v not found\n", path)
+		tool.Task.warnf("secondaryFile not found: %v", path)
 	}
+	tool.Task.infof("end load secondaryFiles from pattern for file: %v", fileObj.Path)
 	return nil
 }
 
