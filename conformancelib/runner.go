@@ -8,61 +8,57 @@ import (
 	"time"
 )
 
-/*
-Short list (2/10/19):
-2. need to collect all file inputs so to stage in s3
-*/
-
 // Runner ..
 type Runner struct {
 	Token   string
 	Results *Results
 }
 
-// Results captures test results
+// Results captures test results and mariner logs of each run
 type Results struct {
-	Pass   []int
-	Fail   []int
-	Error  map[int]error
-	Manual []int // some tests need to be looked at closely, at least for now
+	Pass  map[int]*RunLog
+	Fail  map[int]*RunLog
+	Error map[int]error
+
 	// guarding against false positives
+	// some tests need to be looked at closely, at least for now
+	Manual map[int]*RunLog
 }
 
 // Run ..
 // Runner runs the given test and logs the test result
 func (r *Runner) run(test *TestCase) error {
 
-	// 1. pack the CWL to json (wf)
-	fmt.Println("--- 1. packing cwl to json")
+	// pack the CWL to json (wf)
+	fmt.Println("--- packing cwl to json")
 	wf, err := test.workflow()
 	if err != nil {
 		fmt.Println("failed at workflow()")
-		// fmt.Printf("%v\n\n", test)
 		return err
 	}
 
-	// 2. load inputs
-	fmt.Println("--- 2. loading inputs")
+	// load inputs
+	fmt.Println("--- loading inputs")
 	in, err := test.input()
 	if err != nil {
 		fmt.Println("failed at input()")
 		return err
 	}
 
-	// 3. collect tags
-	fmt.Println("--- 3. collecting tags")
+	// collect tags
+	fmt.Println("--- collecting tags")
 	tags := test.tags()
 
-	// 4. make run request to mariner
-	fmt.Println("--- 4. POSTing request to mariner")
+	// make run request to mariner
+	fmt.Println("--- POSTing request to mariner")
 	resp, err := r.requestRun(wf, in, tags)
 	if err != nil {
 		fmt.Println("failed at requestRun()")
 		return err
 	}
 
-	// 4.5. get the runID
-	fmt.Println("--- 5. extracting the runID")
+	// get the runID
+	fmt.Println("--- extracting the runID")
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -73,65 +69,69 @@ func (r *Runner) run(test *TestCase) error {
 	}
 	fmt.Println("--- runID: ", runID.RunID)
 
-	// 5. listen for done
-	fmt.Println("--- 6. waiting for run to finish")
-	err = r.waitForDone(test, runID)
+	// listen for done
+	fmt.Println("--- waiting for run to finish")
+	status, err := r.waitForDone(test, runID)
 	if err != nil {
-		// simplistic case, assuming positive test
-		r.Results.Fail = append(r.Results.Fail, test.ID)
-	}
-
-	// 6. match output
-	fmt.Println("--- 7. matching output")
-	match, err := r.matchOutput(test, runID)
-	if err != nil {
+		r.Results.Error[test.ID] = err
 		return err
 	}
 
-	// 7. save/record result
-	fmt.Println("--- 8. logging result")
-	r.logResult(test, match)
+	// fetch complete mariner logs for the test
+	runLog, err := r.fetchRunLog(runID)
+	if err != nil {
+		r.Results.Error[test.ID] = err
+		return err
+	}
+
+	// case handling for +/- tests
+	var match bool
+	switch {
+	case !test.ShouldFail && status == "completed":
+		// match output
+		fmt.Println("--- matching output")
+		match, err = r.matchOutput(test, runLog)
+		if err != nil {
+			r.Results.Error[test.ID] = err
+			return err
+		}
+
+		if match {
+			r.Results.Pass[test.ID] = runLog
+		} else {
+			r.Results.Fail[test.ID] = runLog
+		}
+
+	case !test.ShouldFail && status == "failed":
+		r.Results.Fail[test.ID] = runLog
+	case test.ShouldFail:
+		/*
+			currently flagging all negative test cases as manual checks
+			not sure where or exactly how the engine should fail
+			e.g.,
+			given a negative test, the run could fail:
+			1. at wf validation
+				i.e., when it is packed,
+				and/or when the run request is POSTed to mariner server
+			2. the job may dispatch but fail mid-run
+				i.e., status during r.waitForDone() should reach "failed"
+			3. the job may run to completion but return nothing or the incorrect output
+
+			so, until I figure out where/how to check
+			that the negative test cases are failing as expected
+			they will be flagged to be checked manually
+
+			I believe there are only a handful of them anyway
+		*/
+		r.Results.Manual[test.ID] = runLog
+	}
 
 	return nil
 }
 
-// log result of run of given TestCase
-func (r *Runner) logResult(test *TestCase, match bool) {
-	/*
-		currently flagging all negative test cases as manual checks
-		not sure where or exactly how the engine should fail
-		e.g.,
-		given a negative test, the run could fail:
-		1. at wf validation
-			i.e., when it is packed,
-			and/or when the run request is POSTed to mariner server
-		2. the job may dispatch but fail mid-run
-			i.e., status during r.waitForDone() should reach "failed"
-		3. the job may run to completion but return nothing or the incorrect output
-
-		so, until I figure out where/how to check
-		that the negative test cases are failing as expected
-		they will be flagged to be checked manually
-
-		I believe there are only a handful of them anyway
-	*/
-	switch {
-	case !test.ShouldFail && match:
-		r.Results.Pass = append(r.Results.Pass, test.ID)
-	case !test.ShouldFail && !match:
-		r.Results.Fail = append(r.Results.Fail, test.ID)
-	case test.ShouldFail:
-		r.Results.Manual = append(r.Results.Manual, test.ID)
-	}
-}
-
 // return whether desired and actual test output match
-func (r *Runner) matchOutput(test *TestCase, runID *RunIDJSON) (bool, error) {
-	out, err := r.output(runID)
-	if err != nil {
-		return false, err
-	}
-	res, err := test.matchOutput(out)
+func (r *Runner) matchOutput(test *TestCase, runLog *RunLog) (bool, error) {
+	res, err := test.matchOutput(runLog.Main.Output)
 	if err != nil {
 		return false, err
 	}
@@ -158,27 +158,27 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 }
 
 // wait for test run to complete or fail
-func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) error {
+func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, err error) {
 	done := false
 	endpt := fmt.Sprintf(fstatusEndpt, runID.RunID)
 	for !done {
-		status, err := r.status(endpt)
+		status, err = r.status(endpt)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		switch status {
+		case "running":
+			// do nothing
 		case "completed":
 			done = true
-		case "running":
 		case "failed":
-			// this may or may not be an error
-			// in the case of a negative test
-			return fmt.Errorf("run failed")
+			done = true
 		default:
 			fmt.Println("unexpected status: ", status)
 		}
+
 		time.Sleep(3 * time.Second)
 	}
-	return nil
+	return status, nil
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/uc-cdis/mariner/wflib"
 )
@@ -25,12 +26,19 @@ type AccessToken struct {
 	Token string `json:"access_token"`
 }
 
+// fixme: would be nice to be able to import the mariner lib safely importable
+// so that you can just access the type definitions without duplicating them here
+// requires a fix in mariner server/engine
+// probable only issue: marinerlib always tried to read in the configmap, no matter what
+// clearly this is problematic and needs to be fixed
+// for now.. duplicating the type definitions here
+
 // RunLog ..
 type RunLog struct {
-	// Path      string           `json:"path"` // tentative  - maybe can't write this - path to log file to write/update
-	// Request   *WorkflowRequest `json:"request"`
-	Main *Log `json:"main"`
-	// ByProcess map[string]*Log  `json:"byProcess"`
+	Path      string           `json:"-"`
+	Request   *WorkflowRequest `json:"request"`
+	Main      *Log             `json:"main"`
+	ByProcess map[string]*Log  `json:"byProcess"`
 }
 
 // LogJSON ..
@@ -50,21 +58,51 @@ type RunIDJSON struct {
 
 // Log ..
 type Log struct {
-	/*
-		Created        string                 `json:"created,omitempty"`
-		CreatedObj     time.Time              `json:"-"`
-		LastUpdated    string                 `json:"lastUpdated,omitempty"`
-		LastUpdatedObj time.Time              `json:"-"`
-		JobID          string                 `json:"jobID,omitempty"`
-		JobName        string                 `json:"jobName,omitempty"`
-		Status         string                 `json:"status"`
-		Stats          *Stats                 `json:"stats"`
-		Event          EventLog               `json:"eventLog,omitempty"`
-		Input          map[string]interface{} `json:"input"`
-		Scatter        map[int]*Log           `json:"scatter,omitempty"`
-	*/
-	Output map[string]interface{} `json:"output"` // okay
+	Created        string                 `json:"created,omitempty"`
+	CreatedObj     time.Time              `json:"-"`
+	LastUpdated    string                 `json:"lastUpdated,omitempty"`
+	LastUpdatedObj time.Time              `json:"-"`
+	JobID          string                 `json:"jobID,omitempty"`
+	JobName        string                 `json:"jobName,omitempty"`
+	Status         string                 `json:"status"`
+	Stats          *Stats                 `json:"stats"`
+	Event          EventLog               `json:"eventLog,omitempty"`
+	Input          map[string]interface{} `json:"input"`
+	Scatter        map[int]*Log           `json:"scatter,omitempty"`
+	Output         map[string]interface{} `json:"output"` // okay
 }
+
+// Stats holds performance stats for a given process
+// recorded for tasks as well as workflows
+// Runtime for a workflow is the sum of runtime of that workflow's steps
+type Stats struct {
+	CPUReq        ResourceRequirement `json:"cpuReq"` // in-progress
+	MemoryReq     ResourceRequirement `json:"memReq"` // in-progress
+	ResourceUsage ResourceUsage       `json:"resourceUsage"`
+	Duration      float64             `json:"duration"`  // okay - currently measured in minutes
+	DurationObj   time.Duration       `json:"-"`         // okay
+	NFailures     int                 `json:"nfailures"` // TODO
+	NRetries      int                 `json:"nretries"`  // TODO
+}
+
+type ResourceRequirement struct {
+	Min int64 `json:"min"`
+	Max int64 `json:"max"`
+}
+
+type ResourceUsage struct {
+	Series         ResourceUsageSeries `json:"data"`
+	SamplingPeriod int                 `json:"samplingPeriod"`
+}
+
+type ResourceUsageSeries []ResourceUsageSamplePoint
+
+type ResourceUsageSamplePoint struct {
+	CPU    int64 `json:"cpu"`
+	Memory int64 `json:"mem"`
+}
+
+type EventLog []string
 
 const (
 	// of course, avoid hardcoding
@@ -132,7 +170,7 @@ func (r *Runner) status(url string) (string, error) {
 }
 
 // return output JSON from test run with given runID
-func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
+func (r *Runner) fetchRunLog(runID *RunIDJSON) (*RunLog, error) {
 	url := fmt.Sprintf(flogsEndpt, runID.RunID)
 	resp, err := r.request("GET", url, nil)
 	if err != nil {
@@ -150,10 +188,6 @@ func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
 		fmt.Println(string(b))
 	*/
 
-	// HERE fixme
-	// resp body is {"log": mainLog}
-	// need to fix RunLog type struct to match this
-
 	err = json.Unmarshal(b, j)
 	if err != nil {
 		return nil, err
@@ -164,7 +198,7 @@ func (r *Runner) output(runID *RunIDJSON) (map[string]interface{}, error) {
 		printJSON(j)
 	*/
 
-	return j.Log.Main.Output, nil
+	return j.Log, nil
 }
 
 func (r *Runner) requestRun(wf *wflib.WorkflowJSON, in map[string]interface{}, tags map[string]string) (*http.Response, error) {

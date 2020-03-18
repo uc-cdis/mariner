@@ -78,6 +78,9 @@ func NewRunner(tok string) *Runner {
 		Token:   tok,
 		Results: new(Results),
 	}
+	r.Results.Pass = make(map[int]*RunLog)
+	r.Results.Fail = make(map[int]*RunLog)
+	r.Results.Manual = make(map[int]*RunLog)
 	r.Results.Error = make(map[int]error)
 	return r
 }
