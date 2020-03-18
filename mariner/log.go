@@ -324,7 +324,7 @@ func (engine *K8sEngine) warnf(f string, v ...interface{}) {
 }
 
 func (engine *K8sEngine) infof(f string, v ...interface{}) {
-	engine.infof(f, v...)
+	engine.Log.Main.Event.infof(f, v...)
 }
 
 func (task *Task) errorf(f string, v ...interface{}) error {
