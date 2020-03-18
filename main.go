@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -24,10 +23,8 @@ usage:
 func main() {
 	switch os.Args[1] {
 	case "listen":
-		fmt.Println("running mariner-server..")
 		mariner.RunServer() // should this function return an error?
 	case "run":
-		fmt.Println("running mariner-engine..")
 		runID := os.Args[2]
 		if err := mariner.Engine(runID); err != nil {
 			log.Fatal(err)
