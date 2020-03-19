@@ -136,8 +136,8 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
 				OriginalStep: &curTask.Root.Steps[i],
-				Done:         &falseVal,
 				Log:          logger(),
+				Done:         &falseVal,
 			}
 			engine.Log.ByProcess[step.ID] = newTask.Log
 
@@ -197,6 +197,7 @@ func (engine *K8sEngine) runWorkflow() error {
 				Root:       process,
 				Parameters: params,
 				Log:        logger(), // initialize empty Log object with status NOT_STARTED
+				Done:       &falseVal,
 			}
 		}
 	}
