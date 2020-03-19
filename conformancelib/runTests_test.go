@@ -106,7 +106,7 @@ func TestRun(t *testing.T) {
 
 	// define filter
 	filters := &FilterSet{
-		// ID: []int{4, 5, 6, 7, 8},
+		ID: []int{1},
 	}
 
 	// apply filter
@@ -118,7 +118,11 @@ func TestRun(t *testing.T) {
 
 	// run the tests - results sent to stdout
 	creds := "./creds.json"
-	if err = RunTests(tests, creds); err != nil {
-		t.Errorf("err: %v", err)
+	runner, err := RunTests(tests, creds)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = runner.writeResults(""); err != nil {
+		t.Error(err)
 	}
 }

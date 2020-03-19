@@ -4,14 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"time"
 )
 
 // Runner ..
 type Runner struct {
-	Token   string
-	Results *Results
+	Token     string   `json:"-"`
+	Timestamp string   `json:"timestamp"`
+	Duration  string   `json:"duration"`
+	Results   *Results `json:"results"`
 }
 
 // Results captures test results and mariner logs of each run
@@ -27,22 +30,31 @@ type Results struct {
 
 // Run ..
 // Runner runs the given test and logs the test result
-func (r *Runner) run(test *TestCase) error {
+func (r *Runner) run(test *TestCase) (err error) {
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = fmt.Errorf("runner panicked: %v", panicErr)
+			r.Results.Error[test.ID] = err
+		}
+	}()
+
 	fmt.Printf("------ running test %v ------\n", test.ID)
 
 	// pack the CWL to json (wf)
 	fmt.Println("--- packing cwl to json")
 	wf, err := test.workflow()
 	if err != nil {
-		fmt.Println("failed at workflow()")
+		r.Results.Error[test.ID] = err
 		return err
 	}
+
+	// here - write error logger that returns err
 
 	// load inputs
 	fmt.Println("--- loading inputs")
 	in, err := test.input()
 	if err != nil {
-		fmt.Println("failed at input()")
+		r.Results.Error[test.ID] = err
 		return err
 	}
 
@@ -54,17 +66,19 @@ func (r *Runner) run(test *TestCase) error {
 	fmt.Println("--- POSTing request to mariner")
 	resp, err := r.requestRun(wf, in, tags)
 	if err != nil {
-		fmt.Println("failed at requestRun()")
+		r.Results.Error[test.ID] = err
 		return err
 	}
 
 	// get the runID
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		r.Results.Error[test.ID] = err
 		return err
 	}
 	runID := &RunIDJSON{}
 	if err = json.Unmarshal(b, runID); err != nil {
+		r.Results.Error[test.ID] = err
 		return err
 	}
 	fmt.Println("--- runID:", runID.RunID)
@@ -128,7 +142,7 @@ func (r *Runner) run(test *TestCase) error {
 		r.Results.Manual[test.ID] = runLog
 	}
 
-	return nil
+	return err
 }
 
 // return whether desired and actual test output match
@@ -146,15 +160,17 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 	// desired:	t.Output
 	// actual:	testOut
 	match := reflect.DeepEqual(t.Output, testOut)
-	if match {
-		fmt.Println("these are equal*")
-	} else {
-		fmt.Println("these are not equal*")
-	}
-	fmt.Println("expected:")
-	printJSON(t.Output)
-	fmt.Println("got:")
-	printJSON(testOut)
+	/*
+		if match {
+			fmt.Println("these are equal*")
+		} else {
+			fmt.Println("these are not equal*")
+		}
+		fmt.Println("expected:")
+		printJSON(t.Output)
+		fmt.Println("got:")
+		printJSON(testOut)
+	*/
 	return match, nil
 }
 
@@ -182,4 +198,27 @@ func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, e
 		time.Sleep(3 * time.Second)
 	}
 	return status, nil
+}
+
+func (r *Runner) writeResults(outPath string) error {
+
+	// if no outpath specified, write to default outpath
+	if outPath == "" {
+		outPath = fmt.Sprintf("conformance%v.json", r.Timestamp)
+	}
+
+	fmt.Printf("------ writing test results to %v ------\n", outPath)
+
+	b, err := json.MarshalIndent(r, "", "    ")
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(outPath)
+	if err != nil {
+		return err
+	}
+	if _, err = f.Write(b); err != nil {
+		return err
+	}
+	return nil
 }

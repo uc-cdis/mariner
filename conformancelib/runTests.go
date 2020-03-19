@@ -42,29 +42,20 @@ send list of input files to stdout (optional filter flag):
 // RunTests ..
 // 'creds' is path/to/creds.json which is what you get
 // when you create and download an apiKey from the portal
-func RunTests(tests []*TestCase, creds string) error {
+func RunTests(tests []*TestCase, creds string) (*Runner, error) {
 
 	tok, err := token(creds)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	r := NewRunner(tok)
+	runner := NewRunner(tok)
 
 	start := time.Now()
-	r.runTests(tests)
-	t := time.Since(start)
+	runner.runTests(tests)
+	runner.Duration = time.Since(start).String()
 
-	// for now
-	fmt.Println("here are the results:")
-	// printJSON(r.Results)
-	fmt.Printf("pass: %v\n", len(r.Results.Pass))
-	fmt.Printf("fail: %v\n", len(r.Results.Fail))
-	fmt.Printf("manual: %v\n", len(r.Results.Manual))
-	fmt.Printf("total: %v\n", len(tests))
-	fmt.Printf("runTime: %v\n", t)
-
-	return nil
+	return runner, nil
 }
 
 func (r *Runner) runTests(tests []*TestCase) error {
@@ -85,8 +76,9 @@ func (r *Runner) runTests(tests []*TestCase) error {
 // NewRunner ..
 func NewRunner(tok string) *Runner {
 	r := &Runner{
-		Token:   tok,
-		Results: new(Results),
+		Token:     tok,
+		Results:   new(Results),
+		Timestamp: time.Now().Format("010206150405"),
 	}
 	r.Results.Pass = make(map[int]*RunLog)
 	r.Results.Fail = make(map[int]*RunLog)
