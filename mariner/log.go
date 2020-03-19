@@ -321,10 +321,12 @@ func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
 
 func (engine *K8sEngine) warnf(f string, v ...interface{}) {
 	engine.Log.Main.Event.warnf(f, v...)
+	engine.Log.write()
 }
 
 func (engine *K8sEngine) infof(f string, v ...interface{}) {
 	engine.Log.Main.Event.infof(f, v...)
+	engine.Log.write()
 }
 
 func (task *Task) errorf(f string, v ...interface{}) error {
