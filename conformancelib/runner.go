@@ -44,18 +44,16 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Println("--- packing cwl to json")
 	wf, err := test.workflow()
 	if err != nil {
-		r.Results.Error[test.ID] = err
-		return err
+		return r.logError(test, err)
 	}
 
-	// here - write error logger that returns err
+	// HERE - write error logger that returns err
 
 	// load inputs
 	fmt.Println("--- loading inputs")
 	in, err := test.input()
 	if err != nil {
-		r.Results.Error[test.ID] = err
-		return err
+		return r.logError(test, err)
 	}
 
 	// collect tags
@@ -66,20 +64,17 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Println("--- POSTing request to mariner")
 	resp, err := r.requestRun(wf, in, tags)
 	if err != nil {
-		r.Results.Error[test.ID] = err
-		return err
+		return r.logError(test, err)
 	}
 
 	// get the runID
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		r.Results.Error[test.ID] = err
-		return err
+		return r.logError(test, err)
 	}
 	runID := &RunIDJSON{}
 	if err = json.Unmarshal(b, runID); err != nil {
-		r.Results.Error[test.ID] = err
-		return err
+		return r.logError(test, err)
 	}
 	fmt.Println("--- runID:", runID.RunID)
 
@@ -87,15 +82,13 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Println("--- waiting for run to finish")
 	status, err := r.waitForDone(test, runID)
 	if err != nil {
-		r.Results.Error[test.ID] = err
-		return err
+		return r.logError(test, err)
 	}
 
 	// fetch complete mariner logs for the test
 	runLog, err := r.fetchRunLog(runID)
 	if err != nil {
-		r.Results.Error[test.ID] = err
-		return err
+		return r.logError(test, err)
 	}
 
 	fmt.Println("--- run status:", status)
@@ -108,8 +101,7 @@ func (r *Runner) run(test *TestCase) (err error) {
 		fmt.Println("--- matching output")
 		match, err = r.matchOutput(test, runLog)
 		if err != nil {
-			r.Results.Error[test.ID] = err
-			return err
+			return r.logError(test, err)
 		}
 
 		if match {
@@ -221,4 +213,9 @@ func (r *Runner) writeResults(outPath string) error {
 		return err
 	}
 	return nil
+}
+
+func (r *Runner) logError(test *TestCase, err error) error {
+	r.Results.Error[test.ID] = err
+	return err
 }
