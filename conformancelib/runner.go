@@ -34,7 +34,6 @@ func (r *Runner) run(test *TestCase) (err error) {
 	defer func() {
 		if panicErr := recover(); panicErr != nil {
 			err = fmt.Errorf("runner panicked: %v", panicErr)
-			r.Results.Error[test.ID] = err
 		}
 	}()
 
@@ -44,7 +43,7 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Println("--- packing cwl to json")
 	wf, err := test.workflow()
 	if err != nil {
-		return r.logError(test, err)
+		return err
 	}
 
 	// HERE - write error logger that returns err
@@ -53,7 +52,7 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Println("--- loading inputs")
 	in, err := test.input()
 	if err != nil {
-		return r.logError(test, err)
+		return err
 	}
 
 	// collect tags
@@ -64,17 +63,17 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Println("--- POSTing request to mariner")
 	resp, err := r.requestRun(wf, in, tags)
 	if err != nil {
-		return r.logError(test, err)
+		return err
 	}
 
 	// get the runID
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return r.logError(test, err)
+		return err
 	}
 	runID := &RunIDJSON{}
 	if err = json.Unmarshal(b, runID); err != nil {
-		return r.logError(test, err)
+		return err
 	}
 	fmt.Println("--- runID:", runID.RunID)
 
@@ -82,13 +81,13 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Println("--- waiting for run to finish")
 	status, err := r.waitForDone(test, runID)
 	if err != nil {
-		return r.logError(test, err)
+		return err
 	}
 
 	// fetch complete mariner logs for the test
 	runLog, err := r.fetchRunLog(runID)
 	if err != nil {
-		return r.logError(test, err)
+		return err
 	}
 
 	fmt.Println("--- run status:", status)
@@ -101,7 +100,7 @@ func (r *Runner) run(test *TestCase) (err error) {
 		fmt.Println("--- matching output")
 		match, err = r.matchOutput(test, runLog)
 		if err != nil {
-			return r.logError(test, err)
+			return err
 		}
 
 		if match {

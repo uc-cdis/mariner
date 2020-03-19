@@ -1,7 +1,6 @@
 package conformance
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -58,19 +57,17 @@ func RunTests(tests []*TestCase, creds string) (*Runner, error) {
 	return runner, nil
 }
 
-func (r *Runner) runTests(tests []*TestCase) error {
+func (r *Runner) runTests(tests []*TestCase) {
 	var err error
 	for _, test := range tests {
-		// could make a channel to capture errors from individual tests
-		// go runTest(test, tok)
 
 		// dev with sequential, then make concurrent (?)
+		// go runTest(test, tok)
+
 		if err = r.run(test); err != nil {
-			fmt.Println("err running test: ", err)
-			r.Results.Error[test.ID] = err
+			r.logError(test, err)
 		}
 	}
-	return nil
 }
 
 // NewRunner ..
