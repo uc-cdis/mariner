@@ -58,6 +58,7 @@ func Engine(runID string) (err error) {
 
 	defer func() {
 		if r := recover(); r != nil {
+			engine.Log.Main.Status = failed
 			err = engine.errorf("mariner panicked: %v", r)
 		}
 	}()
