@@ -52,7 +52,7 @@ func RunTests(tests []*TestCase, creds string) (*Runner, error) {
 
 	start := time.Now()
 	runner.runTests(tests)
-	runner.Duration = time.Since(start).String()
+	runner.Duration = time.Since(start).Truncate(1 * time.Second).String()
 
 	return runner, nil
 }
