@@ -143,7 +143,7 @@ func check(err error) {
 }
 
 func (mainLog *MainLog) write() error {
-	fmt.Println("writing main log..")
+	// fmt.Println("writing main log..")
 
 	// apply/update timestamps on the main log
 	// not sure if I should collect timestamps of all writes
@@ -164,10 +164,10 @@ func (mainLog *MainLog) write() error {
 		log.Engine.LastUpdated = t
 	*/
 
-	fmt.Println("marshalling MainLog to json..")
+	// fmt.Println("marshalling MainLog to json..")
 	j, err := json.Marshal(*mainLog)
 	check(err)
-	fmt.Println("writing data to file..")
+	// fmt.Println("writing data to file..")
 	err = ioutil.WriteFile(mainLog.Path, j, 0644)
 	check(err)
 	return nil
