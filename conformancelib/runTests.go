@@ -1,6 +1,9 @@
 package conformance
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 /*
 what are all the required params to run the tests?
@@ -45,14 +48,21 @@ func RunTests(tests []*TestCase, creds string) error {
 	if err != nil {
 		return err
 	}
+
 	r := NewRunner(tok)
+
+	start := time.Now()
 	r.runTests(tests)
+	t := time.Since(start)
 
 	// for now
 	fmt.Println("here are the results:")
-	printJSON(r.Results)
-
-	fmt.Println("fin")
+	// printJSON(r.Results)
+	fmt.Printf("pass: %v\n", len(r.Results.Pass))
+	fmt.Printf("fail: %v\n", len(r.Results.Fail))
+	fmt.Printf("manual: %v\n", len(r.Results.Manual))
+	fmt.Printf("total: %v\n", len(tests))
+	fmt.Printf("runTime: %v\n", t)
 
 	return nil
 }

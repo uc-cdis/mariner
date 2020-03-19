@@ -96,7 +96,7 @@ to handle:
 */
 
 func TestRun(t *testing.T) {
-	// goal: run 1 simple test, round trip
+	// goal: run 1 simple test, round trip - achieved!
 
 	// load in all tests
 	allTests, err := loadConfig(config)
@@ -106,15 +106,15 @@ func TestRun(t *testing.T) {
 
 	// define filter
 	filters := &FilterSet{
-		ID: []int{1},
+		// ID: []int{4, 5, 6, 7, 8},
 	}
 
 	// apply filter
 	tests := filters.apply(allTests)
 
 	// look at the test set
-	fmt.Println("running these tests:")
-	printJSON(tests)
+	// fmt.Println("running these tests:")
+	// printJSON(tests)
 
 	// run the tests - results sent to stdout
 	creds := "./creds.json"

@@ -28,6 +28,7 @@ type Results struct {
 // Run ..
 // Runner runs the given test and logs the test result
 func (r *Runner) run(test *TestCase) error {
+	fmt.Printf("------ running test %v ------\n", test.ID)
 
 	// pack the CWL to json (wf)
 	fmt.Println("--- packing cwl to json")
@@ -58,7 +59,6 @@ func (r *Runner) run(test *TestCase) error {
 	}
 
 	// get the runID
-	fmt.Println("--- extracting the runID")
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (r *Runner) run(test *TestCase) error {
 	if err = json.Unmarshal(b, runID); err != nil {
 		return err
 	}
-	fmt.Println("--- runID: ", runID.RunID)
+	fmt.Println("--- runID:", runID.RunID)
 
 	// listen for done
 	fmt.Println("--- waiting for run to finish")
@@ -83,6 +83,8 @@ func (r *Runner) run(test *TestCase) error {
 		r.Results.Error[test.ID] = err
 		return err
 	}
+
+	fmt.Println("--- run status:", status)
 
 	// case handling for +/- tests
 	var match bool
@@ -144,7 +146,6 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 	// desired:	t.Output
 	// actual:	testOut
 	match := reflect.DeepEqual(t.Output, testOut)
-	fmt.Println("-----------------")
 	if match {
 		fmt.Println("these are equal*")
 	} else {
@@ -175,7 +176,7 @@ func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, e
 		case "failed":
 			done = true
 		default:
-			fmt.Println("unexpected status: ", status)
+			// fmt.Println("unexpected status: ", status)
 		}
 
 		time.Sleep(3 * time.Second)
