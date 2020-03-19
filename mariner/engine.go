@@ -55,6 +55,13 @@ type Tool struct {
 // Engine runs an instance of the mariner engine job
 func Engine(runID string) (err error) {
 	engine := engine(runID)
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = engine.errorf("mariner panicked: %v", r)
+		}
+	}()
+
 	if err = engine.loadRequest(runID); err != nil {
 		return engine.errorf("failed to load workflow request: %v", err)
 	}
@@ -65,7 +72,7 @@ func Engine(runID string) (err error) {
 	if err = done(runID); err != nil {
 		return engine.errorf("failed to signal engine completion to sidecar containers: %v", err)
 	}
-	return nil
+	return err
 }
 
 // get WorkflowRequest object
