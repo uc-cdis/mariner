@@ -11,14 +11,33 @@ import (
 
 // Runner ..
 type Runner struct {
-	Token     string   `json:"-"`
-	Timestamp string   `json:"timestamp"`
-	Duration  string   `json:"duration"`
-	Results   *Results `json:"results"`
+	Token     string      `json:"-"`
+	Timestamp string      `json:"timestamp"`
+	Duration  string      `json:"duration"`
+	Results   *Counts     `json:"results"`
+	Log       *ResultsLog `json:"log"`
+}
+
+// Counts ..
+type Counts struct {
+
+	/*
+		coverage == pass / (pass + fail) ; NOT  pass / total
+		i.e., this score does not reflect tests flagged as "manual"
+		eventually, all tests will be fully automated and we can remove this precautionary note
+
+		HERE - rethink this - make it super simple - don't make it complicated at all
+	*/
+	Coverage float64
+
+	Pass   int
+	Fail   int
+	Manual int
+	Total  int
 }
 
 // Results captures test results and mariner logs of each run
-type Results struct {
+type ResultsLog struct {
 	Pass  map[int]*RunLog
 	Fail  map[int]*RunLog
 	Error map[int]error
@@ -104,13 +123,13 @@ func (r *Runner) run(test *TestCase) (err error) {
 		}
 
 		if match {
-			r.Results.Pass[test.ID] = runLog
+			r.Log.Pass[test.ID] = runLog
 		} else {
-			r.Results.Fail[test.ID] = runLog
+			r.Log.Fail[test.ID] = runLog
 		}
 
 	case !test.ShouldFail && status == "failed":
-		r.Results.Fail[test.ID] = runLog
+		r.Log.Fail[test.ID] = runLog
 	case test.ShouldFail:
 		/*
 			currently flagging all negative test cases as manual checks
@@ -130,7 +149,7 @@ func (r *Runner) run(test *TestCase) (err error) {
 
 			I believe there are only a handful of them anyway
 		*/
-		r.Results.Manual[test.ID] = runLog
+		r.Log.Manual[test.ID] = runLog
 	}
 
 	return err
@@ -215,6 +234,6 @@ func (r *Runner) writeResults(outPath string) error {
 }
 
 func (r *Runner) logError(test *TestCase, err error) error {
-	r.Results.Error[test.ID] = err
+	r.Log.Error[test.ID] = err
 	return err
 }

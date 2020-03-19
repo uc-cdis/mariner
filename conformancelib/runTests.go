@@ -68,18 +68,29 @@ func (r *Runner) runTests(tests []*TestCase) {
 			r.logError(test, err)
 		}
 	}
+	r.tally()
+}
+
+func (r *Runner) tally() {
+	r.Results.Pass = len(r.Log.Pass)
+	r.Results.Fail = len(r.Log.Error) + len(r.Log.Fail)
+	r.Results.Manual = len(r.Log.Manual)
+
+	// rethink this.. make it simple. don't make it complicated
+	r.Results.Coverage = float64(r.Results.Pass) / float64(r.Results.Pass+r.Results.Fail)
+	r.Results.Total = r.Results.Pass + r.Results.Fail + r.Results.Manual
 }
 
 // NewRunner ..
 func NewRunner(tok string) *Runner {
 	r := &Runner{
 		Token:     tok,
-		Results:   new(Results),
+		Log:       new(ResultsLog),
 		Timestamp: time.Now().Format("010206150405"),
 	}
-	r.Results.Pass = make(map[int]*RunLog)
-	r.Results.Fail = make(map[int]*RunLog)
-	r.Results.Manual = make(map[int]*RunLog)
-	r.Results.Error = make(map[int]error)
+	r.Log.Pass = make(map[int]*RunLog)
+	r.Log.Fail = make(map[int]*RunLog)
+	r.Log.Manual = make(map[int]*RunLog)
+	r.Log.Error = make(map[int]error)
 	return r
 }
