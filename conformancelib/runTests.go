@@ -1,6 +1,8 @@
 package conformance
 
 import (
+	"fmt"
+	"sync"
 	"time"
 )
 
@@ -59,19 +61,49 @@ func RunTests(tests []*TestCase, creds string, async *Async) (*Runner, error) {
 
 func (r *Runner) runTests(tests []*TestCase) {
 	var err error
-	for _, test := range tests {
 
-		switch {
-		case r.Async.Enabled:
-			// run tests concurrently
-		default:
+	fmt.Println("async:")
+	printJSON(r.Async)
+
+	switch {
+	case r.Async.Enabled:
+		r.Async.WaitGroup = sync.WaitGroup{}
+		for _, test := range tests {
+			r.runAsync(test)
+		}
+		r.Async.WaitGroup.Wait()
+	default:
+		for _, test := range tests {
 			if err = r.run(test); err != nil {
 				r.logError(test, err)
 			}
 		}
-
 	}
 	r.tally()
+}
+
+// if number of jobs running is equal to maxThreads
+// wait for a job to finish before launching this job
+func (r *Runner) waitForWorker() {
+	// fmt.Println("nrunning: ", r.Async.NRunning)
+	for r.Async.NRunning >= r.Async.MaxConcurrent {
+		time.Sleep(10 * time.Second)
+		// fmt.Println("nrunning: ", r.Async.NRunning)
+	}
+}
+
+func (r *Runner) runAsync(test *TestCase) {
+	// time.Sleep(2 * time.Second)
+	r.waitForWorker()
+	r.Async.NRunning++
+	r.Async.WaitGroup.Add(1)
+	go func() {
+		if err := r.run(test); err != nil {
+			r.logError(test, err)
+		}
+		r.Async.NRunning--
+		r.Async.WaitGroup.Done()
+	}()
 }
 
 func (r *Runner) tally() {

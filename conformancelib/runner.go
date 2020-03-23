@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,8 @@ type Runner struct {
 type Async struct {
 	Enabled       bool
 	MaxConcurrent int
+	NRunning      int            `json:"-"`
+	WaitGroup     sync.WaitGroup `json:"-"`
 }
 
 // Counts ..
@@ -57,27 +60,25 @@ func (r *Runner) run(test *TestCase) (err error) {
 	fmt.Printf("------ running test %v ------\n", test.ID)
 
 	// pack the CWL to json (wf)
-	fmt.Println("--- packing cwl to json")
+	fmt.Printf("--- %v - packing cwl to json\n", test.ID)
 	wf, err := test.workflow()
 	if err != nil {
 		return err
 	}
 
-	// HERE - write error logger that returns err
-
 	// load inputs
-	fmt.Println("--- loading inputs")
+	fmt.Printf("--- %v - loading inputs\n", test.ID)
 	in, err := test.input()
 	if err != nil {
 		return err
 	}
 
 	// collect tags
-	fmt.Println("--- collecting tags")
+	fmt.Printf("--- %v - collecting tags\n", test.ID)
 	tags := test.tags()
 
 	// make run request to mariner
-	fmt.Println("--- POSTing request to mariner")
+	fmt.Printf("--- %v - POSTing request to mariner\n", test.ID)
 	resp, err := r.requestRun(wf, in, tags)
 	if err != nil {
 		return err
@@ -92,10 +93,10 @@ func (r *Runner) run(test *TestCase) (err error) {
 	if err = json.Unmarshal(b, runID); err != nil {
 		return err
 	}
-	fmt.Println("--- runID:", runID.RunID)
+	fmt.Printf("--- %v - runID: %v\n", test.ID, runID.RunID)
 
 	// listen for done
-	fmt.Println("--- waiting for run to finish")
+	fmt.Printf("--- %v - waiting for run to finish\n", test.ID)
 	status, err := r.waitForDone(test, runID)
 	if err != nil {
 		return err
@@ -107,14 +108,14 @@ func (r *Runner) run(test *TestCase) (err error) {
 		return err
 	}
 
-	fmt.Println("--- run status:", status)
+	fmt.Printf("--- %v - run status: %v\n", test.ID, status)
 
 	// case handling for +/- tests
 	var match bool
 	switch {
 	case !test.ShouldFail && status == "completed":
 		// match output
-		fmt.Println("--- matching output")
+		fmt.Printf("--- %v - matching output\n", test.ID)
 		match, err = r.matchOutput(test, runLog)
 		if err != nil {
 			return err

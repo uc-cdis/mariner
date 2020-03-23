@@ -106,7 +106,7 @@ func TestRun(t *testing.T) {
 
 	// define filter
 	filters := &FilterSet{
-		ID: []int{1},
+		ID: []int{1, 2, 3, 4},
 	}
 
 	// apply filter
@@ -118,7 +118,11 @@ func TestRun(t *testing.T) {
 
 	// run the tests - results sent to stdout
 	creds := "./creds.json"
-	runner, err := RunTests(tests, creds)
+	async := &Async{
+		Enabled:       true,
+		MaxConcurrent: 2,
+	}
+	runner, err := RunTests(tests, creds, async)
 	if err != nil {
 		t.Error(err)
 	}
