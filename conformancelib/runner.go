@@ -20,23 +20,14 @@ type Runner struct {
 
 // Counts ..
 type Counts struct {
-
-	/*
-		coverage == pass / (pass + fail) ; NOT  pass / total
-		i.e., this score does not reflect tests flagged as "manual"
-		eventually, all tests will be fully automated and we can remove this precautionary note
-
-		HERE - rethink this - make it super simple - don't make it complicated at all
-	*/
-	Coverage float64
-
-	Pass   int
-	Fail   int
-	Manual int
-	Total  int
+	Coverage float64 // == #pass / #total
+	Pass     int
+	Fail     int
+	Manual   int
+	Total    int
 }
 
-// Results captures test results and mariner logs of each run
+// ResultsLog captures test results and mariner logs of each run
 type ResultsLog struct {
 	Pass  map[int]*RunLog
 	Fail  map[int]*RunLog

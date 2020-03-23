@@ -75,10 +75,8 @@ func (r *Runner) tally() {
 	r.Results.Pass = len(r.Log.Pass)
 	r.Results.Fail = len(r.Log.Error) + len(r.Log.Fail)
 	r.Results.Manual = len(r.Log.Manual)
-
-	// rethink this.. make it simple. don't make it complicated
-	r.Results.Coverage = float64(r.Results.Pass) / float64(r.Results.Pass+r.Results.Fail)
 	r.Results.Total = r.Results.Pass + r.Results.Fail + r.Results.Manual
+	r.Results.Coverage = float64(r.Results.Pass) / float64(r.Results.Total)
 }
 
 // NewRunner ..
