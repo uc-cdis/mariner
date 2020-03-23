@@ -85,15 +85,12 @@ func (r *Runner) runTests(tests []*TestCase) {
 // if number of jobs running is equal to maxThreads
 // wait for a job to finish before launching this job
 func (r *Runner) waitForWorker() {
-	// fmt.Println("nrunning: ", r.Async.NRunning)
 	for r.Async.NRunning >= r.Async.MaxConcurrent {
-		time.Sleep(10 * time.Second)
-		// fmt.Println("nrunning: ", r.Async.NRunning)
+		time.Sleep(5 * time.Second)
 	}
 }
 
 func (r *Runner) runAsync(test *TestCase) {
-	// time.Sleep(2 * time.Second)
 	r.waitForWorker()
 	r.Async.NRunning++
 	r.Async.WaitGroup.Add(1)
