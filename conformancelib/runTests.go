@@ -41,14 +41,14 @@ send list of input files to stdout (optional filter flag):
 // RunTests ..
 // 'creds' is path/to/creds.json which is what you get
 // when you create and download an apiKey from the portal
-func RunTests(tests []*TestCase, creds string) (*Runner, error) {
+func RunTests(tests []*TestCase, creds string, async *Async) (*Runner, error) {
 
 	tok, err := token(creds)
 	if err != nil {
 		return nil, err
 	}
 
-	runner := NewRunner(tok)
+	runner := NewRunner(tok, async)
 
 	start := time.Now()
 	runner.runTests(tests)
@@ -61,12 +61,15 @@ func (r *Runner) runTests(tests []*TestCase) {
 	var err error
 	for _, test := range tests {
 
-		// dev with sequential, then make concurrent (?)
-		// go runTest(test, tok)
-
-		if err = r.run(test); err != nil {
-			r.logError(test, err)
+		switch {
+		case r.Async.Enabled:
+			// run tests concurrently
+		default:
+			if err = r.run(test); err != nil {
+				r.logError(test, err)
+			}
 		}
+
 	}
 	r.tally()
 }
@@ -80,12 +83,13 @@ func (r *Runner) tally() {
 }
 
 // NewRunner ..
-func NewRunner(tok string) *Runner {
+func NewRunner(tok string, async *Async) *Runner {
 	r := &Runner{
 		Token:     tok,
 		Log:       new(ResultsLog),
 		Results:   new(Counts),
 		Timestamp: time.Now().Format("010206150405"),
+		Async:     async,
 	}
 	r.Log.Pass = make(map[int]*RunLog)
 	r.Log.Fail = make(map[int]*RunLog)

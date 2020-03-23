@@ -16,6 +16,13 @@ type Runner struct {
 	Duration  string      `json:"duration"`
 	Results   *Counts     `json:"results"`
 	Log       *ResultsLog `json:"log"`
+	Async     *Async      `json:"async"`
+}
+
+// Async ..
+type Async struct {
+	Enabled       bool
+	MaxConcurrent int
 }
 
 // Counts ..
