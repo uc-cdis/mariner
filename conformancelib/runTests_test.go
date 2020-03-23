@@ -106,7 +106,7 @@ func TestRun(t *testing.T) {
 
 	// define filter
 	filters := &FilterSet{
-		ID: []int{1, 2, 3, 4},
+		ID: []int{1, 2, 3, 4, 5, 6, 7, 8},
 	}
 
 	// apply filter

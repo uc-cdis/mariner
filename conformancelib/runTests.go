@@ -68,7 +68,22 @@ func (r *Runner) runTests(tests []*TestCase) {
 	switch {
 	case r.Async.Enabled:
 		r.Async.WaitGroup = sync.WaitGroup{}
+		r.Async.InProgress = make(map[int]bool)
 		for _, test := range tests {
+			/*
+				waiting to allow there to be at least two seconds between requests to mariner
+				this is only because mariner is currently not setup
+				to handle many requests in a very short period of time (e.g., less than one second)
+
+				this little sleep statement can be removed as soon as the job naming situation is fixed
+				so that two engine jobs dispatched in the same second have different names
+
+				in general, the job naming scheme for mariner needs to be redone
+
+				need globally unique names for all jobs, not just engine jobs
+			*/
+			time.Sleep(2 * time.Second)
+
 			r.runAsync(test)
 		}
 		r.Async.WaitGroup.Wait()
@@ -86,6 +101,11 @@ func (r *Runner) runTests(tests []*TestCase) {
 // wait for a job to finish before launching this job
 func (r *Runner) waitForWorker() {
 	for r.Async.NRunning >= r.Async.MaxConcurrent {
+
+		// hang out for second
+		fmt.Println("hit maxConcurrrent; waiting for a test-in-progress to finish:")
+		printJSON(r.Async.InProgress)
+
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -95,9 +115,19 @@ func (r *Runner) runAsync(test *TestCase) {
 	r.Async.NRunning++
 	r.Async.WaitGroup.Add(1)
 	go func() {
+
+		r.Async.Mutex.Lock()
+		r.Async.InProgress[test.ID] = true
+		r.Async.Mutex.Unlock()
+
 		if err := r.run(test); err != nil {
 			r.logError(test, err)
 		}
+
+		r.Async.Mutex.Lock()
+		delete(r.Async.InProgress, test.ID)
+		r.Async.Mutex.Unlock()
+
 		r.Async.NRunning--
 		r.Async.WaitGroup.Done()
 	}()

@@ -15,9 +15,9 @@ type Runner struct {
 	Token     string      `json:"-"`
 	Timestamp string      `json:"timestamp"`
 	Duration  string      `json:"duration"`
+	Async     *Async      `json:"async"`
 	Results   *Counts     `json:"results"`
 	Log       *ResultsLog `json:"log"`
-	Async     *Async      `json:"async"`
 }
 
 // Async ..
@@ -25,6 +25,8 @@ type Async struct {
 	Enabled       bool
 	MaxConcurrent int
 	NRunning      int            `json:"-"`
+	InProgress    map[int]bool   `json:"-"`
+	Mutex         sync.Mutex     `json:"-"`
 	WaitGroup     sync.WaitGroup `json:"-"`
 }
 
@@ -80,6 +82,14 @@ func (r *Runner) run(test *TestCase) (err error) {
 	// make run request to mariner
 	fmt.Printf("--- %v - POSTing request to mariner\n", test.ID)
 	resp, err := r.requestRun(wf, in, tags)
+	/*
+		fixme: check if resp contains an error message
+		e.g., this sequence:
+		--- 1 - POSTing request to mariner
+		--- 1 - marshalling this: failed to create workflow job: jobs.batch "mariner.2020-3-23-21-18-31" already exists
+		--- 1 - marshalling RunID to json
+		--- 1 - error: invalid character 'i' in literal false (expecting 'l')
+	*/
 	if err != nil {
 		return err
 	}
@@ -89,6 +99,10 @@ func (r *Runner) run(test *TestCase) (err error) {
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("--- %v - marshalling this: %v\n", test.ID, string(b))
+
+	fmt.Printf("--- %v - marshalling RunID to json\n", test.ID)
 	runID := &RunIDJSON{}
 	if err = json.Unmarshal(b, runID); err != nil {
 		return err
@@ -233,6 +247,7 @@ func (r *Runner) writeResults(outPath string) error {
 }
 
 func (r *Runner) logError(test *TestCase, err error) error {
+	fmt.Printf("--- %v - error: %v\n", test.ID, err)
 	r.Log.Error[test.ID] = err
 	return err
 }
