@@ -86,6 +86,7 @@ func NewRunner(tok string) *Runner {
 	r := &Runner{
 		Token:     tok,
 		Log:       new(ResultsLog),
+		Results:   new(Counts),
 		Timestamp: time.Now().Format("010206150405"),
 	}
 	r.Log.Pass = make(map[int]*RunLog)
