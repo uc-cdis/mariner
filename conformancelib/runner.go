@@ -100,7 +100,7 @@ func (r *Runner) run(test *TestCase) (err error) {
 		return err
 	}
 
-	fmt.Printf("--- %v - marshalling this: %v\n", test.ID, string(b))
+	// fmt.Printf("--- %v - marshalling this: %v\n", test.ID, string(b))
 
 	fmt.Printf("--- %v - marshalling RunID to json\n", test.ID)
 	runID := &RunIDJSON{}
@@ -224,7 +224,6 @@ func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, e
 }
 
 func (r *Runner) writeResults(outPath string) error {
-
 	// if no outpath specified, write to default outpath
 	if outPath == "" {
 		outPath = fmt.Sprintf("conformance%v.json", r.Timestamp)
@@ -232,15 +231,16 @@ func (r *Runner) writeResults(outPath string) error {
 
 	fmt.Printf("------ writing test results to %v ------\n", outPath)
 
-	b, err := json.MarshalIndent(r, "", "    ")
-	if err != nil {
-		return err
-	}
 	f, err := os.Create(outPath)
+	defer f.Close()
 	if err != nil {
 		return err
 	}
-	if _, err = f.Write(b); err != nil {
+
+	encoder := json.NewEncoder(f)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err = encoder.Encode(r); err != nil {
 		return err
 	}
 	return nil

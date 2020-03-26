@@ -120,7 +120,7 @@ func TestRun(t *testing.T) {
 	creds := "./creds.json"
 	async := &Async{
 		Enabled:       true,
-		MaxConcurrent: 2,
+		MaxConcurrent: 4,
 	}
 	runner, err := RunTests(tests, creds, async)
 	if err != nil {
