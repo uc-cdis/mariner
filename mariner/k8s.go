@@ -5,7 +5,6 @@ import (
 	"math"
 	"os"
 	"strings"
-	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -31,18 +30,8 @@ func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, string, error)
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
 
-	// runID (timestamp) is generated here! can just generate it at the very beginning of this function
 	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, workflowRequest.JobName)
 	return workflowJob, workflowRequest.JobName, nil
-}
-
-// NOTE: probably can come up with a better ID for a workflow, but for now this will work
-// can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
-// so not exactly sure how to label the workflow runs besides a timestamp
-func runID() (timeStamp string) {
-	now := time.Now()
-	timeStamp = fmt.Sprintf("%v-%v-%v-%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
-	return timeStamp
 }
 
 // returns volumes field for workflow/engine job spec
@@ -53,6 +42,7 @@ func engineVolumes() (volumes []k8sv1.Volume) {
 	return volumes
 }
 
+// `runID` is the jobName of the engine job
 func engineContainers(workflowRequest *WorkflowRequest, runID string) (containers []k8sv1.Container) {
 	engine := engineContainer(runID)
 	s3sidecar := s3SidecarContainer(workflowRequest, runID)

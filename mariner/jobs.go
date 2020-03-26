@@ -39,6 +39,7 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err er
 	}
 
 	// create the workflow job spec (i.e., mariner-engine job spec)
+	// `runID` is the jobName of the engine job
 	jobSpec, runID, err := workflowJob(workflowRequest)
 	if err != nil {
 		return "", fmt.Errorf("failed to create workflow job spec: %v", err)
