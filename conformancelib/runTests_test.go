@@ -106,8 +106,26 @@ func TestRun(t *testing.T) {
 
 	// define filter
 	filters := &FilterSet{
-		ID: []int{1, 2, 3, 4, 5, 6, 7, 8},
+		ID: []int{},
 	}
+
+	// how many tests to run
+	nTests := 16
+	for i := 1; i <= nTests; i++ {
+		filters.ID = append(filters.ID, i)
+	}
+
+	// cap number of tests running at one time
+	maxConcurrent := 8
+	async := &Async{
+		Enabled:       true,
+		MaxConcurrent: maxConcurrent,
+	}
+
+	fmt.Println("nAllTests:", len(allTests))
+	fmt.Println("nTests:", nTests)
+	fmt.Println("async:")
+	printJSON(async)
 
 	// apply filter
 	tests := filters.apply(allTests)
@@ -118,10 +136,7 @@ func TestRun(t *testing.T) {
 
 	// run the tests - results sent to stdout
 	creds := "./creds.json"
-	async := &Async{
-		Enabled:       true,
-		MaxConcurrent: 4,
-	}
+
 	runner, err := RunTests(tests, creds, async)
 	if err != nil {
 		t.Error(err)

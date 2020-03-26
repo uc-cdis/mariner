@@ -61,10 +61,6 @@ func RunTests(tests []*TestCase, creds string, async *Async) (*Runner, error) {
 
 func (r *Runner) runTests(tests []*TestCase) {
 	var err error
-
-	fmt.Println("async:")
-	printJSON(r.Async)
-
 	switch {
 	case r.Async.Enabled:
 		r.Async.WaitGroup = sync.WaitGroup{}

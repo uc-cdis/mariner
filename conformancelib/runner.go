@@ -32,11 +32,11 @@ type Async struct {
 
 // Counts ..
 type Counts struct {
+	Total    int
 	Coverage float64 // == #pass / #total
 	Pass     int
 	Fail     int
 	Manual   int
-	Total    int
 }
 
 // ResultsLog captures test results and mariner logs of each run
