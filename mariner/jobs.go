@@ -100,6 +100,13 @@ func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (c
 	return cpu, mem, nil
 }
 
+// this job naming scheme makes the probability of having conflicting job names very low
+// this should be okay
+// though we can always change the naming scheme if this one doesn't work well
+func createJobName(component string) string {
+	return fmt.Sprintf("%v.%v-%v", component, time.Now().Format("010206150405"), getRandString(5))
+}
+
 // routine for collecting (cpu, mem) usage over time per-task
 func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	engine.infof("begin collect metrics for task: %v", tool.Task.Root.ID)

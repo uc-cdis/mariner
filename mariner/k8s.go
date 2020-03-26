@@ -23,24 +23,17 @@ import (
 
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, string, error) {
-	// presently this is just a timestamp - unique key is the pair (userID, runID)
-	runID := runID()
 
 	// get job spec all populated except for pod volumes and containers
-	// NOTE: FIXME - job names (task and engine) are only unique within-user, not globally (among-users) unique - need to fix
-	// actually task job names are not unique within-user either
-	// currently the only unique job names are engine within-user
-	// this needs to be fixed
-	workflowJob := jobSpec(marinerEngine, runID, workflowRequest.UserID)
+	workflowJob := jobSpec(marinerEngine, workflowRequest.UserID)
 	workflowRequest.JobName = workflowJob.GetName()
 
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
 
 	// runID (timestamp) is generated here! can just generate it at the very beginning of this function
-	// can use it to name the job
-	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, runID)
-	return workflowJob, runID, nil
+	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, workflowRequest.JobName)
+	return workflowJob, workflowRequest.JobName, nil
 }
 
 // NOTE: probably can come up with a better ID for a workflow, but for now this will work
@@ -197,7 +190,7 @@ func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
 	engine.infof("begin load job spec for task: %v", tool.Task.Root.ID)
 	jobName := tool.jobName()
 	tool.JobName = jobName
-	job = jobSpec(marinerTask, jobName, engine.UserID)
+	job = jobSpec(marinerTask, engine.UserID)
 	job.Spec.Template.Spec.Volumes = workflowVolumes()
 	job.Spec.Template.Spec.Containers, err = engine.taskContainers(tool)
 	if err != nil {
@@ -534,23 +527,15 @@ func workflowVolumes() []k8sv1.Volume {
 }
 
 // returns marinerEngine/marinerTask job spec with all fields populated EXCEPT volumes and containers
-func jobSpec(component string, name string, userID string) (job *batchv1.Job) {
+func jobSpec(component string, userID string) (job *batchv1.Job) {
 
-	// probably need a prefix of some kind on job names
-	// some hash of the userID maybe
-	// can get from token
-
-	// if marinerEngine, then `name` is the runID (i.e., timestamp)
-	if component == marinerEngine {
-		name = fmt.Sprintf("mariner.%v", name)
-	}
-
+	jobName := createJobName(component)
 	jobConfig := Config.jobConfig(component)
 	job = new(batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
-	job.Name, job.Labels = name, jobConfig.Labels
-	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
+	job.Name, job.Labels = jobName, jobConfig.Labels
+	job.Spec.Template.Name, job.Spec.Template.Labels = jobName, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
 	job.Spec.Template.Spec.Tolerations = k8sTolerations
 
