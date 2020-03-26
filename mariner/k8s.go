@@ -529,11 +529,11 @@ func workflowVolumes() []k8sv1.Volume {
 // returns marinerEngine/marinerTask job spec with all fields populated EXCEPT volumes and containers
 func jobSpec(component string, userID string) (job *batchv1.Job) {
 
-	jobName := createJobName(component)
 	jobConfig := Config.jobConfig(component)
 	job = new(batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
+	jobName := createJobName()
 	job.Name, job.Labels = jobName, jobConfig.Labels
 	job.Spec.Template.Name, job.Spec.Template.Labels = jobName, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
