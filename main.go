@@ -27,7 +27,7 @@ func main() {
 	case "run":
 		runID := os.Args[2]
 		if err := mariner.Engine(runID); err != nil {
-			log.Fatal(err)
+			log.Printf("engine failed: %v", err)
 		}
 	}
 }
