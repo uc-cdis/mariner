@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 	}
 
 	// how many tests to run
-	nTests := 16
+	nTests := 32
 	for i := 1; i <= nTests; i++ {
 		filters.ID = append(filters.ID, i)
 	}

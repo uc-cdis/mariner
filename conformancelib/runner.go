@@ -41,13 +41,21 @@ type Counts struct {
 
 // ResultsLog captures test results and mariner logs of each run
 type ResultsLog struct {
-	Pass  map[int]*RunLog
-	Fail  map[int]*RunLog
-	Error map[int]error
+	Pass map[int]*RunLog
+	Fail map[int]*FailLog
+	// Error map[int]error
 
 	// guarding against false positives
 	// some tests need to be looked at closely, at least for now
 	Manual map[int]*RunLog
+}
+
+// FailLog ..
+type FailLog struct {
+	TimeOut         bool
+	FailedToKillJob bool // if timeout -> cancel job -> if err during job cancel, set to true
+	Error           error
+	RunLog          *RunLog
 }
 
 // Run ..
@@ -138,11 +146,22 @@ func (r *Runner) run(test *TestCase) (err error) {
 		if match {
 			r.Log.Pass[test.ID] = runLog
 		} else {
-			r.Log.Fail[test.ID] = runLog
+			r.Log.Fail[test.ID].RunLog = runLog
 		}
 
-	case !test.ShouldFail && status == "failed":
-		r.Log.Fail[test.ID] = runLog
+		// fixme: make status values constants
+	case (!test.ShouldFail && status == "failed") || status == "timeout":
+		r.Log.Fail[test.ID].RunLog = runLog
+		if status == "timeout" {
+			r.Log.Fail[test.ID].TimeOut = true
+
+			// note: engine jobName is the runID - need to clarify this in all mariner code
+			cancelEndpt := fmt.Sprintf(fcancelEndpt, runLog.Main.JobName)
+			if err = r.cancelRun(cancelEndpt); err != nil {
+				r.Log.Fail[test.ID].FailedToKillJob = true
+				fmt.Printf("--- %v - failed to kill job: %v\n", test.ID, err)
+			}
+		}
 	case test.ShouldFail:
 		/*
 			currently flagging all negative test cases as manual checks
@@ -201,6 +220,12 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, err error) {
 	done := false
 	endpt := fmt.Sprintf(fstatusEndpt, runID.RunID)
+
+	// timeout after timeLimit is reached
+	// make this configurable (?) -> yes, do this
+	timeLimit := 3 * time.Minute
+	start := time.Now()
+
 	for !done {
 		status, err = r.status(endpt)
 		if err != nil {
@@ -216,6 +241,10 @@ func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, e
 			done = true
 		default:
 			// fmt.Println("unexpected status: ", status)
+		}
+
+		if time.Since(start) > timeLimit {
+			return "timeout", nil
 		}
 
 		time.Sleep(3 * time.Second)
@@ -248,6 +277,6 @@ func (r *Runner) writeResults(outPath string) error {
 
 func (r *Runner) logError(test *TestCase, err error) error {
 	fmt.Printf("--- %v - error: %v\n", test.ID, err)
-	r.Log.Error[test.ID] = err
+	r.Log.Fail[test.ID].Error = err
 	return err
 }

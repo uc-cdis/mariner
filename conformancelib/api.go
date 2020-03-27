@@ -56,6 +56,12 @@ type RunIDJSON struct {
 	RunID string `json:"runID"`
 }
 
+// CancelRunJSON ..
+type CancelRunJSON struct {
+	// RunID  string `json:"runID"`
+	Result string `json:"result"` // success or failed
+}
+
 // Log ..
 type Log struct {
 	Created        string                 `json:"created,omitempty"`
@@ -111,6 +117,7 @@ const (
 	runEndpt      = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs"
 	fstatusEndpt  = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v/status"
 	flogsEndpt    = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v"
+	fcancelEndpt  = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v/cancel"
 )
 
 func token(creds string) (string, error) {
@@ -149,6 +156,28 @@ func (r *Runner) request(method string, url string, body io.Reader) (*http.Respo
 	return resp, nil
 }
 
+func (r *Runner) cancelRun(url string) error {
+	resp, err := r.request("POST", url, nil)
+	if err != nil {
+		return err
+	}
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	j := &CancelRunJSON{}
+	if err = json.Unmarshal(b, j); err != nil {
+		return err
+	}
+	if j.Result == "failed" {
+		return fmt.Errorf("mariner failed to cancel run")
+	}
+
+	return nil
+}
+
 func (r *Runner) status(url string) (string, error) {
 	resp, err := r.request("GET", url, nil)
 	if err != nil {
@@ -181,20 +210,10 @@ func (r *Runner) fetchRunLog(runID *RunIDJSON) (*RunLog, error) {
 		return nil, err
 	}
 
-	/*
-		fmt.Println("response body:")
-		fmt.Println(string(b))
-	*/
-
 	err = json.Unmarshal(b, j)
 	if err != nil {
 		return nil, err
 	}
-
-	/*
-		fmt.Println("main log of test run:")
-		printJSON(j)
-	*/
 
 	return j.Log, nil
 }

@@ -131,7 +131,7 @@ func (r *Runner) runAsync(test *TestCase) {
 
 func (r *Runner) tally() {
 	r.Results.Pass = len(r.Log.Pass)
-	r.Results.Fail = len(r.Log.Error) + len(r.Log.Fail)
+	r.Results.Fail = len(r.Log.Fail)
 	r.Results.Manual = len(r.Log.Manual)
 	r.Results.Total = r.Results.Pass + r.Results.Fail + r.Results.Manual
 	r.Results.Coverage = float64(r.Results.Pass) / float64(r.Results.Total)
@@ -147,8 +147,7 @@ func NewRunner(tok string, async *Async) *Runner {
 		Async:     async,
 	}
 	r.Log.Pass = make(map[int]*RunLog)
-	r.Log.Fail = make(map[int]*RunLog)
+	r.Log.Fail = make(map[int]*FailLog)
 	r.Log.Manual = make(map[int]*RunLog)
-	r.Log.Error = make(map[int]error)
 	return r
 }
