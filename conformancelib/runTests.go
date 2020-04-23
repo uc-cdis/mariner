@@ -86,7 +86,7 @@ func (r *Runner) runTests(tests []*TestCase) {
 	default:
 		for _, test := range tests {
 			if err = r.run(test); err != nil {
-				r.logError(test, err)
+				r.error(test, err)
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func (r *Runner) runAsync(test *TestCase) {
 		r.Async.Mutex.Unlock()
 
 		if err := r.run(test); err != nil {
-			r.logError(test, err)
+			r.error(test, err)
 		}
 
 		r.Async.Mutex.Lock()

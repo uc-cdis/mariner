@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 )
@@ -54,7 +55,8 @@ type ResultsLog struct {
 type FailLog struct {
 	TimeOut         bool
 	FailedToKillJob bool // if timeout -> cancel job -> if err during job cancel, set to true
-	Error           error
+	LocalError      error
+	MarinerError    []string
 	RunLog          *RunLog
 }
 
@@ -136,36 +138,20 @@ func (r *Runner) run(test *TestCase) (err error) {
 	var match bool
 	switch {
 	case !test.ShouldFail && status == "completed":
-		// match output
 		fmt.Printf("--- %v - matching output\n", test.ID)
 		match, err = r.matchOutput(test, runLog)
 		if err != nil {
 			return err
 		}
-
 		if match {
-			r.Log.Pass[test.ID] = runLog
+			r.pass(test, runLog)
 		} else {
-			r.Log.Fail[test.ID] = &FailLog{
-				RunLog: runLog,
-			}
+			r.fail(test, runLog, status)
 		}
 
 		// fixme: make status values constants
 	case (!test.ShouldFail && status == "failed") || status == "timeout":
-		r.Log.Fail[test.ID] = &FailLog{
-			RunLog: runLog,
-		}
-		if status == "timeout" {
-			r.Log.Fail[test.ID].TimeOut = true
-
-			// note: engine jobName is the runID - need to clarify this in all mariner code
-			cancelEndpt := fmt.Sprintf(fcancelEndpt, runLog.Main.JobName)
-			if err = r.cancelRun(cancelEndpt); err != nil {
-				r.Log.Fail[test.ID].FailedToKillJob = true
-				fmt.Printf("--- %v - failed to kill job: %v\n", test.ID, err)
-			}
-		}
+		r.fail(test, runLog, status)
 	case test.ShouldFail:
 		/*
 			currently flagging all negative test cases as manual checks
@@ -185,7 +171,7 @@ func (r *Runner) run(test *TestCase) (err error) {
 
 			I believe there are only a handful of them anyway
 		*/
-		r.Log.Manual[test.ID] = runLog
+		r.manual(test, runLog)
 	}
 
 	return err
@@ -279,10 +265,42 @@ func (r *Runner) writeResults(outPath string) error {
 	return nil
 }
 
-func (r *Runner) logError(test *TestCase, err error) error {
+func (r *Runner) error(test *TestCase, err error) error {
 	fmt.Printf("--- %v - error: %v\n", test.ID, err)
 	r.Log.Fail[test.ID] = &FailLog{
-		Error: err,
+		LocalError: err,
 	}
 	return err
+}
+
+func (r *Runner) fail(test *TestCase, runLog *RunLog, status string) {
+	log := &FailLog{
+		RunLog:       runLog,
+		MarinerError: []string{},
+	}
+	// collect all error messages from main mariner log
+	for _, msg := range runLog.Main.Event {
+		if strings.Contains(msg, "- ERROR -") {
+			log.MarinerError = append(log.MarinerError, msg)
+		}
+	}
+	if status == "timeout" {
+		log.TimeOut = true
+
+		// note: engine jobName is the runID - need to clarify this in all mariner code
+		cancelEndpt := fmt.Sprintf(fcancelEndpt, runLog.Main.JobName)
+		if err := r.cancelRun(cancelEndpt); err != nil {
+			log.FailedToKillJob = true
+			fmt.Printf("--- %v - failed to kill job: %v\n", test.ID, err)
+		}
+	}
+	r.Log.Fail[test.ID] = log
+}
+
+func (r *Runner) pass(test *TestCase, runLog *RunLog) {
+	r.Log.Pass[test.ID] = runLog
+}
+
+func (r *Runner) manual(test *TestCase, runLog *RunLog) {
+	r.Log.Manual[test.ID] = runLog
 }
