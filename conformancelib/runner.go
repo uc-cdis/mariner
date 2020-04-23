@@ -146,12 +146,16 @@ func (r *Runner) run(test *TestCase) (err error) {
 		if match {
 			r.Log.Pass[test.ID] = runLog
 		} else {
-			r.Log.Fail[test.ID].RunLog = runLog
+			r.Log.Fail[test.ID] = &FailLog{
+				RunLog: runLog,
+			}
 		}
 
 		// fixme: make status values constants
 	case (!test.ShouldFail && status == "failed") || status == "timeout":
-		r.Log.Fail[test.ID].RunLog = runLog
+		r.Log.Fail[test.ID] = &FailLog{
+			RunLog: runLog,
+		}
 		if status == "timeout" {
 			r.Log.Fail[test.ID].TimeOut = true
 
@@ -277,6 +281,8 @@ func (r *Runner) writeResults(outPath string) error {
 
 func (r *Runner) logError(test *TestCase, err error) error {
 	fmt.Printf("--- %v - error: %v\n", test.ID, err)
-	r.Log.Fail[test.ID].Error = err
+	r.Log.Fail[test.ID] = &FailLog{
+		Error: err,
+	}
 	return err
 }

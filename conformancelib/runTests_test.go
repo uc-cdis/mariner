@@ -110,13 +110,13 @@ func TestRun(t *testing.T) {
 	}
 
 	// how many tests to run
-	nTests := 32
+	nTests := 8
 	for i := 1; i <= nTests; i++ {
 		filters.ID = append(filters.ID, i)
 	}
 
 	// cap number of tests running at one time
-	maxConcurrent := 8
+	maxConcurrent := 2
 	async := &Async{
 		Enabled:       true,
 		MaxConcurrent: maxConcurrent,
