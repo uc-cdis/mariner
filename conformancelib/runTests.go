@@ -77,6 +77,8 @@ func (r *Runner) runTests(tests []*TestCase) {
 				in general, the job naming scheme for mariner needs to be redone
 
 				need globally unique names for all jobs, not just engine jobs
+
+				UPDATE: the job naming situation is fixed so can try removing this sleep statement now
 			*/
 			time.Sleep(2 * time.Second)
 

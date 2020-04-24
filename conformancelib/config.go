@@ -24,14 +24,14 @@ const (
 
 // TestCase ..
 type TestCase struct {
-	Input      string                 `json:"job" yaml:"job"`                 // path to input.json (may also be yaml)
-	Output     map[string]interface{} `json:"output" yaml:"output"`           // expected output
-	ShouldFail bool                   `json:"should_fail" yaml:"should_fail"` // if the engine is expected to fail on this cwl
-	CWL        string                 `json:"tool" yaml:"tool"`               // path to tool.cwl
-	Label      string                 `json:"label" yaml:"label"`
-	ID         int                    `json:"id" yaml:"id"`
-	Doc        string                 `json:"doc" yaml:"doc"`
-	Tags       []string               `json:"tags" yaml:"tags"`
+	Input      string      `json:"job" yaml:"job"`                 // path to input.json (may also be yaml)
+	Output     interface{} `json:"output" yaml:"output"`           // expected output
+	ShouldFail bool        `json:"should_fail" yaml:"should_fail"` // if the engine is expected to fail on this cwl
+	CWL        string      `json:"tool" yaml:"tool"`               // path to tool.cwl
+	Label      string      `json:"label" yaml:"label"`
+	ID         int         `json:"id" yaml:"id"`
+	Doc        string      `json:"doc" yaml:"doc"`
+	Tags       []string    `json:"tags" yaml:"tags"`
 }
 
 // Creds is creds.json, as downloaded from the portal

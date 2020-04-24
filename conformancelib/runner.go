@@ -83,6 +83,9 @@ func (r *Runner) run(test *TestCase) (err error) {
 		}
 	}()
 
+	// for json marshalling purposes
+	test.Output = convertInterface(test.Output)
+
 	fmt.Printf("------ running test %v ------\n", test.ID)
 
 	// pack the CWL to json (wf)
