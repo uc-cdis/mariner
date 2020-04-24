@@ -41,18 +41,32 @@ type Counts struct {
 }
 
 // ResultsLog captures test results and mariner logs of each run
+// fixme: capture/store expected output for each test -> basics. it's a field in struct TestCase
 type ResultsLog struct {
-	Pass map[int]*RunLog
+	Pass map[int]*PassLog
 	Fail map[int]*FailLog
 	// Error map[int]error
 
 	// guarding against false positives
 	// some tests need to be looked at closely, at least for now
-	Manual map[int]*RunLog
+	Manual map[int]*ManualLog
+}
+
+// PassLog ..
+type PassLog struct {
+	TestCase *TestCase
+	RunLog   *RunLog
+}
+
+// ManualLog ..
+type ManualLog struct {
+	TestCase *TestCase
+	RunLog   *RunLog
 }
 
 // FailLog ..
 type FailLog struct {
+	TestCase        *TestCase
 	TimeOut         bool
 	FailedToKillJob bool // if timeout -> cancel job -> if err during job cancel, set to true
 	LocalError      error
@@ -268,6 +282,7 @@ func (r *Runner) writeResults(outPath string) error {
 func (r *Runner) error(test *TestCase, err error) error {
 	fmt.Printf("--- %v - error: %v\n", test.ID, err)
 	r.Log.Fail[test.ID] = &FailLog{
+		TestCase:   test,
 		LocalError: err,
 	}
 	return err
@@ -275,6 +290,7 @@ func (r *Runner) error(test *TestCase, err error) error {
 
 func (r *Runner) fail(test *TestCase, runLog *RunLog, status string) {
 	log := &FailLog{
+		TestCase:     test,
 		RunLog:       runLog,
 		MarinerError: []string{},
 	}
@@ -298,9 +314,15 @@ func (r *Runner) fail(test *TestCase, runLog *RunLog, status string) {
 }
 
 func (r *Runner) pass(test *TestCase, runLog *RunLog) {
-	r.Log.Pass[test.ID] = runLog
+	r.Log.Pass[test.ID] = &PassLog{
+		TestCase: test,
+		RunLog:   runLog,
+	}
 }
 
 func (r *Runner) manual(test *TestCase, runLog *RunLog) {
-	r.Log.Manual[test.ID] = runLog
+	r.Log.Manual[test.ID] = &ManualLog{
+		TestCase: test,
+		RunLog:   runLog,
+	}
 }

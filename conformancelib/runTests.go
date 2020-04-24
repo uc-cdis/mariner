@@ -146,8 +146,8 @@ func NewRunner(tok string, async *Async) *Runner {
 		Timestamp: time.Now().Format("010206150405"),
 		Async:     async,
 	}
-	r.Log.Pass = make(map[int]*RunLog)
+	r.Log.Pass = make(map[int]*PassLog)
 	r.Log.Fail = make(map[int]*FailLog)
-	r.Log.Manual = make(map[int]*RunLog)
+	r.Log.Manual = make(map[int]*ManualLog)
 	return r
 }

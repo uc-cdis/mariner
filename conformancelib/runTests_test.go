@@ -72,8 +72,8 @@ that the run failed should be reflected in the logs and the status
 you should be able to get this simply from the API
 
 Short List of Errors
-0. don't panic
-1. non-unique k8s job names for two running instances of the same test case
+0. don't panic (resolved)
+1. non-unique k8s job names for two running instances of the same test case (resolved)
 
 live text:
 '''
