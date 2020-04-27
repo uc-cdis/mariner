@@ -28,6 +28,13 @@ func convertInterface(i interface{}) interface{} {
 	return i
 }
 
+// use reflect - do it right
+// e.g., be able to handle []*TestCase
+func nuConvert(i interface{}) interface{} {
+
+	return nil
+}
+
 // printJSON pretty prints a struct as json
 func printJSON(i interface{}) {
 	i = convertInterface(i)
