@@ -7,7 +7,7 @@ import (
 
 // incomplete
 func NotTestFilter(t *testing.T) {
-	suite, err := loadConfig("")
+	suite, err := LoadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -23,7 +23,7 @@ func NotTestFilter(t *testing.T) {
 	fmt.Println("original length: ", len(suite))
 
 	// apply filter to test list
-	filtered := filters.apply(suite)
+	filtered := filters.Apply(suite)
 
 	fmt.Println("filtered length: ", len(filtered))
 
@@ -36,7 +36,7 @@ func NotTestFilter(t *testing.T) {
 
 // also incomplete
 func NotTestInputsCollector(t *testing.T) {
-	suite, err := loadConfig("")
+	suite, err := LoadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -99,7 +99,7 @@ func TestRun(t *testing.T) {
 	// goal: run 1 simple test, round trip - achieved!
 
 	// load in all tests
-	allTests, err := loadConfig("")
+	allTests, err := LoadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -128,7 +128,7 @@ func TestRun(t *testing.T) {
 	printJSON(async)
 
 	// apply filter
-	tests := filters.apply(allTests)
+	tests := filters.Apply(allTests)
 
 	// look at the test set
 	// fmt.Println("running these tests:")
@@ -141,7 +141,7 @@ func TestRun(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err = runner.writeResults(""); err != nil {
+	if err = runner.WriteResults(""); err != nil {
 		t.Error(err)
 	}
 }

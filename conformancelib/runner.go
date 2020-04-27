@@ -259,7 +259,8 @@ func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, e
 	return status, nil
 }
 
-func (r *Runner) writeResults(outPath string) error {
+// WriteResults ..
+func (r *Runner) WriteResults(outPath string) error {
 	// if no outpath specified, write to default outpath
 	if outPath == "" {
 		outPath = fmt.Sprintf("conformance%v.json", r.Timestamp)

@@ -33,7 +33,7 @@ type FilterSet struct {
 }
 
 // given a populated FilterSet, filter these tests
-func (f *FilterSet) apply(tests []*TestCase) []*TestCase {
+func (f *FilterSet) Apply(tests []*TestCase) []*TestCase {
 
 	// if no filters specified, then return unfiltered list
 	if f.ShouldFail == nil && len(f.Label) == 0 && len(f.ID) == 0 && len(f.Tags) == 0 {

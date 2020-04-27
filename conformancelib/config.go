@@ -42,7 +42,8 @@ type Creds struct {
 	KeyID  string `json:"key_id"`
 }
 
-func loadConfig(pathToCWLDir string) ([]*TestCase, error) {
+// LoadConfig ..
+func LoadConfig(pathToCWLDir string) ([]*TestCase, error) {
 	if pathToCWLDir == "" {
 		pathToCWLDir = defaultPathToCWLDir
 	}
