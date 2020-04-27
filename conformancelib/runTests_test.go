@@ -7,7 +7,7 @@ import (
 
 // incomplete
 func NotTestFilter(t *testing.T) {
-	suite, err := loadConfig(config)
+	suite, err := loadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -36,7 +36,7 @@ func NotTestFilter(t *testing.T) {
 
 // also incomplete
 func NotTestInputsCollector(t *testing.T) {
-	suite, err := loadConfig(config)
+	suite, err := loadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -99,7 +99,7 @@ func TestRun(t *testing.T) {
 	// goal: run 1 simple test, round trip - achieved!
 
 	// load in all tests
-	allTests, err := loadConfig(config)
+	allTests, err := loadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 	}
 
 	// how many tests to run
-	nTests := 16
+	nTests := 1
 	for i := 1; i <= nTests; i++ {
 		filters.ID = append(filters.ID, i)
 	}

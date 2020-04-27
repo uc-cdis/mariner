@@ -27,7 +27,7 @@ apply filter and run resulting test set:
 // maps to fields of a record in the testSuite.yaml config list of tests
 type FilterSet struct {
 	ShouldFail *bool    // not given --> nil
-	Label      []string // not given --> "" (could/should make this []string)
+	Label      []string // not given --> [] (could/should make this []string)
 	ID         []int    // not given --> []
 	Tags       []string // not given --> []
 }
