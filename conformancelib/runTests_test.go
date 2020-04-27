@@ -16,7 +16,7 @@ func NotTestFilter(t *testing.T) {
 	filters := &FilterSet{
 		// ShouldFail: &trueVal,
 		Tags:  []string{},
-		Label: "",
+		Label: []string{},
 		ID:    []int{},
 	}
 
@@ -110,7 +110,6 @@ func TestRun(t *testing.T) {
 	}
 
 	// how many tests to run
-
 	nTests := 16
 	for i := 1; i <= nTests; i++ {
 		filters.ID = append(filters.ID, i)
@@ -132,8 +131,8 @@ func TestRun(t *testing.T) {
 	tests := filters.apply(allTests)
 
 	// look at the test set
-	fmt.Println("running these tests:")
-	printJSON(tests)
+	// fmt.Println("running these tests:")
+	// printJSON(tests)
 
 	// run the tests - results sent to stdout
 	creds := "./creds.json"

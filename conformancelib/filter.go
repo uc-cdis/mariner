@@ -27,7 +27,7 @@ apply filter and run resulting test set:
 // maps to fields of a record in the testSuite.yaml config list of tests
 type FilterSet struct {
 	ShouldFail *bool    // not given --> nil
-	Label      string   // not given --> ""
+	Label      []string // not given --> "" (could/should make this []string)
 	ID         []int    // not given --> []
 	Tags       []string // not given --> []
 }
@@ -36,7 +36,7 @@ type FilterSet struct {
 func (f *FilterSet) apply(tests []*TestCase) []*TestCase {
 
 	// if no filters specified, then return unfiltered list
-	if f.ShouldFail == nil && f.Label == "" && len(f.ID) == 0 && len(f.Tags) == 0 {
+	if f.ShouldFail == nil && len(f.Label) == 0 && len(f.ID) == 0 && len(f.Tags) == 0 {
 		return tests
 	}
 
@@ -52,14 +52,18 @@ func (f *FilterSet) apply(tests []*TestCase) []*TestCase {
 }
 
 // checks whether or not this test passes through the filter
+// it passes through if it meets at least one of the criteria specified in the filterset
+// this type of filtering can be changed later on if it proves to be less than desirable
 func (f *FilterSet) check(test *TestCase) bool {
 	if f.ShouldFail != nil {
 		if test.ShouldFail == *f.ShouldFail {
 			return true
 		}
 	}
-	if f.Label != "" && f.Label == test.Label {
-		return true
+	for _, filterLabel := range f.Label {
+		if filterLabel == test.Label {
+			return true
+		}
 	}
 	if len(f.ID) > 0 {
 		for _, id := range f.ID {
