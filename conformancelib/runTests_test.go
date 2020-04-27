@@ -7,7 +7,7 @@ import (
 
 // incomplete
 func NotTestFilter(t *testing.T) {
-	suite, err := loadConfig(config)
+	suite, err := LoadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -16,14 +16,14 @@ func NotTestFilter(t *testing.T) {
 	filters := &FilterSet{
 		// ShouldFail: &trueVal,
 		Tags:  []string{},
-		Label: "",
+		Label: []string{},
 		ID:    []int{},
 	}
 
 	fmt.Println("original length: ", len(suite))
 
 	// apply filter to test list
-	filtered := filters.apply(suite)
+	filtered := filters.Apply(suite)
 
 	fmt.Println("filtered length: ", len(filtered))
 
@@ -36,7 +36,7 @@ func NotTestFilter(t *testing.T) {
 
 // also incomplete
 func NotTestInputsCollector(t *testing.T) {
-	suite, err := loadConfig(config)
+	suite, err := LoadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
@@ -72,35 +72,76 @@ that the run failed should be reflected in the logs and the status
 you should be able to get this simply from the API
 
 Short List of Errors
-0. don't panic
-1. non-unique k8s job names for two running instances of the same test case
-2.
+0. don't panic (resolved)
+1. non-unique k8s job names for two running instances of the same test case (resolved)
+
+live text:
+'''
+loading input #main/args.py..
+panic: runtime error: invalid memory address or nil pointer dereference
+'''
+pretty sure this is because this input param isn't specified in inputs.json
+and currently the code doesn't handle default values
+even though one is provided
+
+SO
+
+can support the default input value case right now
+
+to handle:
+1. default values
+2. optional params
+---> when to fail out?
+
 */
 
 func TestRun(t *testing.T) {
-	// goal: run 1 simple test, round trip
+	// goal: run 1 simple test, round trip - achieved!
 
 	// load in all tests
-	allTests, err := loadConfig(config)
+	allTests, err := LoadConfig("")
 	if err != nil {
 		t.Errorf("failed to load tests")
 	}
 
 	// define filter
 	filters := &FilterSet{
-		ID: []int{1},
+		ID: []int{},
 	}
 
+	// how many tests to run
+	nTests := 1
+	for i := 1; i <= nTests; i++ {
+		filters.ID = append(filters.ID, i)
+	}
+
+	// cap number of tests running at one time
+	maxConcurrent := 4
+	async := &Async{
+		Enabled:       true,
+		MaxConcurrent: maxConcurrent,
+	}
+
+	fmt.Println("nAllTests:", len(allTests))
+	// fmt.Println("nTests:", nTests)
+	fmt.Println("async:")
+	printJSON(async)
+
 	// apply filter
-	tests := filters.apply(allTests)
+	tests := filters.Apply(allTests)
 
 	// look at the test set
-	fmt.Println("running these tests:")
-	printJSON(tests)
+	// fmt.Println("running these tests:")
+	// printJSON(tests)
 
 	// run the tests - results sent to stdout
 	creds := "./creds.json"
-	if err = RunTests(tests, creds); err != nil {
-		t.Errorf("err: %v", err)
+
+	runner, err := RunTests(tests, creds, async)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = runner.WriteResults(""); err != nil {
+		t.Error(err)
 	}
 }

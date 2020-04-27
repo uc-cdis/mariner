@@ -49,9 +49,10 @@ func (cmdElts CommandElements) Less(i, j int) bool { return cmdElts[i].Position 
 
 // GenerateCommand ..
 func (tool *Tool) generateCommand() (err error) {
+	tool.Task.infof("begin generate command")
 	cmdElts, err := tool.cmdElts()
 	if err != nil {
-		return err
+		return tool.Task.errorf("%v", err)
 	}
 
 	// Sort the command elements by position
@@ -62,7 +63,7 @@ func (tool *Tool) generateCommand() (err error) {
 		// append "1> stdout_file" to end of command
 		stdoutElts, err := tool.stdElts(1)
 		if err != nil {
-			return err
+			return tool.Task.errorf("%v", err)
 		}
 		cmdElts = append(cmdElts, stdoutElts...)
 	}
@@ -72,24 +73,23 @@ func (tool *Tool) generateCommand() (err error) {
 		// append "2> stderr_file" to end of command
 		stderrElts, err := tool.stdElts(2)
 		if err != nil {
-			return err
+			return tool.Task.errorf("%v", err)
 		}
 		cmdElts = append(cmdElts, stderrElts...)
 	}
-
-	// fmt.Println("here are cmdElts:")
-	// PrintJSON(cmdElts)
 
 	cmd := tool.Task.Root.BaseCommands // BaseCommands is []string - empty array if no BaseCommand specified
 	for _, cmdElt := range cmdElts {
 		cmd = append(cmd, cmdElt.Value...)
 	}
 	tool.Command = exec.Command(cmd[0], cmd[1:]...)
+	tool.Task.infof("end generate command")
 	return nil
 }
 
 // i==1 --> stdout; i==2 --> stderr
 func (tool *Tool) stdElts(i int) (cmdElts CommandElements, err error) {
+	tool.Task.infof("begin handle stdout and stderr destinations")
 	cmdElts = make([]*CommandElement, 0)
 	var f string
 	switch i {
@@ -99,7 +99,7 @@ func (tool *Tool) stdElts(i int) (cmdElts CommandElements, err error) {
 		f, _, err = tool.resolveExpressions(tool.Task.Root.Stderr)
 	}
 	if err != nil {
-		return nil, err
+		return nil, tool.Task.errorf("%v", err)
 	}
 
 	prefix := tool.WorkingDir
@@ -115,31 +115,35 @@ func (tool *Tool) stdElts(i int) (cmdElts CommandElements, err error) {
 		Value: []string{stream, prefix + f},
 	}
 	cmdElts = append(cmdElts, cmdElt)
+	tool.Task.infof("end handle stdout and stderr destinations")
 	return cmdElts, nil
 }
 
 func (tool *Tool) cmdElts() (cmdElts CommandElements, err error) {
+	tool.Task.infof("begin process command elements")
 	cmdElts = make([]*CommandElement, 0)
 
 	// handle arguments
 	argElts, err := tool.argElts()
 	if err != nil {
-		return nil, err
+		return nil, tool.Task.errorf("%v", err)
 	}
 	cmdElts = append(cmdElts, argElts...)
 
 	// handle inputs
 	inputElts, err := tool.inputElts()
 	if err != nil {
-		return nil, err
+		return nil, tool.Task.errorf("%v", err)
 	}
 	cmdElts = append(cmdElts, inputElts...)
 
+	tool.Task.infof("end process command elements")
 	return cmdElts, nil
 }
 
-// TODO: handle optional inputs
+// fixme: handle optional inputs
 func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
+	tool.Task.infof("begin handle command input elements")
 	cmdElts = make([]*CommandElement, 0)
 	var inputType string
 	for _, input := range tool.Task.Root.Inputs {
@@ -155,7 +159,7 @@ func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 			}
 			val, err := inputValue(input, input.Provided.Raw, inputType, input.Binding)
 			if err != nil {
-				return nil, err
+				return nil, tool.Task.errorf("%v", err)
 			}
 			cmdElt := &CommandElement{
 				Position: pos,
@@ -164,6 +168,7 @@ func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 			cmdElts = append(cmdElts, cmdElt)
 		}
 	}
+	tool.Task.infof("end handle command input elements")
 	return cmdElts, nil
 }
 
@@ -278,7 +283,7 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 
 	case "string", "number":
 		s, err = valFromRaw(rawInput)
-	case "File", "Directory":
+	case CWLFileType, CWLDirectoryType:
 		s, err = pathFromRaw(rawInput)
 	}
 	// string/number and file/directory share the same processing here
@@ -335,7 +340,7 @@ func itemHandler(itemType string) (handler func(interface{}) (string, error), er
 	switch itemType {
 	case "string", "number":
 		return valFromRaw, nil
-	case "File", "Directory":
+	case CWLFileType, CWLDirectoryType:
 		return pathFromRaw, nil
 	default:
 		return nil, fmt.Errorf("binding on input array with items of type %T not supported", itemType)
@@ -385,6 +390,7 @@ func valFromRaw(rawInput interface{}) (val string, err error) {
 
 // collect CommandElement objects from arguments
 func (tool *Tool) argElts() (cmdElts CommandElements, err error) {
+	tool.Task.infof("begin handle command argument elements")
 	cmdElts = make([]*CommandElement, 0) // this might be redundant - basic q: do I need to instantiate this array if it's a named output?
 	for i, arg := range tool.Task.Root.Arguments {
 		pos := 0 // if no position specified the default is zero, as per CWL spec
@@ -393,7 +399,7 @@ func (tool *Tool) argElts() (cmdElts CommandElements, err error) {
 		}
 		val, err := tool.argVal(arg) // okay
 		if err != nil {
-			return nil, err
+			return nil, tool.Task.errorf("%v", err)
 		}
 		cmdElt := &CommandElement{
 			Position:    pos,
@@ -402,26 +408,27 @@ func (tool *Tool) argElts() (cmdElts CommandElements, err error) {
 		}
 		cmdElts = append(cmdElts, cmdElt)
 	}
+	tool.Task.infof("end handle command argument elements")
 	return cmdElts, nil
 }
 
 // gets value from an argument - i.e., returns []string containing strings which will be put on the commandline to represent this argument
 func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
+	tool.Task.infof("begin get value from command element argument")
 	// cases:
 	// either a string literal or an expression
 	// OR a binding with valueFrom field specified
-	fmt.Println("getting arg value..")
 	val = make([]string, 0)
 	if arg.Value != "" {
 		// implies string literal or expression to eval - see NOTE at typeSwitch
-		fmt.Println("string literal or expression to eval..")
+		// fmt.Println("string literal or expression to eval..")
 		// NOTE: *might* need to check "$(" or "${" instead of just "$"
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
-			fmt.Println("expression to eval..")
+			// fmt.Println("expression to eval..")
 			result, err := evalExpression(arg.Value, tool.Task.Root.InputsVM)
 			if err != nil {
-				return nil, err
+				return nil, tool.Task.errorf("failed to evaluate expression: %v; err: %v", arg.Value, err)
 			}
 			// NOTE: what type can I expect the result to be here? - hopefully string or []string - need to test and find additional examples to work with
 			switch result.(type) {
@@ -430,18 +437,18 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 			case []string:
 				val = append(val, result.([]string)...)
 			default:
-				return nil, fmt.Errorf("unexpected type returned by argument expression: %v; %v; %T", arg.Value, result, result)
+				return nil, tool.Task.errorf("unexpected type returned by argument expression: %v; %v; %T", arg.Value, result, result)
 			}
 		} else {
 			// string literal - no processing to be done
 			val = append(val, arg.Value)
 		}
 	} else {
-		fmt.Println("resolving valueFrom..")
+		// fmt.Println("resolving valueFrom..")
 		// get value from `valueFrom` field which may itself be a string literal, an expression, or a string which contains one or more expressions
 		resolvedText, _, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
 		if err != nil {
-			return nil, err
+			return nil, tool.Task.errorf("%v", err)
 		}
 
 		// handle shellQuote - default value is true
@@ -452,5 +459,6 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 		// capture result
 		val = append(val, resolvedText)
 	}
+	tool.Task.infof("end get value from command element argument")
 	return val, nil
 }

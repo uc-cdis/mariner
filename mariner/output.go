@@ -1,7 +1,6 @@
 package mariner
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,20 +26,20 @@ import (
 // NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
 // ----- no binding provided -> output won't be collected
 func (tool *Tool) collectOutput() (err error) {
+	tool.Task.infof("begin collect output")
 	switch class := tool.Task.Root.Class; class {
-	case "CommandLineTool":
+	case CWLCommandLineTool:
 		if err = tool.handleCLTOutput(); err != nil {
-			fmt.Printf("Error handling CLT output: %v\n", err)
-			return err
+			return tool.Task.errorf("%v", err)
 		}
-	case "ExpressionTool":
+	case CWLExpressionTool:
 		if err = tool.handleETOutput(); err != nil {
-			fmt.Printf("Error handling ET output: %v\n", err)
-			return err
+			return tool.Task.errorf("%v", err)
 		}
 	default:
-		return fmt.Errorf("unexpected class: %v", class)
+		return tool.Task.errorf("unexpected class: %v", class)
 	}
+	tool.Task.infof("end collect outputt")
 	return nil
 }
 
@@ -49,10 +48,14 @@ func (tool *Tool) collectOutput() (err error) {
 // From my CWL reading.. each output parameter SHOULD have a binding
 // if no binding, not sure what the procedure is
 // for now, no binding -> output won't be collected
+//
+// fixme: refactor, break into smaller pieces/functions
 func (tool *Tool) handleCLTOutput() (err error) {
+	tool.Task.infof("begin handle CommandLineTool output")
 	for _, output := range tool.Task.Root.Outputs {
+		tool.Task.infof("begin handle output param: %v", output.ID)
 		if output.Binding == nil {
-			return fmt.Errorf("output parameter missing binding: %v", output.ID)
+			return tool.Task.errorf("binding not found")
 		}
 
 		/*
@@ -70,8 +73,7 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		if len(output.Binding.Glob) > 0 {
 			results, err = tool.glob(&output)
 			if err != nil {
-				fmt.Printf("error globbing: %v", err)
-				return err
+				return tool.Task.errorf("%v", err)
 			}
 		}
 
@@ -79,20 +81,24 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
 		if output.Binding.LoadContents {
-			fmt.Println("load contents is true")
+			tool.Task.infof("begin load file contents")
 			for _, fileObj := range results {
+				tool.Task.infof("begin load contents for file :%v", fileObj.Path)
 				err = fileObj.loadContents()
 				if err != nil {
-					fmt.Printf("error loading contents: %v\n", err)
-					return err
+					return tool.Task.errorf("%v", err)
 				}
+				tool.Task.infof("end load contents for file :%v", fileObj.Path)
 			}
+			tool.Task.infof("end load file contents")
 		}
 
 		// 3. OutputEval - TODO: test this functionality
 		if output.Binding.Eval != nil {
 			// eval the expression and store result in task.Outputs
-			tool.outputEval(&output, results)
+			if err = tool.outputEval(&output, results); err != nil {
+				return tool.Task.errorf("%v", err)
+			}
 			// if outputEval, then the resulting value from the expression eval is assigned to the output parameter
 			// hence the function HandleCLTOutput() returns here
 			return nil
@@ -100,6 +106,7 @@ func (tool *Tool) handleCLTOutput() (err error) {
 
 		// 4. SecondaryFiles - currently only supporting simplest case when handling expressions here
 		if len(output.SecondaryFiles) > 0 {
+			tool.Task.infof("begin handle secondaryFiles")
 			for _, entry := range output.SecondaryFiles {
 				// see the secondaryFiles field description at:
 				// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
@@ -121,6 +128,9 @@ func (tool *Tool) handleCLTOutput() (err error) {
 
 						// preprocess output file object
 						self, err = preProcessContext(fileObj)
+						if err != nil {
+							return tool.Task.errorf("%v", err)
+						}
 
 						// set `self` variable name
 						// assuming it is okay to use one vm for all evaluations and just reset the `self` variable before each eval
@@ -129,13 +139,13 @@ func (tool *Tool) handleCLTOutput() (err error) {
 						// eval js
 						jsResult, err := evalExpression(val, vm)
 						if err != nil {
-							return err
+							return tool.Task.errorf("%v", err)
 						}
 
 						// retrieve secondaryFile's path (type interface{} with underlying type string)
 						sFilePath, ok := jsResult.(string)
 						if !ok {
-							return fmt.Errorf("secondaryFile expression did not return string")
+							return tool.Task.errorf("secondaryFile expression did not return string")
 						}
 
 						// TODO: check if resulting secondaryFile actually exists (should encapsulate this to a function)
@@ -148,57 +158,50 @@ func (tool *Tool) handleCLTOutput() (err error) {
 				} else {
 					// follow those two steps indicated at the bottom of the secondaryFiles field description
 					suffix, carats := trimLeading(val, "^")
-					if err != nil {
-						return err
-					}
 					for _, fileObj := range results {
 						tool.loadSFilesFromPattern(fileObj, suffix, carats)
 					}
 				}
 			}
+			tool.Task.infof("end handle secondaryFiles")
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
-		/*
-			fmt.Println("done with glob and load contents")
-			fmt.Println("at end of function here")
-			fmt.Println("here are results:")
-			PrintJSON(results)
-		*/
-
 		// at this point we have file results captured in `results`
-		// output should be a "File" or "array of Files"
-		// FIXME - make this case handling more specific in the else condition - don't just catch anything
-		if output.Types[0].Type == "File" {
+		// output should be a CWLFileType or "array of Files"
+		// fixme - make this case handling more specific in the else condition - don't just catch anything
+		if output.Types[0].Type == CWLFileType {
 			// fmt.Println("output type is file")
 
-			// FIXME - TODO: add error handling for cases len(results) != 1
+			// fixme - add error handling for cases len(results) != 1
 			tool.Task.Outputs[output.ID] = results[0]
 		} else {
 			// output should be an array of File objects
-			// NOTE: also need to add error handling here
+			// note: also need to add error handling here
 			tool.Task.Outputs[output.ID] = results
 		}
+		tool.Task.infof("end handle output param: %v", output.ID)
 	}
+	tool.Task.infof("end handle CommandLineTool output")
 	return nil
 }
 
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
 func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
-	fmt.Println("globbing from root")
+	tool.Task.infof("begin glob")
+
 	os.Chdir("/") // always glob from root (?)
 
 	var pattern string
 	for _, glob := range output.Binding.Glob {
 		pattern, err = tool.pattern(glob)
 		if err != nil {
-			return results, err
+			return results, tool.Task.errorf("%v", err)
 		}
 		paths, err := filepath.Glob(tool.WorkingDir + pattern)
 		if err != nil {
-			fmt.Printf("error globbing: %v", err)
-			return results, err
+			return results, tool.Task.errorf("%v", err)
 		}
 		for _, path := range paths {
 			fileObj := fileObject(path) // these are full paths, so no need to add working dir to path
@@ -206,10 +209,12 @@ func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
 		}
 	}
 	os.Chdir(tool.WorkingDir)
+	tool.Task.infof("end glob")
 	return results, nil
 }
 
 func (tool *Tool) pattern(glob string) (pattern string, err error) {
+	tool.Task.infof("begin resolve glob pattern: %v", glob)
 	if strings.HasPrefix(glob, "$") {
 		// expression needs to get eval'd
 		// glob pattern is the resulting string
@@ -218,16 +223,17 @@ func (tool *Tool) pattern(glob string) (pattern string, err error) {
 
 		expResult, err := evalExpression(glob, tool.Task.Root.InputsVM)
 		if err != nil {
-			return "", fmt.Errorf("failed to eval glob expression: %v", glob)
+			return "", tool.Task.errorf("failed to eval glob expression")
 		}
 		pattern, ok := expResult.(string)
 		if !ok {
-			return "", fmt.Errorf("glob expression doesn't return a string pattern: %v", glob)
+			return "", tool.Task.errorf("glob expression doesn't return a string pattern")
 		}
 		return pattern, nil
 	}
 	// not an expression, so no eval necessary
 	// glob pattern is the glob string initially provided
+	tool.Task.infof("end resolve glob pattern. resolved to: %v", glob)
 	return glob, nil
 }
 
@@ -236,7 +242,8 @@ func (tool *Tool) pattern(glob string) (pattern string, err error) {
 // where the keys are the IDs of the expressionTool output params
 // see `expression` field description here:
 // https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
-func (tool *Tool) handleETOutput() (err error) {
+func (tool *Tool) handleETOutput() error {
+	tool.Task.infof("begin handle ExpressionTool output")
 	for _, output := range tool.Task.Root.Outputs {
 		// get "output" from "#expressiontool_test.cwl/output"
 		localOutputID := lastInPath(output.ID)
@@ -244,34 +251,36 @@ func (tool *Tool) handleETOutput() (err error) {
 		// access output param value from expression result
 		val, ok := tool.ExpressionResult[localOutputID]
 		if !ok {
-			return fmt.Errorf("output parameter %v missing from ExpressionTool %v result", output.ID, tool.Task.Root.ID)
+			return tool.Task.errorf("no value found for output parameter %v", output.ID)
 		}
 
 		// assign retrieved value to output param in Task object
 		tool.Task.Outputs[output.ID] = val
 	}
+	tool.Task.infof("end handle ExpressionTool output")
 	return nil
 }
 
 // see: https://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
 func (tool *Tool) outputEval(output *cwl.Output, fileArray []*File) (err error) {
+	tool.Task.infof("begin output eval for output param %v", output.ID)
 	// copy InputsVM to get inputs context
 	vm := tool.Task.Root.InputsVM.Copy()
 
 	// here `self` is the file or array of files returned by glob (with contents loaded if so specified)
 	var self interface{}
-	if output.Types[0].Type == "File" {
+	if output.Types[0].Type == CWLFileType {
 		// indicates `self` should be a file object with keys exposed
 		// should check length fileArray - room for error here
 		self, err = preProcessContext(fileArray[0])
 		if err != nil {
-			return err
+			return tool.Task.errorf("%v", err)
 		}
 	} else {
-		// Not "File" means "array of Files"
+		// Not CWLFileType means "array of Files"
 		self, err = preProcessContext(fileArray)
 		if err != nil {
-			return err
+			return tool.Task.errorf("%v", err)
 		}
 	}
 
@@ -284,10 +293,12 @@ func (tool *Tool) outputEval(output *cwl.Output, fileArray []*File) (err error) 
 	// eval that thing
 	evalResult, err := evalExpression(expression, vm)
 	if err != nil {
-		return err
+		return tool.Task.errorf("%v", err)
 	}
 
 	// assign expression eval result to output parameter
 	tool.Task.Outputs[output.ID] = evalResult
+
+	tool.Task.infof("end output eval for output param %v", output.ID)
 	return nil
 }

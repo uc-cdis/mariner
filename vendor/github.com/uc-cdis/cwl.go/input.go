@@ -21,7 +21,7 @@ type Input struct {
 	Types          []Type          `json:"type"`
 	SecondaryFiles []SecondaryFile `json:"secondary_files"`
 	// Input.Provided is what provided by parameters.(json|yaml)
-	Provided *Provided `json:"-"`
+	Provided *Provided
 	// Requirement ..
 	RequiredType *Type
 	Requirements Requirements

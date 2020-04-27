@@ -48,8 +48,8 @@ type Task struct {
 	Children      map[string]*Task       // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
 	OutputIDMap   map[string]string      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	InputIDMap    map[string]string
-	OriginalStep  cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
-	Done          *bool    // false until all output for this task has been collected, then true
+	OriginalStep  *cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
+	Done          *bool     // false until all output for this task has been collected, then true
 	// --- New Fields ---
 	Log           *Log           // contains Status, Stats, Event
 	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
@@ -57,9 +57,9 @@ type Task struct {
 
 // fileParam returns a bool indicating whether the given step-level input param corresponds to a set of files
 // 'task' here is a workflow
-// HERE
-func (task *Task) stepParamFile(step *cwl.Step, stepParam string) bool {
-	fmt.Println("in stepParamFile..")
+func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {
+	task.infof("begin check if step param %v is a File param", stepParam)
+	defer task.infof("end check if step param %v is a File param", stepParam)
 	childTaskParam := step2taskID(step, stepParam)
 	childTask := task.Children[step.ID]
 	for _, input := range childTask.Root.Inputs {
@@ -78,12 +78,12 @@ func (task *Task) stepParamFile(step *cwl.Step, stepParam string) bool {
 func inputParamFile(input *cwl.Input) bool {
 	fmt.Println("input.Types:")
 	printJSON(input.Types)
-	if input.Types[0].Type == "File" {
+	if input.Types[0].Type == CWLFileType {
 		return true
 	}
 	if input.Types[0].Type == "array" {
 		for _, itemType := range input.Types[0].Items {
-			if itemType.Type == "File" {
+			if itemType.Type == CWLFileType {
 				return true
 			}
 		}
@@ -95,12 +95,12 @@ func inputParamFile(input *cwl.Input) bool {
 func outputParamFile(output cwl.Output) bool {
 	fmt.Println("output.Types:")
 	printJSON(output.Types)
-	if output.Types[0].Type == "File" {
+	if output.Types[0].Type == CWLFileType {
 		return true
 	}
 	if output.Types[0].Type == "array" {
 		for _, itemType := range output.Types[0].Items {
-			if itemType.Type == "File" {
+			if itemType.Type == CWLFileType {
 				return true
 			}
 		}
@@ -114,19 +114,30 @@ func outputParamFile(output cwl.Output) bool {
 // so the graph gets "resolved" via creating one big task (`mainTask`) which contains the entire workflow
 // i.e., the whole workflow and its graphical structure are represented as a nested collection of Task objects
 func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Task) error {
-	if curTask.Root.Class == "Workflow" {
+	if curTask.Root.ID == mainProcessID {
+		engine.infof("begin resolve graph")
+	}
+	if curTask.Root.Class == CWLWorkflow {
 		curTask.Children = make(map[string]*Task)
-		for _, step := range curTask.Root.Steps {
+
+		// serious "gotcha": https://medium.com/@betable/3-go-gotchas-590b8c014e0a
+		/*
+			"Go uses a copy of the value instead of the value itself within a range clause.
+			So when we take the pointer of value, we’re actually taking the pointer of a copy
+			of the value. This copy gets reused throughout the range clause [...]"
+		*/
+		for i, step := range curTask.Root.Steps {
 			stepRoot, ok := rootMap[step.Run.Value]
 			if !ok {
-				panic(fmt.Sprintf("can't find workflow %v", step.Run.Value))
+				return engine.errorf("failed to find workflow: %v", step.Run.Value)
 			}
+
 			newTask := &Task{
 				Root:         stepRoot,
 				Parameters:   make(cwl.Parameters),
-				OriginalStep: step,
-				Done:         &falseVal,
+				OriginalStep: &curTask.Root.Steps[i],
 				Log:          logger(),
+				Done:         &falseVal,
 			}
 			engine.Log.ByProcess[step.ID] = newTask.Log
 
@@ -135,31 +146,39 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			curTask.Children[step.ID] = newTask
 		}
 	}
+	if curTask.Root.ID == mainProcessID {
+		engine.infof("end resolve graph")
+	}
 	return nil
 }
 
 // RunWorkflow parses a workflow and inputs and run it
-func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName string) error {
-	var root cwl.Root
-	err := json.Unmarshal(workflow, &root) // unmarshal the packed workflow JSON from the request body
-	if err != nil {
-		return err
-	}
-	var originalParams cwl.Parameters
-	err = json.Unmarshal(inputs, &originalParams) // unmarshal the inputs JSON from the request body
-	if err != nil {
-		return err
-	}
+func (engine *K8sEngine) runWorkflow() error {
+	engine.infof("begin run workflow")
 
-	// small preprocessing step to get the right input param IDs for the top level workflow
-	var params = make(cwl.Parameters)
-	for id, value := range originalParams {
-		params["#main/"+id] = value
-	}
+	var root cwl.Root
+	var err error
+	var originalParams cwl.Parameters
 
 	// Task object for top level workflow, later to be recursively populated
 	// with task objects for all the other nodes in the workflow graph
 	var mainTask *Task
+
+	// unmarshal the packed workflow JSON from the request body
+	if err = json.Unmarshal(engine.Log.Request.Workflow, &root); err != nil {
+		return engine.errorf("failed to unmarshal workflow JSON: %v", err)
+	}
+
+	// unmarshal the inputs JSON from the request body
+	if err = json.Unmarshal(engine.Log.Request.Input, &originalParams); err != nil {
+		return engine.errorf("failed to unmarshal inputs JSON: %v", err)
+	}
+
+	// small preprocessing step to get the right input param IDs for the top level workflow
+	params := make(cwl.Parameters)
+	for id, value := range originalParams {
+		params[fmt.Sprintf("%v/%v", mainProcessID, id)] = value
+	}
 
 	// a flat map to store all the "root" objects (basically a representation of a CWL file) which comprise the workflow
 	// e.g., if I have a CWL workflow comprised of three files:
@@ -172,57 +191,42 @@ func (engine *K8sEngine) runWorkflow(workflow []byte, inputs []byte, jobName str
 	for _, process := range root.Graphs {
 		flatRoots[process.ID] = process
 		// once we encounter the top level workflow (which always has ID "#main")
-		if process.ID == "#main" {
+		if process.ID == mainProcessID {
 			// construct `mainTask` - the task object for the top level workflow
 			mainTask = &Task{
 				Root:       process,
 				Parameters: params,
 				Log:        logger(), // initialize empty Log object with status NOT_STARTED
+				Done:       &falseVal,
 			}
 		}
 	}
 	if mainTask == nil {
-		panic(fmt.Sprint("can't find main workflow"))
+		return engine.errorf("failed to find main process")
 	}
 
+	// fixme: refactor
 	engine.Log.Main = mainTask.Log
 
-	mainTask.Log.JobName = jobName
-	jobsClient, _, _ := k8sClient(k8sJobAPI)
-	mainTask.Log.JobID = engineJobID(jobsClient, jobName)
+	mainTask.Log.JobName = engine.Log.Request.JobName
+	jobsClient, _, _, err := k8sClient(k8sJobAPI)
+	if err != nil {
+		return engine.errorf("%v", err)
+	}
+	mainTask.Log.JobID = engineJobID(jobsClient, engine.Log.Request.JobName)
 
 	// recursively populate `mainTask` with Task objects for the rest of the nodes in the workflow graph
-	engine.resolveGraph(flatRoots, mainTask)
+	if err = engine.resolveGraph(flatRoots, mainTask); err != nil {
+		return engine.errorf("failed to resolve graph: %v", err)
+	}
 
 	// run the workflow
-	engine.run(mainTask)
+	if err = engine.run(mainTask); err != nil {
+		return engine.errorf("failed to run main task: %v", err)
+	}
 
-	// not sure if this should be dangling here
+	engine.infof("end run workflow")
 	engine.Log.write()
-
-	// delete all intermediate files generated by this workflow run
-	// i.e., delete all paths under the workflow run working dir
-	// ----- which are not paths associated with a main workflow output param
-	engine.basicCleanup()
-
-	/*
-		// if running intermediate file cleanup as workflow is running
-		// need some wait logic like this here to wait for all running cleanup processes to finish
-		// before the engine job completes
-		// wait for cleanup processes to finish before ending engine job
-		fmt.Println("\tworkflow tasks finished; deleting intermediate files..")
-		for len(engine.CleanupProcs) > 0 {
-			fmt.Printf("\twaiting on %v cleanup processes to finish..\n", len(engine.CleanupProcs))
-			printJSON(engine.CleanupProcs)
-			time.Sleep(15 * time.Second) // same refresh period as the deleteCondition monitoring period
-		}
-		fmt.Println("\tall cleanup processes finished!")
-	*/
-
-	fmt.Print("\n\nFinished running workflow job.\n")
-	fmt.Println("Here's the output:")
-	printJSON(mainTask.Outputs)
-
 	return nil
 }
 
@@ -236,8 +240,8 @@ concurrency notes:
 // recall: a Task is either a workflow or a Tool
 // workflows are processed into a collection of Tools via Task.RunSteps()
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
-func (engine *K8sEngine) run(task *Task) error {
-	fmt.Printf("\nRunning task: %v\n", task.Root.ID)
+func (engine *K8sEngine) run(task *Task) (err error) {
+	engine.infof("begin run task: %v", task.Root.ID)
 	engine.startTask(task)
 	switch {
 	case task.Scatter != nil:
@@ -245,47 +249,54 @@ func (engine *K8sEngine) run(task *Task) error {
 		engine.gatherScatterOutputs(task) // Q. does this mean final log doesn't get written for scattered tasks?
 	case task.Root.Class == "Workflow":
 		// this is not a leaf in the graph
-		fmt.Printf("Handling workflow %v..\n", task.Root.ID)
 		engine.runSteps(task)
-		engine.mergeChildParams(task)
+		if err = engine.mergeChildParams(task); err != nil {
+			return engine.errorf("failed to merge child params for task: %v; error: %v", task.Root.ID, err)
+		}
 	default:
 		// this is a leaf in the graph
-		fmt.Printf("Dispatching task %v..\n", task.Root.ID)
 		engine.dispatchTask(task)
 	}
 	engine.finishTask(task)
+	engine.infof("end run task: %v", task.Root.ID)
 	return nil
 }
 
-func (engine *K8sEngine) mergeChildParams(task *Task) {
-	task.mergeChildOutputs()
-	task.mergeChildInputs() // for logging
+func (engine *K8sEngine) mergeChildParams(task *Task) (err error) {
+	engine.infof("begin merge child params for task: %v", task.Root.ID)
+	if err = task.mergeChildOutputs(); err != nil {
+		return task.Log.Event.errorf("failed to merge child outputs: %v", err)
+	}
+	task.mergeChildInputs()
+	engine.infof("end merge child params for task: %v", task.Root.ID)
+	return nil
 }
 
 func (task *Task) mergeChildInputs() {
+	task.infof("begin merge child inputs")
 	for _, child := range task.Children {
 		for param := range child.Parameters {
 			if wfParam, ok := task.InputIDMap[param]; ok {
-				fmt.Println("collecting wf param ", wfParam)
 				task.Log.Input[wfParam] = child.Log.Input[param]
 			}
 		}
 	}
+	task.infof("end merge child inputs")
 }
 
-// FIXME - this function needs to be refactored - there's too much going on here
+// fixme - this function needs to be refactored - there's too much going on here
 // ---- need to break it down into smaller parts
 // ---- also should make these processes run concurrently
 // ---- i.e., concurrently wait for each input parameter - not in sequence
-// ---- because files should be deleted as soon as they become unnecessary
 // for concurrent processing of steps of a workflow
 // key point: the task does not get Run() until its input params are populated - that's how/where the dependencies get handled
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
-	fmt.Printf("\tProcessing Step: %v\n", curStepID)
+	engine.infof("begin run step %v of parent task %v", curStepID, parentTask.Root.ID)
+
 	curStep := task.OriginalStep
 	stepIDMap := make(map[string]string)
 	for _, input := range curStep.In {
-		taskInput := step2taskID(&curStep, input.ID)
+		taskInput := step2taskID(curStep, input.ID)
 		stepIDMap[input.ID] = taskInput // step input ID maps to [sub]task input ID
 
 		// presently not handling the case of multiple sources for a given input parameter
@@ -301,12 +312,13 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			depTask := parentTask.Children[depStepID]
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
-			fmt.Println("\tWaiting for dependency task to finish running..")
+			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
 				if *depTask.Done {
-					fmt.Println("\tDependency task complete!")
 					task.Parameters[taskInput] = depTask.Outputs[outputID]
-					fmt.Println("\tSuccessfully collected output from dependency task.")
+					// fmt.Println("\tDependency task complete!")
+					// fmt.Println("\tSuccessfully collected output from dependency task.")
+					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
 				}
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {
@@ -334,16 +346,19 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 
 	// run this step
 	engine.run(task)
+	engine.infof("end run step %v of parent task %v", curStepID, parentTask.Root.ID)
 }
 
 // concurrently run steps of a workflow
 func (engine *K8sEngine) runSteps(task *Task) {
-	fmt.Println("\trunning steps..")
+	engine.infof("begin run steps for workflow: %v", task.Root.ID)
 
 	// store a map of {outputID: stepID} pairs to trace step i/o dependency (edit: AND create CleanupByStep field)
 	task.setupOutputMap()
 
-	// dev'ing - not implementing for now
+	// not using this cleanup method
+	// currently doing only basic cleanup
+	// i.e., after the workflow is done running, not as the workflow is running
 	// engine.cleanupByStep(task)
 
 	task.InputIDMap = make(map[string]string)
@@ -351,6 +366,12 @@ func (engine *K8sEngine) runSteps(task *Task) {
 	for curStepID, subtask := range task.Children {
 		go engine.runStep(curStepID, task, subtask)
 	}
+
+	// note: this log is sort of going to be out of chronological order
+	// because the go routines launch, and this log happens immediately after that
+	// though this log occurs while the steps are actually running
+	// fixme, or just don't log this (here) (?)
+	engine.infof("end run steps for workflow: %v", task.Root.ID)
 }
 
 // "#expressiontool_test.cwl" + "[#subworkflow_test.cwl]/test_expr/file_array"
@@ -366,30 +387,35 @@ func step2taskID(step *cwl.Step, stepParam string) string {
 // and outputValue is the value for that output parameter for the workflow step
 // -> this outputValue gets mapped from the workflow step's outputs to the output of the workflow itself
 func (task *Task) mergeChildOutputs() error {
+	task.infof("begin merge child outputs")
 	task.Outputs = make(map[string]interface{})
 	if task.Children == nil {
-		panic(fmt.Sprintf("Can't call merge child outputs without childs %v \n", task.Root.ID))
+		return task.errorf("failed to merge child outputs - no child tasks found")
 	}
 	for _, output := range task.Root.Outputs {
+		task.infof("begin handle output param: %v", output.ID)
 		if len(output.Source) == 1 {
-			// FIXME - again, here assuming len(source) is exactly 1
+			// fixme - again, here assuming len(source) is exactly 1
 			source := output.Source[0]
 			stepID, ok := task.OutputIDMap[source]
 			if !ok {
-				panic(fmt.Sprintf("Can't find output source %v", source))
+				return task.errorf("failed to find output source: %v", source)
 			}
-			subtaskOutputID := step2taskID(&task.Children[stepID].OriginalStep, source)
-			fmt.Printf("Waiting to merge child outputs for workflow %v ..\n", task.Root.ID)
+			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
+			task.infof("waiting to merge child outputs")
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
 				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {
 					task.Outputs[output.ID] = outputVal
 				}
 			}
 		} else {
-			panic(fmt.Sprintf("NOT SUPPORTED: don't know how to handle empty or array outputsource"))
+			// fixme
+			return task.errorf("NOT SUPPORTED: engine can't handle empty or array outputsource (this is a bug)")
 		}
+		task.infof("end handle output param: %v", output.ID)
 	}
 	task.Log.Output = task.Outputs
+	task.infof("end merge child outputs")
 	return nil
 }
 
@@ -400,12 +426,13 @@ func (task *Task) mergeChildOutputs() error {
 // -> that's a dependency between steps,
 // and so the dependency step must finish running
 // before the dependent step can execute
-func (task *Task) setupOutputMap() error {
+func (task *Task) setupOutputMap() {
+	task.infof("begin setup output map")
 	task.OutputIDMap = make(map[string]string)
 	for _, step := range task.Root.Steps {
 		for _, stepOutput := range step.Out {
 			task.OutputIDMap[stepOutput.ID] = step.ID
 		}
 	}
-	return nil
+	task.infof("end setup output map")
 }

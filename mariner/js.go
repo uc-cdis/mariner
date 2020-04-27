@@ -67,7 +67,13 @@ func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 }
 
 func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
-	return evalExpression(exp, tool.Task.Root.InputsVM)
+	tool.Task.infof("begin eval expression: %v", exp)
+	val, err := evalExpression(exp, tool.Task.Root.InputsVM)
+	if err != nil {
+		return nil, tool.Task.errorf("%v", err)
+	}
+	tool.Task.infof("end eval expression")
+	return val, nil
 }
 
 // resolveExpressions processes a text field which may or may not be
@@ -80,6 +86,7 @@ func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
 // NOTE: successful output is one of (text, nil, nil) or ("", *f, nil)
 // algorithm works in goplayground: https://play.golang.org/p/YOv-K-qdL18
 func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *File, err error) {
+	tool.Task.infof("begin resolve expression: %v", inText)
 	r := bufio.NewReader(strings.NewReader(inText))
 	var c0, c1, c2 string
 	var done bool
@@ -90,7 +97,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			if err == io.EOF {
 				done = true
 			} else {
-				return "", nil, err
+				return "", nil, tool.Task.errorf("%v", err)
 			}
 		}
 		c0, c1, c2 = c1, c2, string(nextRune)
@@ -100,7 +107,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			// read through to the end of this expression block
 			expression, err := r.ReadString(')')
 			if err != nil {
-				return "", nil, err
+				return "", nil, tool.Task.errorf("%v", err)
 			}
 
 			// get full $(...) expression
@@ -109,7 +116,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			// eval that thing
 			result, err := evalExpression(expression, tool.Task.Root.InputsVM)
 			if err != nil {
-				return "", outFile, err
+				return "", outFile, tool.Task.errorf("%v", err)
 			}
 
 			// result ought to be a string (edit: OR a file)
@@ -133,8 +140,10 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			}
 		}
 	}
+
 	// get resolved string value
 	outText = strings.Join(image, "")
+	tool.Task.infof("end resolve expression. resolved text: %v", outText)
 	return outText, nil, nil
 }
 

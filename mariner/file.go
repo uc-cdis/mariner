@@ -28,7 +28,7 @@ import (
 // --- could just create a wrapper around the File type,
 // --- like FileLog or something, which implements the desired, stripped JSON encodings
 type File struct {
-	Class          string  `json:"class"`          // always "File"
+	Class          string  `json:"class"`          // always CWLFileType
 	Location       string  `json:"location"`       // path to file (same as `path`)
 	Path           string  `json:"path"`           // path to file
 	Basename       string  `json:"basename"`       // last element of location path
@@ -46,7 +46,7 @@ type File struct {
 func fileObject(path string) (fileObj *File) {
 	base, root, ext := fileFields(path)
 	fileObj = &File{
-		Class:    "File",
+		Class:    CWLFileType,
 		Location: path, // stores the full path
 		Path:     path,
 		Basename: base,
@@ -95,6 +95,8 @@ func trimLeading(s string, char string) (suffix string, count int) {
 // creates File object for secondaryFile and loads into fileObj.SecondaryFiles field
 // unsure of where/what to check here to potentially return an error
 func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int) (err error) {
+	tool.Task.infof("begin load secondaryFiles from pattern for file: %v", fileObj.Path)
+
 	path := fileObj.Location // full path -> no need to handle prefix issue here
 	// however many chars there are
 	// trim that number of file extentions from the end of the path
@@ -106,13 +108,13 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 	path = path + suffix // append suffix (which is the original pattern with leading carats trimmed)
 
 	// check whether file exists
-	fileExists, err := exists(path)
-	// HERE - TODO - decide how to handle case of secondaryFiles that don't exist - warning or error? still append file obj to list or not?
+	// fixme: decide how to handle case of secondaryFiles that don't exist - warning or error? still append file obj to list or not?
 	// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
+	fileExists, err := exists(path)
 	switch {
 	case fileExists:
 		// the secondaryFile exists
-		fmt.Printf("\tfound secondary file %v\n", path)
+		tool.Task.infof("found secondaryFile: %v", path)
 
 		// construct file object for this secondary file
 		sFile := fileObject(path)
@@ -124,8 +126,9 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 		// the secondaryFile does not exist
 		// if anything, this should be a warning - not an error
 		// presently in this case, the secondaryFile object does NOT get appended to fileObj.SecondaryFiles
-		fmt.Printf("\tWARNING: secondary file %v not found\n", path)
+		tool.Task.warnf("secondaryFile not found: %v", path)
 	}
+	tool.Task.infof("end load secondaryFiles from pattern for file: %v", fileObj.Path)
 	return nil
 }
 
@@ -159,6 +162,7 @@ func (f *File) delete() error {
 // determines whether a map i represents a CWL file object
 // NOTE: since objects of type File are not maps, they return false -> unfortunate, but not a critical problem
 // ----- maybe do some renaming to clear this up
+// fixme - see conformancelib
 func isFile(i interface{}) (f bool) {
 	iType := reflect.TypeOf(i)
 	iKind := iType.Kind()
@@ -167,10 +171,23 @@ func isFile(i interface{}) (f bool) {
 		for _, key := range iMap.MapKeys() {
 			if key.Type() == reflect.TypeOf("") {
 				if key.String() == "class" {
-					if iMap.MapIndex(key).Interface() == "File" {
+					if iMap.MapIndex(key).Interface() == CWLFileType {
 						f = true
 					}
 				}
+			}
+		}
+	}
+	return f
+}
+
+func isArrayOfFile(i interface{}) (f bool) {
+	if reflect.TypeOf(i).Kind() == reflect.Array {
+		s := reflect.ValueOf(i)
+		f = true
+		for j := 0; j < s.Len() && f; j++ {
+			if !isFile(s.Index(j)) {
+				f = false
 			}
 		}
 	}
@@ -191,6 +208,7 @@ func exists(path string) (bool, error) {
 
 // get path from a file object which is not of type File
 // NOTE: maybe shouldn't be an error if no path but the contents field is populated
+// fixme - see conformancelib
 func filePath(i interface{}) (path string, err error) {
 	iter := reflect.ValueOf(i).MapRange()
 	for iter.Next() {

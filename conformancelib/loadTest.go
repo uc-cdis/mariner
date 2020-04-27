@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -128,7 +129,7 @@ func (t *TestCase) tags() map[string]string {
 	tags["job"] = t.Input
 	tags["tool"] = t.CWL
 	tags["label"] = t.Label
-	tags["id"] = string(t.ID)
+	tags["id"] = strconv.Itoa(t.ID)
 	tags["doc"] = t.Doc
 	tags["tags"] = strings.Join(t.Tags, ",")
 	if t.ShouldFail {

@@ -5,7 +5,6 @@ import (
 	"math"
 	"os"
 	"strings"
-	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -23,33 +22,16 @@ import (
 
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
 func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, string, error) {
-	// presently this is just a timestamp - unique key is the pair (userID, runID)
-	runID := runID()
 
 	// get job spec all populated except for pod volumes and containers
-	// NOTE: FIXME - job names (task and engine) are only unique within-user, not globally (among-users) unique - need to fix
-	// actually task job names are not unique within-user either
-	// currently the only unique job names are engine within-user
-	// this needs to be fixed
-	workflowJob := jobSpec(marinerEngine, runID, workflowRequest.UserID)
+	workflowJob := jobSpec(marinerEngine, workflowRequest.UserID)
 	workflowRequest.JobName = workflowJob.GetName()
 
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
 
-	// runID (timestamp) is generated here! can just generate it at the very beginning of this function
-	// can use it to name the job
-	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, runID)
-	return workflowJob, runID, nil
-}
-
-// NOTE: probably can come up with a better ID for a workflow, but for now this will work
-// can't really generate a workflow ID from the given packed workflow since the top level workflow is always called "#main"
-// so not exactly sure how to label the workflow runs besides a timestamp
-func runID() (timeStamp string) {
-	now := time.Now()
-	timeStamp = fmt.Sprintf("%v-%v-%v-%v-%v-%v", now.Year(), int(now.Month()), now.Day(), now.Hour(), now.Minute(), now.Second())
-	return timeStamp
+	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, workflowRequest.JobName)
+	return workflowJob, workflowRequest.JobName, nil
 }
 
 // returns volumes field for workflow/engine job spec
@@ -60,6 +42,7 @@ func engineVolumes() (volumes []k8sv1.Volume) {
 	return volumes
 }
 
+// `runID` is the jobName of the engine job
 func engineContainers(workflowRequest *WorkflowRequest, runID string) (containers []k8sv1.Container) {
 	engine := engineContainer(runID)
 	s3sidecar := s3SidecarContainer(workflowRequest, runID)
@@ -194,21 +177,24 @@ type TokenUser struct {
 ////// marinerTask -> ///////
 
 func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
+	engine.infof("begin load job spec for task: %v", tool.Task.Root.ID)
 	jobName := tool.jobName()
 	tool.JobName = jobName
-	job = jobSpec(marinerTask, jobName, engine.UserID)
+	job = jobSpec(marinerTask, engine.UserID)
 	job.Spec.Template.Spec.Volumes = workflowVolumes()
 	job.Spec.Template.Spec.Containers, err = engine.taskContainers(tool)
 	if err != nil {
-		return nil, err
+		return nil, engine.errorf("failed to load container spec for task: %v; error: %v", tool.Task.Root.ID, err)
 	}
+	engine.infof("end load job spec for task: %v", tool.Task.Root.ID)
 	return job, nil
 }
 
 func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Container, err error) {
+	engine.infof("begin load container spec for tool: %v", tool.Task.Root.ID)
 	task, err := tool.taskContainer()
 	if err != nil {
-		return nil, err
+		return nil, engine.errorf("failed to load task main container: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	s3sidecar := engine.s3SidecarContainer(tool)
 	gen3fuse := gen3fuseContainer(engine.Manifest, marinerTask, engine.RunID)
@@ -218,11 +204,13 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	}
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
+	engine.infof("end load container spec for tool: %v", tool.Task.Root.ID)
 	return containers, nil
 }
 
 // for marinerTask job
 func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Container) {
+	engine.infof("load s3 sidecar container spec for task: %v", tool.Task.Root.ID)
 	container = baseContainer(&Config.Containers.S3sidecar, s3sidecar)
 	container.Lifecycle = s3PrestopHook
 	container.Env = engine.s3SidecarEnv(tool)
@@ -234,25 +222,30 @@ func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Contai
 // additionally, add logic to check if the tool has specified each field
 // if a field is not specified, the spec should be filled out using values from the mariner-config
 func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
+	tool.Task.infof("begin load main container spec")
 	conf := Config.Containers.Task
 	container = new(k8sv1.Container)
 	container.Name = conf.Name
 	container.VolumeMounts = volumeMounts(marinerTask)
 	container.ImagePullPolicy = conf.pullPolicy()
 
-	// if not specified use config
 	container.Image = tool.dockerImage()
+	tool.Task.Log.ContainerImage = container.Image
+
+	if container.Resources, err = tool.resourceReqs(); err != nil {
+		return nil, tool.Task.errorf("failed to load cpu/mem info: %v", err)
+	}
 
 	// if not specified use config
-	container.Resources = tool.resourceReqs()
+	container.Command = []string{tool.cltBash()} // fixme - please
 
-	// if not specified use config
-	container.Command = []string{tool.cltBash()} // FIXME - please
+	container.Args = tool.cltArgs() // fixme - make string constant or something
 
-	container.Args = tool.cltArgs() // FIXME - make string constant or something
+	if container.Env, err = tool.env(); err != nil {
+		return nil, tool.Task.errorf("failed to load env info: %v", err)
+	}
 
-	container.Env = tool.env()
-
+	tool.Task.infof("end load main container spec")
 	return container, nil
 }
 
@@ -264,8 +257,10 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 // - won't have the mariner repo, and we shouldn't clone it in there
 // so, just make this string a constant or something in the config file
 // TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
-// HERE - how to handle case of different possible bash, depending on CLT image specified in CWL?
+// Q: how to handle case of different possible bash, depending on CLT image specified in CWL?
+// fixme
 func (tool *Tool) cltArgs() []string {
+	tool.Task.infof("begin load CommandLineTool container args")
 	// Uncomment after debugging
 	args := []string{
 		"-c",
@@ -300,6 +295,7 @@ func (tool *Tool) cltArgs() []string {
 		}
 	*/
 
+	tool.Task.infof("end load CommandLineTool container args")
 	return args
 }
 
@@ -308,28 +304,33 @@ func (tool *Tool) cltArgs() []string {
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 // and: https://godoc.org/k8s.io/api/core/v1#EnvVar
 // and: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
-func (tool *Tool) env() (env []k8sv1.EnvVar) {
+func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
+	tool.Task.infof("begin load environment variables")
 	env = []k8sv1.EnvVar{}
 	for _, requirement := range tool.Task.Root.Requirements {
-		if requirement.Class == "EnvVarRequirement" {
+		if requirement.Class == CWLEnvVarRequirement {
 			for _, envDef := range requirement.EnvDef {
+				tool.Task.infof("begin handle envVar: %v", envDef.Name)
 				varValue, _, err := tool.resolveExpressions(envDef.Value) // resolves any expression(s) - if no expressions, returns original text
 				if err != nil {
-					panic("failed to resolve expressions in envVar def")
+					return nil, tool.Task.errorf("failed to resolve expression: %v; error: %v", envDef.Value, err)
 				}
 				envVar := k8sv1.EnvVar{
 					Name:  envDef.Name,
 					Value: varValue,
 				}
 				env = append(env, envVar)
+				tool.Task.infof("end handle envVar: %v", envDef.Name)
 			}
 		}
 	}
-	return env
+	tool.Task.infof("end load environment variables")
+	return env, nil
 }
 
 // for marinerTask job
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
+	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
@@ -370,8 +371,8 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 // for marinerTask job
 // replace disallowed job name characters
 // Q: is there a better job-naming scheme?
-// -- should every mariner task job have `mariner` as a prefix, for easy identification?
 func (tool *Tool) jobName() string {
+	tool.Task.infof("begin resolve k8s job name")
 	taskID := tool.Task.Root.ID
 	jobName := strings.ReplaceAll(taskID, "#", "")
 	jobName = strings.ReplaceAll(jobName, "_", "-")
@@ -381,27 +382,29 @@ func (tool *Tool) jobName() string {
 		// in order to not dupliate k8s job names - append suffix with ScatterIndex to job name
 		jobName = fmt.Sprintf("%v-scattered-%v", jobName, tool.Task.ScatterIndex)
 	}
+	tool.Task.infof("end resolve k8s job name. resolved job name: %v", jobName)
 	return jobName
 }
 
 // handles the DockerRequirement if specified and returns the image to be used for the CommandLineTool
-// NOTE: if no image specified, returns `ubuntu` as a default image - need to ask/check if there is a better default image to use
-// NOTE: presently only supporting use of the `dockerPull` CWL field
-// FIXME
+// note: presently only supporting use of the `dockerPull` CWL field
+// fixme - handle remaining DockerRequirement options
 func (tool *Tool) dockerImage() string {
+	tool.Task.infof("begin load docker image")
 	for _, requirement := range tool.Task.Root.Requirements {
-		if requirement.Class == "DockerRequirement" {
+		if requirement.Class == CWLDockerRequirement {
 			if requirement.DockerPull != "" {
-				// NOTE: Shenglai made comment about adding `sha256` tag in order to pull exactly the latest image you want
-				// ----- ask for detail/example and ask others to see if I should implement that
+				tool.Task.infof("end load docker image. loaded image: %v", string(requirement.DockerPull))
 				return string(requirement.DockerPull)
 			}
 		}
 	}
-	return "ubuntu"
+	tool.Task.infof("end load docker image. loaded default task image: %v", defaultTaskContainerImage)
+	return defaultTaskContainerImage
 }
 
-// FIXME
+// fixme
+// Q: how to handle case of different possible bash, depending on CLT image specified in CWL?
 func (tool *Tool) cltBash() string {
 	if tool.dockerImage() == "alpine" {
 		return "/bin/sh"
@@ -415,12 +418,18 @@ func (tool *Tool) cltBash() string {
 // for k8s resource info see: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/
 //
 // NOTE: presently only supporting req's for cpu cores and RAM - need to implement outdir and tmpdir and whatever other fields are allowed
-func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
+func (tool *Tool) resourceReqs() (k8sv1.ResourceRequirements, error) {
+	tool.Task.infof("begin handle resource requirements")
 	var cpuReq, cpuLim int64
 	var memReq, memLim int64
+
+	// start with default settings
+	resourceReqs := Config.Containers.Task.resourceRequirements()
+
+	// discern user specified settings
 	requests, limits := make(k8sv1.ResourceList), make(k8sv1.ResourceList)
 	for _, requirement := range tool.Task.Root.Requirements {
-		if requirement.Class == "ResourceRequirement" {
+		if requirement.Class == CWLResourceRequirement {
 			// for info on quantities, see: https://godoc.org/k8s.io/apimachinery/pkg/api/resource#Quantity
 			if requirement.CoresMin > 0 {
 				cpuReq = int64(requirement.CoresMin)
@@ -454,30 +463,29 @@ func (tool *Tool) resourceReqs() k8sv1.ResourceRequirements {
 	reqVals := []int64{cpuReq, cpuLim, memReq, memLim}
 	for _, val := range reqVals {
 		if val < 0 {
-			panic("negative memory or cores requirement specified")
+			return resourceReqs, tool.Task.errorf("negative memory or cores requirement specified")
 		}
 	}
 
 	// verify valid bounds if both min and max specified
 	if memLim > 0 && memReq > 0 && memLim < memReq {
-		panic("memory maximum specified less than memory minimum specified")
+		return resourceReqs, tool.Task.errorf("memory maximum specified less than memory minimum specified")
 	}
 
 	if cpuLim > 0 && cpuReq > 0 && cpuLim < cpuReq {
-		panic("cores maximum specified less than cores minimum specified")
+		return resourceReqs, tool.Task.errorf("cores maximum specified less than cores minimum specified")
 	}
 
-	// start with default settings
-	resourceReqs := Config.Containers.Task.resourceRequirements()
-
-	// only want to overwrite default limits if requirements specified in the CWL
+	// only overwrite default limits if requirements specified in the CWL by user
 	if len(requests) > 0 {
 		resourceReqs.Requests = requests
 	}
 	if len(limits) > 0 {
 		resourceReqs.Limits = limits
 	}
-	return resourceReqs
+
+	tool.Task.infof("end handle resource requirements")
+	return resourceReqs, nil
 }
 
 /////// General purpose - for marinerTask & marinerEngine -> ///////
@@ -509,23 +517,15 @@ func workflowVolumes() []k8sv1.Volume {
 }
 
 // returns marinerEngine/marinerTask job spec with all fields populated EXCEPT volumes and containers
-func jobSpec(component string, name string, userID string) (job *batchv1.Job) {
-
-	// probably need a prefix of some kind on job names
-	// some hash of the userID maybe
-	// can get from token
-
-	// if marinerEngine, then `name` is the runID (i.e., timestamp)
-	if component == marinerEngine {
-		name = fmt.Sprintf("mariner.%v", name)
-	}
+func jobSpec(component string, userID string) (job *batchv1.Job) {
 
 	jobConfig := Config.jobConfig(component)
 	job = new(batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
-	job.Name, job.Labels = name, jobConfig.Labels
-	job.Spec.Template.Name, job.Spec.Template.Labels = name, jobConfig.Labels
+	jobName := createJobName()
+	job.Name, job.Labels = jobName, jobConfig.Labels
+	job.Spec.Template.Name, job.Spec.Template.Labels = jobName, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
 	job.Spec.Template.Spec.Tolerations = k8sTolerations
 

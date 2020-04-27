@@ -109,10 +109,10 @@ func fetchMainLog(userID, runID string) (*MainLog, error) {
 	return log, nil
 }
 
-func mainLog(path string, request *WorkflowRequest) *MainLog {
+func mainLog(path string) *MainLog {
 	log := &MainLog{
 		Path:      path,
-		Request:   request,
+		Main:      logger(),
 		ByProcess: make(map[string]*Log),
 	}
 	return log
@@ -143,7 +143,7 @@ func check(err error) {
 }
 
 func (mainLog *MainLog) write() error {
-	fmt.Println("writing main log..")
+	// fmt.Println("writing main log..")
 
 	// apply/update timestamps on the main log
 	// not sure if I should collect timestamps of all writes
@@ -164,10 +164,10 @@ func (mainLog *MainLog) write() error {
 		log.Engine.LastUpdated = t
 	*/
 
-	fmt.Println("marshalling MainLog to json..")
+	// fmt.Println("marshalling MainLog to json..")
 	j, err := json.Marshal(*mainLog)
 	check(err)
-	fmt.Println("writing data to file..")
+	// fmt.Println("writing data to file..")
 	err = ioutil.WriteFile(mainLog.Path, j, 0644)
 	check(err)
 	return nil
@@ -205,6 +205,12 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 
 // Log stores the eventLog and runtime stats for a mariner component (i.e., engine or task)
 // see: https://golang.org/pkg/time/
+//
+// note: could log the job spec per task
+// ----- or at least the task container spec
+// ----- need to double check there is no sensitive info in the job spec
+// ----- should be fine
+// ----- for now: log container image pulled for task
 type Log struct {
 	Created        string                 `json:"created,omitempty"`     // okay - timezone???
 	CreatedObj     time.Time              `json:"-"`                     // okay
@@ -212,11 +218,12 @@ type Log struct {
 	LastUpdatedObj time.Time              `json:"-"`                     // okay
 	JobID          string                 `json:"jobID,omitempty"`       // okay
 	JobName        string                 `json:"jobName,omitempty"`     // keeping for now, but might be redundant w jobID
-	Status         string                 `json:"status"`                // okay
-	Stats          *Stats                 `json:"stats"`                 // TODO
-	Event          EventLog               `json:"eventLog,omitempty"`    // TODO
-	Input          map[string]interface{} `json:"input"`                 // TODO for workflow; okay for task
-	Output         map[string]interface{} `json:"output"`                // okay
+	ContainerImage string                 `json:"containerImage,omitempty"`
+	Status         string                 `json:"status"`             // okay
+	Stats          *Stats                 `json:"stats"`              // TODO
+	Event          EventLog               `json:"eventLog,omitempty"` // TODO
+	Input          map[string]interface{} `json:"input"`              // TODO for workflow; okay for task
+	Output         map[string]interface{} `json:"output"`             // okay
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
 }
 
@@ -267,6 +274,7 @@ func logger() *Log {
 		Input:  make(map[string]interface{}),
 		Stats:  &Stats{},
 	}
+	logger.Event.info("init log")
 	return logger
 }
 
@@ -304,12 +312,41 @@ type ResourceUsageSamplePoint struct {
 // EventLog is an event logger for a mariner component (i.e., engine or task)
 type EventLog []string
 
+// update log (i.e., write to log file) each time there's an error, to capture point of failure
+func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
+	err := engine.Log.Main.Event.errorf(f, v...)
+	engine.Log.write()
+	return err
+}
+
+func (engine *K8sEngine) warnf(f string, v ...interface{}) {
+	engine.Log.Main.Event.warnf(f, v...)
+	engine.Log.write()
+}
+
+func (engine *K8sEngine) infof(f string, v ...interface{}) {
+	engine.Log.Main.Event.infof(f, v...)
+	engine.Log.write()
+}
+
+func (task *Task) errorf(f string, v ...interface{}) error {
+	return task.Log.Event.errorf(f, v...)
+}
+
+func (task *Task) warnf(f string, v ...interface{}) {
+	task.Log.Event.warnf(f, v...)
+}
+
+func (task *Task) infof(f string, v ...interface{}) {
+	task.Log.Event.infof(f, v...)
+}
+
 // a record is "<timestamp> - <level> - <message>"
-func (log EventLog) write(level, message string) {
+func (log *EventLog) write(level, message string) {
 	timestamp := ts()
 	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
-	log = append(log, record)
+	*log = append(*log, record)
 }
 
 func (log *EventLog) infof(f string, v ...interface{}) {
@@ -330,13 +367,14 @@ func (log *EventLog) warn(m string) {
 	log.write(warningLogLevel, m)
 }
 
-func (log *EventLog) errorf(f string, v ...interface{}) {
+func (log *EventLog) errorf(f string, v ...interface{}) error {
 	m := fmt.Sprintf(f, v...)
-	log.error(m)
+	return log.error(m)
 }
 
-func (log *EventLog) error(m string) {
+func (log *EventLog) error(m string) error {
 	log.write(errorLogLevel, m)
+	return fmt.Errorf(m)
 }
 
 // get string timestamp for right now

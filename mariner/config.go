@@ -20,6 +20,11 @@ const (
 	s3sidecar     = "s3sidecar"
 	gen3fuse      = "gen3fuse"
 
+	// default task docker image
+	// this should be in the external config
+	// not in the codebase
+	defaultTaskContainerImage = "ubuntu"
+
 	// volume names
 	engineWorkspaceVolumeName = "engine-workspace"
 	commonsDataVolumeName     = "commons-data"
@@ -45,6 +50,25 @@ const (
 	k8sJobAPI     = "k8sJobAPI"
 	k8sPodAPI     = "k8sPodAPI"
 	k8sMetricsAPI = "k8sMetricsAPI"
+
+	// top-level workflow ID
+	mainProcessID = "#main"
+
+	// cwl things //
+	// parameter type
+	CWLNullType      = "null"
+	CWLFileType      = "File"
+	CWLDirectoryType = "Directory"
+	// object class
+	CWLWorkflow        = "Workflow"
+	CWLCommandLineTool = "CommandLineTool"
+	CWLExpressionTool  = "ExpressionTool"
+	// requirements
+	CWLInitialWorkDirRequirement = "InitialWorkDirRequirement"
+	CWLResourceRequirement       = "ResourceRequirement"
+	CWLDockerRequirement         = "DockerRequirement"
+	CWLEnvVarRequirement         = "EnvVarRequirement"
+	// add the rest ..
 
 	// log levels
 	infoLogLevel    = "INFO"

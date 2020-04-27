@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strings"
 )
@@ -45,4 +46,14 @@ func readDir(pwd, dir string) {
 func struct2String(i interface{}) (s string) {
 	j, _ := json.Marshal(i)
 	return string(j)
+}
+
+// GetRandString returns a random string of length N
+func getRandString(n int) string {
+	letterBytes := "abcdefghijklmnopqrstuvwxyz"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
 }
