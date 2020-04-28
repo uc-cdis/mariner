@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	confLib "github.com/uc-cdis/mariner/conformancelib"
+	conformanceLib "github.com/uc-cdis/mariner/conformancelib"
 )
 
 var (
@@ -35,16 +35,14 @@ func main() {
 
 	flag.Parse()
 
-	// HERE - > execution logic, pass vals to fn's, run the tests
-
 	// load in all tests
-	allTests, err := confLib.LoadConfig(*cwl)
+	allTests, err := conformanceLib.LoadConfig(*cwl)
 	if err != nil {
-		// print some error message and exit
+		fmt.Println("error loading tests:", err)
 	}
 
 	// define filter
-	filters := &confLib.FilterSet{
+	filters := &conformanceLib.FilterSet{
 		ID:    []int(IDs),
 		Label: []string(labels),
 		Tags:  []string(tags),
@@ -63,26 +61,32 @@ func main() {
 
 	// optionally view filtered test set
 	if *showFiltered {
-		// send filtered test set to stdout
-		// fixme: fix printJSON to work generally and export that fn in the conformancelib
+		conformanceLib.PrintJSON(tests)
+		fmt.Printf("--- nTests: %v ---\n", len(tests))
 	}
 
 	// optionally run filtered test set
 	if *runTests {
 
+		fmt.Printf("\n--- running %v tests ---\n", len(tests))
+
 		// cap number of tests running at one time
-		async := &confLib.Async{
+		async := &conformanceLib.Async{
 			Enabled:       true,
 			MaxConcurrent: *maxConcurrent,
 		}
 
+		fmt.Println("--- async settings: ---")
+		conformanceLib.PrintJSON(async)
+		fmt.Println("")
+
 		// run the tests
-		runner, err := confLib.RunTests(tests, *creds, async)
+		runner, err := conformanceLib.RunTests(tests, *creds, async)
 		if err != nil {
-			// handle err
+			fmt.Println("error running tests:", err)
 		}
 		if err = runner.WriteResults(*outPath); err != nil {
-			// handle err
+			fmt.Println("error writing results:", err)
 		}
 	}
 }
