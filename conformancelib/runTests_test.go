@@ -28,10 +28,10 @@ func NotTestFilter(t *testing.T) {
 	fmt.Println("filtered length: ", len(filtered))
 
 	fmt.Println("filters:")
-	printJSON(filters)
+	PrintJSON(filters)
 
 	fmt.Println("filtered results:")
-	printJSON(filtered)
+	PrintJSON(filtered)
 }
 
 // also incomplete
@@ -44,7 +44,7 @@ func NotTestInputsCollector(t *testing.T) {
 	inputs, err := InputFiles(suite)
 
 	fmt.Println("inputs:")
-	printJSON(inputs)
+	PrintJSON(inputs)
 
 	if err != nil {
 		t.Errorf("collect routine failed: %v", err)
@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 	}
 
 	// how many tests to run
-	nTests := 1
+	nTests := 16
 	for i := 1; i <= nTests; i++ {
 		filters.ID = append(filters.ID, i)
 	}
@@ -123,25 +123,27 @@ func TestRun(t *testing.T) {
 	}
 
 	fmt.Println("nAllTests:", len(allTests))
-	// fmt.Println("nTests:", nTests)
+	fmt.Println("nTests:", nTests)
 	fmt.Println("async:")
-	printJSON(async)
+	PrintJSON(async)
 
 	// apply filter
 	tests := filters.Apply(allTests)
 
 	// look at the test set
-	// fmt.Println("running these tests:")
-	// printJSON(tests)
+	fmt.Println("running these tests:")
+	PrintJSON(tests)
 
-	// run the tests - results sent to stdout
-	creds := "./creds.json"
+	/*
+		// run the tests - results sent to stdout
+		creds := "./creds.json"
 
-	runner, err := RunTests(tests, creds, async)
-	if err != nil {
-		t.Error(err)
-	}
-	if err = runner.WriteResults(""); err != nil {
-		t.Error(err)
-	}
+		runner, err := RunTests(tests, creds, async)
+		if err != nil {
+			t.Error(err)
+		}
+		if err = runner.WriteResults(""); err != nil {
+			t.Error(err)
+		}
+	*/
 }
