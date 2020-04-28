@@ -102,7 +102,7 @@ func (r *Runner) waitForWorker() {
 
 		// hang out for second
 		fmt.Println("hit maxConcurrrent; waiting for a test-in-progress to finish:")
-		printJSON(r.Async.InProgress)
+		PrintJSON(r.Async.InProgress)
 
 		time.Sleep(5 * time.Second)
 	}
