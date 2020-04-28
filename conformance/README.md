@@ -10,3 +10,34 @@ associated with it which are useful for testing workflow engine implementations
 to see how much and what parts of the CWL specification are supported in a particular implementation.
 
 `conformance` is a command-line interface for automated and efficient conformance-testing of Mariner.
+
+## PreReq's
+
+The tool is built to test a particular instance of Mariner deployed in some environment - 
+for example, your dev environment or a QA or staging environment for some commons.
+That is, the tool must be "pointed at" a particular environment.
+Whatever environment you choose, in order to run the tests 
+you must have authZ to access the Mariner API and run workflows in that environment.
+
+
+
+## How To Use The Tool
+
+If necessary, first [install Go on your machine](https://golang.org/doc/install)
+and ensure that the path to your Go binaries is part of your $PATH so that
+the tool will be recognized at the command-line.
+
+Now you can fetch and install the tool by running this command:
+
+```
+go get github.com/uc-cdis/mariner/conformance
+```
+
+Clone the repo containing the CWL conformance tests:
+
+```
+git clone https://github.com/common-workflow-language/common-workflow-language
+```
+
+
+
