@@ -58,10 +58,10 @@ common-workflow-language	creds.json
 
 Now you're ready to run some conformance tests!
 
-You can view the tool's usage by passing it a flag it doesn't recognize - e.g., `-help`:
+You can view the tool's usage by passing it a flag it doesn't recognize - e.g., `-h`:
 
 ```
-Matts-MacBook-Pro:testTool mattgarvin$ conformance -help
+Matts-MacBook-Pro:testTool mattgarvin$ conformance -h
 Usage of conformance:
   -async int
     	specify maximum number of tests concurrently running at any given time (default 4)
@@ -173,7 +173,7 @@ To actually run the tests, pass the `-run` flag:
 conformance -cwl ./common-workflow-language -creds ./creds.json -id 1 -run -out report.json
 ```
 
-Run all tests:
+To run all tests, don't pass any filter flags:
 
 ```
 conformance -cwl ./common-workflow-language -creds ./creds.json -run -out report.json
@@ -186,4 +186,375 @@ at one time is 4, but you can define that limit yourself by passing the `-async`
 conformance -cwl ./common-workflow-language -creds ./creds.json -async 8 -run -out report.json
 ```
 
+## Example Run and Output
+
+Here's what it looks like when we run the first test case and view the results:
+
+```
+Matts-MacBook-Pro:testTool mattgarvin$ conformance -cwl ./common-workflow-language/ -creds ./creds.json -id 1 -run -out results.json
+
+--- running 1 tests ---
+--- async settings: ---
+{
+   "Enabled": true,
+   "MaxConcurrent": 4
+}
+
+------ running test 1 ------
+--- 1 - packing cwl to json
+--- 1 - loading inputs
+--- 1 - collecting tags
+--- 1 - POSTing request to mariner
+--- 1 - marshalling RunID to json
+--- 1 - runID: 042920031731-qsxfj
+--- 1 - waiting for run to finish
+--- 1 - run status: completed
+--- 1 - matching output
+------ writing test results to results.json ------
+Matts-MacBook-Pro:testTool mattgarvin$ cat results.json 
+{
+  "timestamp": "042820221729",
+  "duration": "30s",
+  "async": {
+    "Enabled": true,
+    "MaxConcurrent": 4
+  },
+  "results": {
+    "Total": 1,
+    "Coverage": 0,
+    "Pass": 0,
+    "Fail": 1,
+    "Manual": 0
+  },
+  "log": {
+    "Pass": {},
+    "Fail": {
+      "1": {
+        "TestCase": {
+          "job": "common-workflow-language/v1.0/v1.0/bwa-mem-job.json",
+          "output": {
+            "args": [
+              "bwa",
+              "mem",
+              "-t",
+              "2",
+              "-I",
+              "1,2,3,4",
+              "-m",
+              "3",
+              "chr20.fa",
+              "example_human_Illumina.pe_1.fastq",
+              "example_human_Illumina.pe_2.fastq"
+            ]
+          },
+          "should_fail": false,
+          "tool": "common-workflow-language/v1.0/v1.0/bwa-mem-tool.cwl",
+          "label": "cl_basic_generation",
+          "id": 1,
+          "doc": "General test of command line generation",
+          "tags": [
+            "required",
+            "command_line_tool"
+          ]
+        },
+        "TimeOut": false,
+        "FailedToKillJob": false,
+        "LocalError": null,
+        "MarinerError": [
+          "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+          "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+          "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+          "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+          "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+          "2020/4/29 3:17:54 - ERROR - failed to generate command for tool: #main; error: failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+          "2020/4/29 3:17:54 - ERROR - failed to run CommandLineTool: #main; error: failed to generate command for tool: #main; error: failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+          "2020/4/29 3:17:54 - ERROR - failed to run tool: #main; error: failed to run CommandLineTool: #main; error: failed to generate command for tool: #main; error: failed to evaluate js expression: ReferenceError: 'runtime' is not defined"
+        ],
+        "RunLog": {
+          "request": {
+            "Workflow": {
+              "$graph": [
+                {
+                  "arguments": [
+                    "bwa",
+                    "mem",
+                    {
+                      "position": 1,
+                      "prefix": "-t",
+                      "valueFrom": "$(runtime.cores)"
+                    }
+                  ],
+                  "baseCommand": "python",
+                  "class": "CommandLineTool",
+                  "cwlVersion": "v1.0",
+                  "hints": [
+                    {
+                      "class": "ResourceRequirement",
+                      "coresMin": 2,
+                      "ramMin": 8
+                    },
+                    {
+                      "class": "DockerRequirement",
+                      "dockerPull": "python:2-slim"
+                    }
+                  ],
+                  "id": "#main",
+                  "inputs": [
+                    {
+                      "id": "#main/reference",
+                      "inputBinding": {
+                        "position": 2
+                      },
+                      "type": "File"
+                    },
+                    {
+                      "id": "#main/reads",
+                      "inputBinding": {
+                        "position": 3
+                      },
+                      "type": {
+                        "items": "File",
+                        "type": "array"
+                      }
+                    },
+                    {
+                      "id": "#main/minimum_seed_length",
+                      "inputBinding": {
+                        "position": 1,
+                        "prefix": "-m"
+                      },
+                      "type": "int"
+                    },
+                    {
+                      "id": "#main/min_std_max_min",
+                      "inputBinding": {
+                        "itemSeparator": ",",
+                        "position": 1,
+                        "prefix": "-I"
+                      },
+                      "type": {
+                        "items": "int",
+                        "type": "array"
+                      }
+                    },
+                    {
+                      "default": {
+                        "class": "File",
+                        "location": "args.py"
+                      },
+                      "id": "#main/args.py",
+                      "inputBinding": {
+                        "position": -1
+                      },
+                      "type": "File"
+                    }
+                  ],
+                  "outputs": [
+                    {
+                      "id": "#main/sam",
+                      "outputBinding": {
+                        "glob": "output.sam"
+                      },
+                      "type": [
+                        "null",
+                        "File"
+                      ]
+                    },
+                    {
+                      "id": "#main/args",
+                      "type": {
+                        "items": "string",
+                        "type": "array"
+                      }
+                    }
+                  ],
+                  "stdout": "output.sam"
+                }
+              ],
+              "cwlVersion": "v1.0"
+            },
+            "Input": {
+              "min_std_max_min": [
+                1,
+                2,
+                3,
+                4
+              ],
+              "minimum_seed_length": 3,
+              "reads": [
+                {
+                  "class": "File",
+                  "location": "example_human_Illumina.pe_1.fastq"
+                },
+                {
+                  "class": "File",
+                  "location": "example_human_Illumina.pe_2.fastq"
+                }
+              ],
+              "reference": {
+                "checksum": "sha1$hash",
+                "class": "File",
+                "location": "USER/conformanceTesting/chr20.fa",
+                "size": 123
+              }
+            },
+            "Tags": {
+              "doc": "General test of command line generation",
+              "id": "1",
+              "job": "common-workflow-language/v1.0/v1.0/bwa-mem-job.json",
+              "label": "cl_basic_generation",
+              "should_fail": "false",
+              "tags": "required,command_line_tool",
+              "tool": "common-workflow-language/v1.0/v1.0/bwa-mem-tool.cwl"
+            }
+          },
+          "main": {
+            "created": "2020/4/29 3:17:52",
+            "lastUpdated": "2020/4/29 3:17:54",
+            "jobID": "f699f9bd-89c7-11ea-a95c-12dda9fc743b",
+            "jobName": "042920031731-qsxfj",
+            "status": "completed",
+            "stats": {
+              "cpuReq": {
+                "min": 0,
+                "max": 0
+              },
+              "memReq": {
+                "min": 0,
+                "max": 0
+              },
+              "resourceUsage": {
+                "data": null,
+                "samplingPeriod": 0
+              },
+              "duration": 2.111747974,
+              "nfailures": 0,
+              "nretries": 0
+            },
+            "eventLog": [
+              "2020/4/29 3:17:52 - INFO - init log",
+              "2020/4/29 3:17:52 - INFO - begin resolve graph",
+              "2020/4/29 3:17:52 - INFO - end resolve graph",
+              "2020/4/29 3:17:52 - INFO - begin run task: #main",
+              "2020/4/29 3:17:52 - INFO - begin dispatch task: #main",
+              "2020/4/29 3:17:53 - INFO - begin make tool object",
+              "2020/4/29 3:17:53 - INFO - begin make task working dir",
+              "2020/4/29 3:17:53 - INFO - end make task working dir: /engine-workspace/workflowRuns/042920031731-qsxfj/main/",
+              "2020/4/29 3:17:53 - INFO - end make tool object",
+              "2020/4/29 3:17:53 - INFO - begin setup tool",
+              "2020/4/29 3:17:53 - INFO - begin make tool working dir",
+              "2020/4/29 3:17:53 - INFO - end make tool working dir",
+              "2020/4/29 3:17:53 - INFO - begin load inputs",
+              "2020/4/29 3:17:53 - INFO - tool has no parent workflow",
+              "2020/4/29 3:17:53 - INFO - begin load input: #main/args.py",
+              "2020/4/29 3:17:53 - INFO - begin transform input: #main/args.py",
+              "2020/4/29 3:17:53 - INFO - begin load input value for input: #main/args.py",
+              "2020/4/29 3:17:53 - INFO - end load input value for input: #main/args.py",
+              "2020/4/29 3:17:53 - INFO - end transform input: #main/args.py",
+              "2020/4/29 3:17:53 - INFO - end load input: #main/args.py",
+              "2020/4/29 3:17:53 - INFO - begin load input: #main/min_std_max_min",
+              "2020/4/29 3:17:53 - INFO - begin transform input: #main/min_std_max_min",
+              "2020/4/29 3:17:53 - INFO - begin load input value for input: #main/min_std_max_min",
+              "2020/4/29 3:17:53 - INFO - end load input value for input: #main/min_std_max_min",
+              "2020/4/29 3:17:53 - INFO - end transform input: #main/min_std_max_min",
+              "2020/4/29 3:17:53 - INFO - end load input: #main/min_std_max_min",
+              "2020/4/29 3:17:53 - INFO - begin load input: #main/minimum_seed_length",
+              "2020/4/29 3:17:53 - INFO - begin transform input: #main/minimum_seed_length",
+              "2020/4/29 3:17:53 - INFO - begin load input value for input: #main/minimum_seed_length",
+              "2020/4/29 3:17:53 - INFO - end load input value for input: #main/minimum_seed_length",
+              "2020/4/29 3:17:53 - INFO - end transform input: #main/minimum_seed_length",
+              "2020/4/29 3:17:53 - INFO - end load input: #main/minimum_seed_length",
+              "2020/4/29 3:17:53 - INFO - begin load input: #main/reference",
+              "2020/4/29 3:17:53 - INFO - begin transform input: #main/reference",
+              "2020/4/29 3:17:53 - INFO - begin load input value for input: #main/reference",
+              "2020/4/29 3:17:53 - INFO - end load input value for input: #main/reference",
+              "2020/4/29 3:17:53 - INFO - end transform input: #main/reference",
+              "2020/4/29 3:17:53 - INFO - end load input: #main/reference",
+              "2020/4/29 3:17:53 - INFO - begin load input: #main/reads",
+              "2020/4/29 3:17:53 - INFO - begin transform input: #main/reads",
+              "2020/4/29 3:17:53 - INFO - begin load input value for input: #main/reads",
+              "2020/4/29 3:17:53 - INFO - end load input value for input: #main/reads",
+              "2020/4/29 3:17:53 - INFO - end transform input: #main/reads",
+              "2020/4/29 3:17:53 - INFO - end load input: #main/reads",
+              "2020/4/29 3:17:53 - INFO - end load inputs",
+              "2020/4/29 3:17:53 - INFO - begin load inputs to js vm",
+              "2020/4/29 3:17:53 - INFO - end load inputs to js vm",
+              "2020/4/29 3:17:53 - INFO - begin handle InitialWorkDirRequirement",
+              "2020/4/29 3:17:53 - INFO - end handle InitialWorkDirRequirement",
+              "2020/4/29 3:17:53 - INFO - end setup tool",
+              "2020/4/29 3:17:53 - INFO - begin run tool: #main",
+              "2020/4/29 3:17:54 - INFO - begin run CommandLineTool: #main",
+              "2020/4/29 3:17:54 - INFO - begin generate command",
+              "2020/4/29 3:17:54 - INFO - begin process command elements",
+              "2020/4/29 3:17:54 - INFO - begin handle command argument elements",
+              "2020/4/29 3:17:54 - INFO - begin get value from command element argument",
+              "2020/4/29 3:17:54 - INFO - end get value from command element argument",
+              "2020/4/29 3:17:54 - INFO - begin get value from command element argument",
+              "2020/4/29 3:17:54 - INFO - end get value from command element argument",
+              "2020/4/29 3:17:54 - INFO - begin get value from command element argument",
+              "2020/4/29 3:17:54 - INFO - begin resolve expression: $(runtime.cores)",
+              "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:54 - ERROR - failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:54 - ERROR - failed to generate command for tool: #main; error: failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:54 - ERROR - failed to run CommandLineTool: #main; error: failed to generate command for tool: #main; error: failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:54 - ERROR - failed to run tool: #main; error: failed to run CommandLineTool: #main; error: failed to generate command for tool: #main; error: failed to evaluate js expression: ReferenceError: 'runtime' is not defined",
+              "2020/4/29 3:17:55 - INFO - end run task: #main",
+              "2020/4/29 3:17:55 - INFO - end run workflow",
+              "2020/4/29 3:17:55 - INFO - begin intermediate file cleanup",
+              "2020/4/29 3:17:55 - INFO - begin collect paths to keep",
+              "2020/4/29 3:17:55 - INFO - end collect paths to keep",
+              "2020/4/29 3:17:57 - INFO - end intermediate file cleanupf"
+            ],
+            "input": {
+              "#main/args.py": {
+                "basename": "args.py",
+                "class": "File",
+                "contents": "",
+                "location": "args.py",
+                "nameext": ".py",
+                "nameroot": "args",
+                "path": "args.py",
+                "secondaryFiles": null
+              },
+              "#main/min_std_max_min": [
+                1,
+                2,
+                3,
+                4
+              ],
+              "#main/minimum_seed_length": 3,
+              "#main/reads": [
+                {
+                  "class": "File",
+                  "location": "example_human_Illumina.pe_1.fastq"
+                },
+                {
+                  "class": "File",
+                  "location": "example_human_Illumina.pe_2.fastq"
+                }
+              ],
+              "#main/reference": {
+                "basename": "chr20.fa",
+                "class": "File",
+                "contents": "",
+                "location": "/engine-workspace/conformanceTesting/chr20.fa",
+                "nameext": ".fa",
+                "nameroot": "chr20",
+                "path": "/engine-workspace/conformanceTesting/chr20.fa",
+                "secondaryFiles": null
+              }
+            },
+            "output": {}
+          },
+          "byProcess": {}
+        }
+      }
+    },
+    "Manual": {}
+  }
+}
+```
 
