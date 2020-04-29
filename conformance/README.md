@@ -42,7 +42,7 @@ go get github.com/uc-cdis/mariner/conformance
 git clone https://github.com/common-workflow-language/common-workflow-language
 ```
 
-3. Have your API key on-hand. Or if you don't have one, generate one - i.e., download `creds.json` 
+3. Have your API key for the target environment on-hand. Or if you don't have one, generate one - i.e., download `creds.json` 
 from the target environment's portal and move it to your current working directory.
 
 Now you're ready to run some conformance tests!
