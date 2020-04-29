@@ -49,6 +49,13 @@ git clone https://github.com/common-workflow-language/common-workflow-language
 3. Have your API key for the target environment on-hand. Or if you don't have one, generate one - i.e., download `creds.json` 
 from the target environment's portal and move it to your current working directory.
 
+Your current working directory should now look something like this:
+
+```
+Matts-MacBook-Pro:testTool mattgarvin$ ls
+common-workflow-language	creds.json
+```
+
 Now you're ready to run some conformance tests!
 
 You can view the tool's usage by passing it the `-help` flag:
@@ -94,8 +101,6 @@ don't pass the `-run` flag. For example, you can view the first
 test case like so:
 
 ```
-Matts-MacBook-Pro:testTool mattgarvin$ ls
-common-workflow-language	creds.json
 Matts-MacBook-Pro:testTool mattgarvin$ conformance -cwl ./common-workflow-language/ -id 1 -showFiltered
 [
    {
