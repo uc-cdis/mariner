@@ -58,7 +58,7 @@ common-workflow-language	creds.json
 
 Now you're ready to run some conformance tests!
 
-You can view the tool's usage by passing it the `-help` flag:
+You can view the tool's usage by passing it a flag it doesn't recognize - e.g., `-help`:
 
 ```
 Matts-MacBook-Pro:testTool mattgarvin$ conformance -help
@@ -134,5 +134,56 @@ Matts-MacBook-Pro:testTool mattgarvin$ conformance -cwl ./common-workflow-langua
 --- nTests: 1 ---
 ```
 
+Filter by ID:
+
+```
+conformance -cwl ./common-workflow-language -id 1,2,3 -showFiltered 
+```
+
+Filter by label:
+
+```
+conformance -cwl ./common-workflow-language -lab cl_basic_generation,nested_cl_bindings -showFiltered
+```
+
+Filter by tags:
+
+```
+conformance -cwl ./common-workflow-language -tag schema_def,command_line_tool -showFiltered
+```
+
+Only negative test cases:
+
+```
+conformance -cwl ./common-workflow-language -neg -showFiltered
+```
+
+Passing multiple filter flags results in a union of the sets of 
+test cases defined by each individual filter flag.
+For example, the following command selects for
+the first two tests as well as all negative tests:
+
+```
+conformance -cwl ./common-workflow-language -id 1,2 -neg -showFiltered
+```
+
+To actually run the tests, pass the `-run` flag:
+
+```
+conformance -cwl ./common-workflow-language -creds ./creds.json -id 1 -run -out report.json
+```
+
+Run all tests:
+
+```
+conformance -cwl ./common-workflow-language -creds ./creds.json -run -out report.json
+```
+
+By default, tests are run concurrently. The default max number of tests allowed to be running
+at one time is 4, but you can define that limit yourself by passing the `-async` flag:
+
+```
+conformance -cwl ./common-workflow-language -creds ./creds.json -async 8 -run -out report.json
+```
 
 
