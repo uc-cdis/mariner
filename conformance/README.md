@@ -28,7 +28,7 @@ being present in the compute environment in order to run as desired.
 This hurdle is in the process of being removed -
 check back soon for the solution!
 
-## How To Use The Tool
+## Setup
 
 If necessary, first [install Go on your machine](https://golang.org/doc/install)
 and ensure that the path to your Go binaries is part of your $PATH so that
