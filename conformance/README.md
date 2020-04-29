@@ -6,10 +6,14 @@ on [Kubernetes](https://kubernetes.io/).
 
 CWL has a [suite of conformance tests](https://github.com/common-workflow-language/common-workflow-language/blob/master/v1.0/conformance_test_v1.0.yaml)
 (see actual CWL files [here](https://github.com/common-workflow-language/common-workflow-language/tree/master/v1.0/v1.0))
-associated with it which are useful for testing workflow engine implementations
+associated with it which are instrumental in testing workflow engine implementations
 to see how much and what parts of the CWL specification are supported in a particular implementation.
 
 `conformance` is a command-line interface for automated and efficient conformance-testing of Mariner.
+Each time you run a test set the tool generates a report (in the form of JSON)
+which contains test results and the full Mariner logs for each test case.
+In particular for failed tests, the error messages from the Mariner logs
+are extracted in order to facilitate diagnosing the cause of failure.
 
 ## PreReq's
 
@@ -74,6 +78,55 @@ Usage of conformance:
     	specify whether to send resulting set of test cases after filter to stdout
   -tag value
     	comma-separated list of tags by which to filter the test cases
+```
+
+## Filters and Example Usage
+
+The full set of conformance tests consists of about 200 test cases.
+You may be interested in running only a subset of these tests -
+for example, maybe you want to run only the negative tests,
+or you want to run only those tests which test the scatter/gather features.
+
+You can do exactly that by passing filter flags to `conformance`.
+To view the set of test cases resulting from a particular filter
+without actually running them, pass the `-showFiltered` flag and 
+don't pass the `-run` flag. For example, you can view the first 
+test case like so:
+
+```
+Matts-MacBook-Pro:testTool mattgarvin$ ls
+common-workflow-language	creds.json
+Matts-MacBook-Pro:testTool mattgarvin$ conformance -cwl ./common-workflow-language/ -id 1 -showFiltered
+[
+   {
+      "job": "common-workflow-language/v1.0/v1.0/bwa-mem-job.json",
+      "output": {
+         "args": [
+            "bwa",
+            "mem",
+            "-t",
+            "2",
+            "-I",
+            "1,2,3,4",
+            "-m",
+            "3",
+            "chr20.fa",
+            "example_human_Illumina.pe_1.fastq",
+            "example_human_Illumina.pe_2.fastq"
+         ]
+      },
+      "should_fail": false,
+      "tool": "common-workflow-language/v1.0/v1.0/bwa-mem-tool.cwl",
+      "label": "cl_basic_generation",
+      "id": 1,
+      "doc": "General test of command line generation",
+      "tags": [
+         "required",
+         "command_line_tool"
+      ]
+   }
+]
+--- nTests: 1 ---
 ```
 
 
