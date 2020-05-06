@@ -16,8 +16,8 @@ import (
 const (
 	// all path/location of files need this prefix
 	// in the user data s3 bucket, the directory structure is:
-	// -- /userID/conformanceTesting/<file>
-	inputPathPrefix = "USER/conformanceTesting/"
+	// -- conformanceTesting/<file>
+	inputPathPrefix = "CONFORMANCE/"
 )
 
 // UserDataSpaceLocation ..
