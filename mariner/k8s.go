@@ -166,11 +166,18 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 			Name:  "S3_BUCKET_NAME",
 			Value: Config.Storage.S3.Name,
 		},
-		{
-			Name:  "CONFORMANCE_TEST",
-			Value: r.Tags["conformanceTest"],
-		},
 	}
+
+	conformanceTestFlag := k8sv1.EnvVar{
+		Name: "CONFORMANCE_TEST",
+	}
+	if r.Tags["conformanceTest"] == "true" {
+		conformanceTestFlag.Value = "true"
+	} else {
+		conformanceTestFlag.Value = "false"
+	}
+
+	env = append(env, conformanceTestFlag)
 	return env
 }
 
