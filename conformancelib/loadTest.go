@@ -137,6 +137,13 @@ func (t *TestCase) tags() map[string]string {
 	} else {
 		tags["should_fail"] = "false"
 	}
+
+	// mariner checks for this tag
+	// if present and "true"
+	// -> mariner mounts engine workspace bucket at prefix /conformanceTest/
+	// all input files for the tests live there
+	tags["conformanceTest"] = "true"
+
 	return tags
 }
 
