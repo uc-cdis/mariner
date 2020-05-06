@@ -383,7 +383,27 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 			Name:  "S3_BUCKET_NAME",
 			Value: Config.Storage.S3.Name,
 		},
+		{
+			Name:  "CONFORMANCE_INPUT_S3_PREFIX",
+			Value: conformanceInputS3Prefix,
+		},
+		{
+			Name:  "CONFORMANCE_INPUT_DIR",
+			Value: conformanceVolumeName,
+		},
 	}
+
+	conformanceTestFlag := k8sv1.EnvVar{
+		Name: "CONFORMANCE_TEST",
+	}
+	if engine.Log.Request.Tags["conformanceTest"] == "true" {
+		conformanceTestFlag.Value = "true"
+	} else {
+		conformanceTestFlag.Value = "false"
+	}
+
+	env = append(env, conformanceTestFlag)
+
 	return env
 }
 
