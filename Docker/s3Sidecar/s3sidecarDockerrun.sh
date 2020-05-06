@@ -11,6 +11,12 @@ export AWS_SECRET_ACCESS_KEY=$(echo $AWSCREDS | jq .secret | tr -d '"')
 # mount bucket at userID prefix to dir /engine-workspace
 /goofys --stat-cache-ttl 0 --type-cache-ttl 0 $S3_BUCKET_NAME:$USER_ID /$ENGINE_WORKSPACE
 
+# optionally mount bucket at conformanceTest prefix for conformance testing
+if [ $CONFORMANCE_TEST == "true" ]; then
+  /goofys --stat-cache-ttl 0 --type-cache-ttl 0 $S3_BUCKET_NAME:$CONFORMANCE_INPUT_S3_PREFIX /$CONFORMANCE_INPUT_DIR
+fi
+
+
 if [ $MARINER_COMPONENT == "engine" ]; then
   echo "setting up for the engine.."
 
@@ -48,5 +54,6 @@ fi
 echo "done, unmounting goofys"
 
 fusermount -u -z /$ENGINE_WORKSPACE
+fusermount -u -z /$CONFORMANCE_INPUT_DIR
 
 echo "goofys exited successfully"

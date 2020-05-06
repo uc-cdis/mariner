@@ -31,6 +31,9 @@ const (
 	configVolumeName          = "mariner-config"
 	conformanceVolumeName     = "conformance-test"
 
+	// location of conformance test input files in s3
+	conformanceInputS3Prefix = "conformanceTest/"
+
 	// container name
 	taskContainerName = "mariner-task"
 

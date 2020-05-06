@@ -155,8 +155,20 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 			Value: engineWorkspaceVolumeName,
 		},
 		{
+			Name:  "CONFORMANCE_INPUT_S3_PREFIX",
+			Value: conformanceInputS3Prefix,
+		},
+		{
+			Name:  "CONFORMANCE_INPUT_DIR",
+			Value: conformanceVolumeName,
+		},
+		{
 			Name:  "S3_BUCKET_NAME",
 			Value: Config.Storage.S3.Name,
+		},
+		{
+			Name:  "CONFORMANCE_TEST",
+			Value: r.Tags["conformanceTest"],
 		},
 	}
 	return env
