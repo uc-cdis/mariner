@@ -17,7 +17,7 @@ const (
 	// all path/location of files need this prefix
 	// in the user data s3 bucket, the directory structure is:
 	// -- conformanceTesting/<file>
-	inputPathPrefix = "CONFORMANCE/"
+	inputPathPrefix = "USER/"
 )
 
 // UserDataSpaceLocation ..
