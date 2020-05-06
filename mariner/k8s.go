@@ -274,24 +274,25 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 func (tool *Tool) cltArgs() []string {
 	tool.Task.infof("begin load CommandLineTool container args")
 	// Uncomment after debugging
-	args := []string{
-		"-c",
-		fmt.Sprintf(`
-		while [[ ! -f %vrun.sh ]]; do
-			echo "Waiting for sidecar to finish setting up..";
-			sleep 5
-		done
-		echo "Sidecar setup complete! Running command script now.."
-		cd %v
-		echo "running command $(cat %vrun.sh)"
-		%v %vrun.sh
-		echo "commandlinetool has finished running" > %vdone
-		`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
-	}
-
-	// for debugging
 	/*
 		args := []string{
+			"-c",
+			fmt.Sprintf(`
+			while [[ ! -f %vrun.sh ]]; do
+				echo "Waiting for sidecar to finish setting up..";
+				sleep 5
+			done
+			echo "Sidecar setup complete! Running command script now.."
+			cd %v
+			echo "running command $(cat %vrun.sh)"
+			%v %vrun.sh
+			echo "commandlinetool has finished running" > %vdone
+			`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
+		}
+	*/
+
+	// for debugging
+	args := []string{
 		"-c",
 		fmt.Sprintf(`
 							while [[ ! -f %vrun.sh ]]; do
@@ -304,8 +305,7 @@ func (tool *Tool) cltArgs() []string {
 								:
 							done
 							`, tool.WorkingDir),
-		}
-	*/
+	}
 
 	tool.Task.infof("end load CommandLineTool container args")
 	return args
