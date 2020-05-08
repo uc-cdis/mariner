@@ -13,12 +13,13 @@ import (
 
 // Runner ..
 type Runner struct {
-	Token     string      `json:"-"`
-	Timestamp string      `json:"timestamp"`
-	Duration  string      `json:"duration"`
-	Async     *Async      `json:"async"`
-	Results   *Counts     `json:"results"`
-	Log       *ResultsLog `json:"log"`
+	Environment string      `json:"environment"`
+	Token       string      `json:"-"`
+	Timestamp   string      `json:"timestamp"`
+	Duration    string      `json:"duration"`
+	Async       *Async      `json:"async"`
+	Results     *Counts     `json:"results"`
+	Log         *ResultsLog `json:"log"`
 }
 
 // Async ..
@@ -226,7 +227,7 @@ func (t *TestCase) matchOutput(testOut map[string]interface{}) (bool, error) {
 // wait for test run to complete or fail
 func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, err error) {
 	done := false
-	endpt := fmt.Sprintf(fstatusEndpt, runID.RunID)
+	url := fmt.Sprintf(fstatusEndpt, r.Environment, runID.RunID)
 
 	// timeout after timeLimit is reached
 	// make this configurable (?) -> yes, do this
@@ -234,7 +235,7 @@ func (r *Runner) waitForDone(test *TestCase, runID *RunIDJSON) (status string, e
 	start := time.Now()
 
 	for !done {
-		status, err = r.status(endpt)
+		status, err = r.status(url)
 		if err != nil {
 			return "", err
 		}
@@ -308,7 +309,7 @@ func (r *Runner) fail(test *TestCase, runLog *RunLog, status string) {
 		log.TimeOut = true
 
 		// note: engine jobName is the runID - need to clarify this in all mariner code
-		cancelEndpt := fmt.Sprintf(fcancelEndpt, runLog.Main.JobName)
+		cancelEndpt := fmt.Sprintf(fcancelEndpt, r.Environment, runLog.Main.JobName)
 		if err := r.cancelRun(cancelEndpt); err != nil {
 			log.FailedToKillJob = true
 			fmt.Printf("--- %v - failed to kill job: %v\n", test.ID, err)
