@@ -43,7 +43,7 @@ send list of input files to stdout (optional filter flag):
 // RunTests ..
 // 'creds' is path/to/creds.json which is what you get
 // when you create and download an apiKey from the portal
-func RunTests(tests []*TestCase, creds string, async *Async, env string) (*Runner, error) {
+func RunTests(tests []*TestCase, env string, creds string, async *Async) (*Runner, error) {
 
 	runner := NewRunner(async, env)
 

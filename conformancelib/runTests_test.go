@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 	}
 
 	// how many tests to run
-	nTests := 8
+	nTests := 4
 	for i := 1; i <= nTests; i++ {
 		filters.ID = append(filters.ID, i)
 	}
@@ -139,7 +139,7 @@ func TestRun(t *testing.T) {
 
 	env := "mattgarvin1.planx-pla.net"
 
-	runner, err := RunTests(tests, creds, async, env)
+	runner, err := RunTests(tests, env, creds, async)
 	if err != nil {
 		t.Error(err)
 	}
