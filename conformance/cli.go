@@ -16,6 +16,7 @@ var (
 
 func main() {
 	// gives you pointers
+	env := flag.String("env", "", "domain of target environment")
 	cwl := flag.String("cwl", "./common-workflow-language", "path to the common-workflow-language repo")
 	creds := flag.String("creds", "./creds.json", "path to creds (i.e., the api key json from the portal)")
 	outPath := flag.String("out", "", "path to output json containing test results")
@@ -68,6 +69,11 @@ func main() {
 	// optionally run filtered test set
 	if *runTests {
 
+		if *env == "" {
+			fmt.Println("error: missing domain of target environment - cannot run tests without specifying target domain")
+			return
+		}
+
 		fmt.Printf("\n--- running %v tests ---\n", len(tests))
 
 		// cap number of tests running at one time
@@ -81,7 +87,7 @@ func main() {
 		fmt.Println("")
 
 		// run the tests
-		runner, err := conformanceLib.RunTests(tests, *creds, async)
+		runner, err := conformanceLib.RunTests(tests, *env, *creds, async)
 		if err != nil {
 			fmt.Println("error running tests:", err)
 		}
