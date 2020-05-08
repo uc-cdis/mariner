@@ -110,7 +110,7 @@ func TestRun(t *testing.T) {
 	}
 
 	// how many tests to run
-	nTests := 16
+	nTests := 4
 	for i := 1; i <= nTests; i++ {
 		filters.ID = append(filters.ID, i)
 	}
@@ -134,16 +134,16 @@ func TestRun(t *testing.T) {
 	fmt.Println("running these tests:")
 	PrintJSON(tests)
 
-	/*
-		// run the tests - results sent to stdout
-		creds := "./creds.json"
+	// run the tests - results sent to stdout
+	creds := "./creds.json"
 
-		runner, err := RunTests(tests, creds, async)
-		if err != nil {
-			t.Error(err)
-		}
-		if err = runner.WriteResults(""); err != nil {
-			t.Error(err)
-		}
-	*/
+	env := "mattgarvin1.planx-pla.net"
+
+	runner, err := RunTests(tests, env, creds, async)
+	if err != nil {
+		t.Error(err)
+	}
+	if err = runner.WriteResults(""); err != nil {
+		t.Error(err)
+	}
 }

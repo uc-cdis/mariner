@@ -155,10 +155,29 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 			Value: engineWorkspaceVolumeName,
 		},
 		{
+			Name:  "CONFORMANCE_INPUT_S3_PREFIX",
+			Value: conformanceInputS3Prefix,
+		},
+		{
+			Name:  "CONFORMANCE_INPUT_DIR",
+			Value: conformanceVolumeName,
+		},
+		{
 			Name:  "S3_BUCKET_NAME",
 			Value: Config.Storage.S3.Name,
 		},
 	}
+
+	conformanceTestFlag := k8sv1.EnvVar{
+		Name: "CONFORMANCE_TEST",
+	}
+	if r.Tags["conformanceTest"] == "true" {
+		conformanceTestFlag.Value = "true"
+	} else {
+		conformanceTestFlag.Value = "false"
+	}
+
+	env = append(env, conformanceTestFlag)
 	return env
 }
 
@@ -265,33 +284,33 @@ func (tool *Tool) cltArgs() []string {
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
-		while [[ ! -f %vrun.sh ]]; do
-			echo "Waiting for sidecar to finish setting up..";
-			sleep 5
-		done
-		echo "Sidecar setup complete! Running command script now.."
-		cd %v
-		echo "running command $(cat %vrun.sh)"
-		%v %vrun.sh
-		echo "commandlinetool has finished running" > %vdone
-		`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
+			while [[ ! -f %vrun.sh ]]; do
+				echo "Waiting for sidecar to finish setting up..";
+				sleep 5
+			done
+			echo "Sidecar setup complete! Running command script now.."
+			cd %v
+			echo "running command $(cat %vrun.sh)"
+			%v %vrun.sh
+			echo "commandlinetool has finished running" > %vdone
+			`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
 	}
 
 	// for debugging
 	/*
 		args := []string{
-		"-c",
-		fmt.Sprintf(`
-							while [[ ! -f %vrun.sh ]]; do
-									echo "Waiting for sidecar to finish setting up..";
-									sleep 5
-							done
-							echo "side done setting up"
-							echo "staying alive"
-							while true; do
-								:
-							done
-							`, tool.WorkingDir),
+			"-c",
+			fmt.Sprintf(`
+								while [[ ! -f %vrun.sh ]]; do
+										echo "Waiting for sidecar to finish setting up..";
+										sleep 5
+								done
+								echo "side done setting up"
+								echo "staying alive"
+								while true; do
+									:
+								done
+								`, tool.WorkingDir),
 		}
 	*/
 
@@ -364,7 +383,27 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 			Name:  "S3_BUCKET_NAME",
 			Value: Config.Storage.S3.Name,
 		},
+		{
+			Name:  "CONFORMANCE_INPUT_S3_PREFIX",
+			Value: conformanceInputS3Prefix,
+		},
+		{
+			Name:  "CONFORMANCE_INPUT_DIR",
+			Value: conformanceVolumeName,
+		},
 	}
+
+	conformanceTestFlag := k8sv1.EnvVar{
+		Name: "CONFORMANCE_TEST",
+	}
+	if engine.Log.Request.Tags["conformanceTest"] == "true" {
+		conformanceTestFlag.Value = "true"
+	} else {
+		conformanceTestFlag.Value = "false"
+	}
+
+	env = append(env, conformanceTestFlag)
+
 	return env
 }
 

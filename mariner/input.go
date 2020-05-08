@@ -132,6 +132,9 @@ func processFile(f interface{}) (*File, error) {
 		*/
 		trimmedPath := strings.TrimPrefix(path, userPrefix)
 		path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+	case strings.HasPrefix(path, conformancePrefix):
+		trimmedPath := strings.TrimPrefix(path, conformancePrefix)
+		path = strings.Join([]string{"/", conformanceVolumeName, "/", trimmedPath}, "")
 	}
 	return fileObject(path), nil
 }

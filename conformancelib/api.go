@@ -111,21 +111,22 @@ type ResourceUsageSamplePoint struct {
 type EventLog []string
 
 const (
-	// of course, avoid hardcoding
-	// could pass commons url as param
-	tokenEndpoint = "https://mattgarvin1.planx-pla.net/user/credentials/api/access_token"
-	runEndpt      = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs"
-	fstatusEndpt  = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v/status"
-	flogsEndpt    = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v"
-	fcancelEndpt  = "https://mattgarvin1.planx-pla.net/ga4gh/wes/v1/runs/%v/cancel"
+	// Runner.Environment == "mattgarvin1.planx-pla.net"
+	tokenEndpt   = "https://%v/user/credentials/api/access_token"
+	runEndpt     = "https://%v/ga4gh/wes/v1/runs"
+	fstatusEndpt = "https://%v/ga4gh/wes/v1/runs/%v/status"
+	flogsEndpt   = "https://%v/ga4gh/wes/v1/runs/%v"
+	fcancelEndpt = "https://%v/ga4gh/wes/v1/runs/%v/cancel"
 )
 
-func token(creds string) (string, error) {
+func (r *Runner) fetchToken(creds string) (string, error) {
 	body, err := apiKey(creds)
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.Post(tokenEndpoint, "application/json", bytes.NewBuffer(body))
+
+	url := fmt.Sprintf(tokenEndpt, r.Environment)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		return "", err
 	}
@@ -198,7 +199,7 @@ func (r *Runner) status(url string) (string, error) {
 
 // return output JSON from test run with given runID
 func (r *Runner) fetchRunLog(runID *RunIDJSON) (*RunLog, error) {
-	url := fmt.Sprintf(flogsEndpt, runID.RunID)
+	url := fmt.Sprintf(flogsEndpt, r.Environment, runID.RunID)
 	resp, err := r.request("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -224,7 +225,8 @@ func (r *Runner) requestRun(wf *wflib.WorkflowJSON, in map[string]interface{}, t
 		return nil, err
 	}
 
-	resp, err := r.request("POST", runEndpt, bytes.NewBuffer(b))
+	url := fmt.Sprintf(runEndpt, r.Environment)
+	resp, err := r.request("POST", url, bytes.NewBuffer(b))
 	if err != nil {
 		return nil, err
 	}

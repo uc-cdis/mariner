@@ -29,6 +29,10 @@ const (
 	engineWorkspaceVolumeName = "engine-workspace"
 	commonsDataVolumeName     = "commons-data"
 	configVolumeName          = "mariner-config"
+	conformanceVolumeName     = "conformance-test"
+
+	// location of conformance test input files in s3
+	conformanceInputS3Prefix = "conformanceTest/"
 
 	// container name
 	taskContainerName = "mariner-task"
@@ -36,8 +40,9 @@ const (
 	// file path prefixes - used to differentiate COMMONS vs USER vs marinerEngine WORKSPACE file
 	// user specifies commons datafile by "COMMONS/<GUID>"
 	// user specifies user datafile by "USER/<path>"
-	commonsPrefix = "COMMONS/"
-	userPrefix    = "USER/"
+	commonsPrefix     = "COMMONS/"
+	userPrefix        = "USER/"
+	conformancePrefix = "CONFORMANCE/"
 
 	notStarted = "not-started" // 3
 	running    = "running"     // 2
@@ -108,7 +113,7 @@ var (
 	falseVal                        = false
 	mountPropagationHostToContainer = k8sv1.MountPropagationHostToContainer
 	mountPropagationBidirectional   = k8sv1.MountPropagationBidirectional
-	workflowVolumeList              = []string{engineWorkspaceVolumeName, commonsDataVolumeName}
+	workflowVolumeList              = []string{engineWorkspaceVolumeName, commonsDataVolumeName, conformanceVolumeName}
 )
 
 // for mounting aws-user-creds secret to s3sidecar
@@ -297,7 +302,8 @@ func volumeMounts(component string) (v []k8sv1.VolumeMount) {
 
 func sidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
 	engineWorkspace := volumeMount(engineWorkspaceVolumeName, component)
-	v = []k8sv1.VolumeMount{*engineWorkspace}
+	conformanceMount := volumeMount(conformanceVolumeName, component)
+	v = []k8sv1.VolumeMount{*engineWorkspace, *conformanceMount}
 	if component == gen3fuse {
 		commonsData := volumeMount(commonsDataVolumeName, component)
 		v = append(v, *commonsData)
@@ -341,6 +347,9 @@ func volumeMount(name string, component string) *k8sv1.VolumeMount {
 	}
 	if name == engineWorkspaceVolumeName {
 		volMnt.ReadOnly = falseVal
+	}
+	if name == conformanceVolumeName {
+		volMnt.ReadOnly = trueVal
 	}
 	return volMnt
 }
