@@ -23,11 +23,6 @@ That is, the tool must be "pointed at" a particular environment.
 Whatever environment you choose, in order to run the tests 
 you must have authZ to access the Mariner API and run workflows in that environment.
 
-Additionally, the tests depend on a small collection of test input files
-being present in the compute environment in order to run as desired.
-This hurdle is in the process of being removed -
-check back soon for the solution!
-
 ## Setup
 
 If necessary, first [install Go on your machine](https://golang.org/doc/install)
@@ -69,6 +64,8 @@ Usage of conformance:
     	path to creds (i.e., the api key json from the portal) (default "./creds.json")
   -cwl string
     	path to the common-workflow-language repo (default "./common-workflow-language")
+  -env string
+    	domain of target environment
   -id value
     	comma-separated list of IDs by which to filter the test cases
   -lab value
@@ -167,23 +164,24 @@ the first two tests as well as all negative tests:
 conformance -cwl ./common-workflow-language -id 1,2 -neg -showFiltered
 ```
 
-To actually run the tests, pass the `-run` flag:
+To actually run the tests, specify the domain of the target test environment 
+with the `-env` flag and pass the `-run` flag:
 
 ```
-conformance -cwl ./common-workflow-language -creds ./creds.json -id 1 -run -out report.json
+conformance -env mattgarvin1.planx-pla.net -cwl ./common-workflow-language -creds ./creds.json -id 1 -run -out report.json
 ```
 
 To run all tests, don't pass any filter flags:
 
 ```
-conformance -cwl ./common-workflow-language -creds ./creds.json -run -out report.json
+conformance -env mattgarvin1.planx-pla.net -cwl ./common-workflow-language -creds ./creds.json -run -out report.json
 ```
 
 By default, tests are run concurrently. The default max number of tests allowed to be running
 at one time is 4, but you can define that limit yourself by passing the `-async` flag:
 
 ```
-conformance -cwl ./common-workflow-language -creds ./creds.json -async 8 -run -out report.json
+conformance -env mattgarvin1.planx-pla.net -cwl ./common-workflow-language -creds ./creds.json -async 8 -run -out report.json
 ```
 
 ## Example Run and Output
@@ -191,7 +189,7 @@ conformance -cwl ./common-workflow-language -creds ./creds.json -async 8 -run -o
 Here's what it looks like when we run the first test case and view the results:
 
 ```
-Matts-MacBook-Pro:testTool mattgarvin$ conformance -cwl ./common-workflow-language/ -creds ./creds.json -id 1 -run -out results.json
+Matts-MacBook-Pro:testTool mattgarvin$ conformance -env mattgarvin1.planx-pla.net -cwl ./common-workflow-language/ -creds ./creds.json -id 1 -run -out results.json
 
 --- running 1 tests ---
 --- async settings: ---
