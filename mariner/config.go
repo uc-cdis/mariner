@@ -156,7 +156,7 @@ var gen3fusePrestopHook = &k8sv1.Lifecycle{
 // only using jupyter asg for now - will have workflow asg in production
 // FIXME - put this in the manifest config
 var k8sTolerations = []k8sv1.Toleration{
-	k8sv1.Toleration{
+	{
 		Key:      "role",
 		Value:    "jupyter",
 		Operator: k8sv1.TolerationOpEqual,
