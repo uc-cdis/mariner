@@ -156,7 +156,7 @@ var gen3fusePrestopHook = &k8sv1.Lifecycle{
 // only using jupyter asg for now - will have workflow asg in production
 // FIXME - put this in the manifest config
 var k8sTolerations = []k8sv1.Toleration{
-	k8sv1.Toleration{
+	{
 		Key:      "role",
 		Value:    "jupyter",
 		Operator: k8sv1.TolerationOpEqual,
@@ -164,6 +164,7 @@ var k8sTolerations = []k8sv1.Toleration{
 	},
 }
 
+// MarinerConfig ..
 type MarinerConfig struct {
 	Containers Containers `json:"containers"`
 	Jobs       Jobs       `json:"jobs"`
@@ -171,15 +172,18 @@ type MarinerConfig struct {
 	Storage    Storage    `json:"storage"`
 }
 
+// Storage ..
 type Storage struct {
 	S3 S3Config `json:"s3"`
 }
 
+// S3Config ..
 type S3Config struct {
 	Name   string `json:"name"`
 	Region string `json:"region"`
 }
 
+// Containers ..
 type Containers struct {
 	Engine    Container `json:"engine"`
 	S3sidecar Container `json:"s3sidecar"`
@@ -187,6 +191,7 @@ type Containers struct {
 	Gen3fuse  Container `json:"gen3fusesidecar"`
 }
 
+// Container ..
 type Container struct {
 	Name            string          `json:"name"`
 	Image           string          `json:"image"`
@@ -197,40 +202,47 @@ type Container struct {
 	Resources       Resources       `json:"resources"`
 }
 
+// Lifecycle ..
 type Lifecycle struct {
 	Prestop []string `json:"prestop"`
 }
 
+// Resources ..
 type Resources struct {
 	Limits   Resource `json:"limits"`
 	Requests Resource `json:"requests"`
 }
 
+// Resource ..
 type Resource struct {
 	CPU    string `json:"cpu"`
 	Memory string `json:"memory"`
 }
 
-// run as user? run as group? should mariner have those settings?
+// SecurityContext .. - run as user? run as group? should mariner have those settings?
 type SecurityContext struct {
 	Privileged bool `json:"privileged"`
 }
 
+// Jobs ..
 type Jobs struct {
 	Engine JobConfig `json:"engine"`
 	Task   JobConfig `json:"task"`
 }
 
+// JobConfig ..
 type JobConfig struct {
 	Labels         map[string]string `json:"labels"`
 	ServiceAccount string            `json:"serviceaccount"`
 	RestartPolicy  string            `json:"restart_policy"`
 }
 
+// Secrets ..
 type Secrets struct {
 	AWSUserCreds *AWSUserCreds `json:"awsusercreds"`
 }
 
+// AWSUserCreds ..
 type AWSUserCreds struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
