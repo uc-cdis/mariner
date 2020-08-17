@@ -9,7 +9,7 @@ standard [WES API](https://ga4gh.github.io/workflow-execution-service-schemas).
 
 ### Prereq's
 
-1. Mariner depends on the [Workspace Token Service](https://github.com/uc-cdis/workspace-token-service) (WTS)
+1. Mariner depends on the [Workspace Token Service (WTS)](https://github.com/uc-cdis/workspace-token-service)
 to access data from the commons.
 If WTS is not already running in your environment, deploy the WTS.
 
