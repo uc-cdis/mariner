@@ -31,11 +31,11 @@ In order for a user (intended at this point to either be a CTDS dev or bio)
 to interact with mariner, that user will need to have mariner admin privileges.
 
 A mariner admin can do the following:
-  1. run workflows
-  2. fetch run status via runID
-  3. fetch run logs and output via runID
-  4. cancel a run that's in-progress via runID
-  5. query run history (i.e., fetch a list of all your runIDs)
+  - run workflows
+  - fetch run status via runID
+  - fetch run logs and output via runID
+  - cancel a run that's in-progress via runID
+  - query run history (i.e., fetch a list of all your runIDs)
 
 4. Make sure you have the mariner auth scheme in your user yaml:
     1. the [policy](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L57-L60)
