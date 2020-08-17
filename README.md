@@ -25,6 +25,15 @@ If WTS is not already running in your environment, deploy the WTS.
 
 ### Auth and User YAML (next)
 
+4. Make sure you have the mariner auth scheme in your user yaml:
+    1. the [policy](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L57-L60)
+    2. the [resource](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L419-L420)
+    3. the [role](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L577-L582)
+
+5. Give the `mariner_admin` policy to those users who need it. ([example](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L1433))
+
+#### Auth Note
+
 Right now the mariner auth scheme is coarse - you 
 either have access to all the API endpoints or none of them.
 In order for a user (intended at this point to either be a CTDS dev or bio)
@@ -36,13 +45,6 @@ A mariner admin can do the following:
   - fetch run logs and output via runID
   - cancel a run that's in-progress via runID
   - query run history (i.e., fetch a list of all your runIDs)
-
-4. Make sure you have the mariner auth scheme in your user yaml:
-    1. the [policy](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L57-L60)
-    2. the [resource](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L419-L420)
-    3. the [role](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L577-L582)
-
-5. Give the `mariner_admin` policy to those users who need it. ([example](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L1433))
   
 ### Check that it works (todo)
 
