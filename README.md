@@ -1,21 +1,22 @@
-# mariner: the Gen3 workflow execution service
+# Mariner: The Gen3 Workflow Execution Service
 
 Mariner is a workflow execution service written in [Go](https://golang.org)
 for running [CWL](https://www.commonwl.org) workflows on [Kubernetes](https://kubernetes.io).
 Mariner's API is an implementation of the [GA4GH](https://www.ga4gh.org) 
 standard [WES API](https://ga4gh.github.io/workflow-execution-service-schemas).
 
-## How to deploy mariner in a gen3 environment
+## How to deploy Mariner in a Gen3 environment
 
 ### Prereq's
 
-1. Mariner depends on the workspace-token-service to access data from the commons.
+1. Mariner depends on the [Workspace Token Service](https://github.com/uc-cdis/workspace-token-service)(WTS)
+to access data from the commons.
 If WTS is not already running in your environment, deploy the WTS.
 
 2. Add the Mariner pieces to your manifest:
-    1. add [version](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L19)
-    2. add [config](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L183-L292)
-    3. currently mariner is not setup with network policies (this will be fixed very very soon),
+    1. Add [version](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L19)
+    2. Add [config](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L183-L292)
+    3. Currently mariner is not setup with network policies (this will be fixed very very soon),
     so for now in your dev or qa environment in order for mariner to work,
     [network policies must be "off"](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L161)
     
