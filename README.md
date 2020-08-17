@@ -25,25 +25,28 @@ If WTS is not already running in your environment, deploy the WTS.
 
 ### Auth and User YAML (next)
 
-4. add 'mariner_admin' to your policy list in the user.yaml for your environment
--- like so: https://github.com/uc-cdis/commons-users/blob/master/users/dev/user.yaml#L1430-L1433
-  i) if the mariner auth scheme isn't already in the user.yaml for your environment,
-  -- you'll need to add the following sections to your user.yaml:
-    - policy: https://github.com/uc-cdis/commons-users/blob/master/users/dev/user.yaml#L57-L60
-    - resource: https://github.com/uc-cdis/commons-users/blob/master/users/dev/user.yaml#L419-L420
-    - role: https://github.com/uc-cdis/commons-users/blob/master/users/dev/user.yaml#L577-L582
-  (REVISE)(note: currently the mariner auth scheme exists only in the dev user.yaml)
+Right now the mariner auth scheme is coarse - you 
+either have access to all the API endpoints or none of them.
+In order for a user (intended at this point to either be a CTDS dev or bio)
+to interact with mariner, that user will need to have mariner admin privileges.
 
-now that you're an admin, you can 
-  i) run workflows
-  ii) fetch run status via runID
-  iii) fetch run logs and output via runID
-  iv) cancel a run that's in-progress via runID
-  v) query your run history (get back a list of all your runIDs)
+A mariner admin can do the following:
+  1. run workflows
+  2. fetch run status via runID
+  3. fetch run logs and output via runID
+  4. cancel a run that's in-progress via runID
+  5. query run history (i.e., fetch a list of all your runIDs)
+
+4. Make sure you have the mariner auth scheme in your user yaml:
+    1. the [policy](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L57-L60)
+    2. the [resource](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L419-L420)
+    3. the [role](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L577-L582)
+
+5. Give the `mariner_admin` policy to those users who need it. ([example](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L1433))
   
 ### Check that it works (todo)
 
-5. You can test that Mariner is working in your environment by (TODO)
+6. You can test that Mariner is working in your environment by (TODO)
 
 ## How to use mariner (todo)
 
