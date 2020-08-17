@@ -47,10 +47,42 @@ A Mariner admin can do the following:
   - cancel a run that's in-progress via runID
   - query run history (i.e., fetch a list of all your runIDs)
   
-### Check that it works (next)
+## How to use Mariner
 
-6. You can test that Mariner is working in your environment by (TODO)
+### A Full Example
 
-## How to use mariner (todo)
+To demonstrate how to interact with Mariner, here's a step-by-step process
+of how to run a (very) small test workflow and otherwise
+hit all the Mariner API endpoints.
 
-todo - one, full, worked example and flow covering all the api endpoints
+1. On your machine, move to directory `testdata/no_input_test`
+
+2. Fetch token using API key
+```
+echo Authorization: $(curl -d '{"api_key": "<replaceme>", "key_id": "<replaceme>"}' -X POST -H "Content-Type: application/json" https://<replaceme>.planx-pla.net/user/credentials/api/access_token | jq .access_token | sed 's/"//g') > auth
+```
+    
+3. POST the workflow request
+```
+curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs
+```
+    
+4. Check run status
+```
+curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>/status
+```
+    
+5. Fetch run logs (includes output json)
+```
+curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>
+```
+    
+6. Fetch your run history (list of runIDs)
+```
+curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs
+```
+    
+7. Cancel a run that's currently in-progress
+```
+curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>/cancel
+```
