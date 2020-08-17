@@ -23,7 +23,7 @@ If WTS is not already running in your environment, deploy the WTS.
 
 3. Deploy the Mariner server by running `gen3 kube-setup-mariner`
 
-### Auth and User YAML (next)
+### Auth and User YAML
 
 4. Make sure you have the mariner auth scheme in your user yaml:
     1. the [policy](https://github.com/uc-cdis/commons-users/blob/a95edd2d1ac27faed2ab628280cff8923292d073/users/dev/user.yaml#L57-L60)
@@ -46,7 +46,7 @@ A mariner admin can do the following:
   - cancel a run that's in-progress via runID
   - query run history (i.e., fetch a list of all your runIDs)
   
-### Check that it works (todo)
+### Check that it works (next)
 
 6. You can test that Mariner is working in your environment by (TODO)
 
