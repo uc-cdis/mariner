@@ -86,3 +86,12 @@ curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs
 ```
 curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>/cancel
 ```
+
+## Resources
+
+A good way to get a handle on CWL in a relatively short period of time
+is to explore the [CWL User Guide](https://www.commonwl.org/user_guide/02-1st-example/index.html),
+which contains a good number of example workflows with explanations
+of all the different parts of the syntax - what they mean and how they function -
+in the context of each example.
+
