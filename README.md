@@ -19,17 +19,11 @@ If WTS is not already running in your environment, deploy the WTS.
     so for now in your dev or qa environment in order for mariner to work,
     [network policies must be "off"](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L161)
     
-### Deployment (next)
+### Deployment
 
-3. Deploy the Mariner server by running `gen3 kube-setup-mariner`.
+3. Deploy the Mariner server by running `gen3 kube-setup-mariner`
 
-at this point, the mariner server is running in your environment,
-but you don't have authZ to do anything with it
-we can fix that by granting you mariner admin privileges
-
-! see also: the secret situation! AWS user creds, see Reuben's note
-
-### Auth and User YAML (todo)
+### Auth and User YAML (next)
 
 4. add 'mariner_admin' to your policy list in the user.yaml for your environment
 -- like so: https://github.com/uc-cdis/commons-users/blob/master/users/dev/user.yaml#L1430-L1433
