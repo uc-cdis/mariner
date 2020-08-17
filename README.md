@@ -13,13 +13,13 @@ standard [WES API](https://ga4gh.github.io/workflow-execution-service-schemas).
 If WTS is not already running in your environment, deploy the WTS.
 
 2. Add the Mariner pieces to your manifest:
-    i) add to versions block : https://github.com/uc-cdis/gitops-dev/blob/master/mattgarvin1.planx-pla.net/manifest.json#L19
-    ii) add the Mariner config block : https://github.com/uc-cdis/gitops-dev/blob/master/mattgarvin1.planx-pla.net/manifest.json#L183-L292
-    iii) currently mariner is not setup with network policies (this will be fixed very very soon),
+    1. add [version](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L19)
+    2. add [config](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L183-L292)
+    3. currently mariner is not setup with network policies (this will be fixed very very soon),
     so for now in your dev or qa environment in order for mariner to work,
-    in the "global" block, the "netpolicy" field must be "off" : https://github.com/uc-cdis/gitops-dev/blob/master/mattgarvin1.planx-pla.net/manifest.json#L161
+    [network policies must be "off"](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L161)
     
-### Deployment    
+### Deployment (next)
 
 3. Deploy the Mariner server by running `gen3 kube-setup-mariner`.
 
@@ -29,7 +29,7 @@ we can fix that by granting you mariner admin privileges
 
 ! see also: the secret situation! AWS user creds, see Reuben's note
 
-### Auth and User YAML
+### Auth and User YAML (todo)
 
 4. add 'mariner_admin' to your policy list in the user.yaml for your environment
 -- like so: https://github.com/uc-cdis/commons-users/blob/master/users/dev/user.yaml#L1430-L1433
@@ -47,10 +47,10 @@ now that you're an admin, you can
   iv) cancel a run that's in-progress via runID
   v) query your run history (get back a list of all your runIDs)
   
-### Check that it works  
+### Check that it works (todo)
 
 5. You can test that Mariner is working in your environment by (TODO)
 
-## How to use mariner
+## How to use mariner (todo)
 
 todo - one, full, worked example and flow covering all the api endpoints
