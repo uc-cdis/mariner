@@ -143,6 +143,9 @@ JSON body, which looks like this:
 }
 ```
 
+4. At this point you're ready to ask Mariner to run your workflow,
+and you can do that via the API call demonstrated in step 3 from the "A Full Example" section above.
+
 #### Notes
 
 Notice you can apply tags to your workflow request,
