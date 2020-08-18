@@ -171,11 +171,11 @@ in the context of each example.
 right now directly use S3 CLI
 eventually, something like a user-data-client, effectively like an auth'd wrapper around S3 CLI
 
-## Running the CWL Conformance Tests against Mariner (todo)
+## Running the CWL Conformance Tests against Mariner
 
-link to conformance testing doc that already exists
+See [here](https://github.com/uc-cdis/mariner/tree/master/conformance).
 
-## Gen3 Centralized Compute Idea (todo)
+## Gen3 Centralized Compute Idea
 
 See [here](https://docs.google.com/document/d/1_-y5Tpw-xeh0Ce1D7DwalLkrdVQ0Osgrd8k7RE-H6tY/edit).
 
