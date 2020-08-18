@@ -87,7 +87,7 @@ curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs
 curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>/cancel
 ```
 
-### Writing And Running Your Own Workflows "from scratch" (next)
+### Writing And Running Your Own Workflows "from scratch"
 
 A workflow request to Mariner consists of the following:
 1. A CWL workflow (serialized into JSON)
@@ -109,10 +109,12 @@ is a JSON file where the keys are CWL input parameters
 and the values are the corresponding input values
 for those parameters. Here is an example 
 of an inputs mapping file with two inputs,
-which are both files. One file is commons data
+both of which are files. One file is commons data
 and is specified by GUID with the prefix `COMMONS/`,
 and the other file is a user file, which exists in
-the "user data space" or "user analysis space"
+the "user data space", and is specified by
+the filepath within that user data space
+plus the prefix `USER/`:
 ```
 {
     "commons_file_1": {
@@ -127,7 +129,31 @@ the "user data space" or "user analysis space"
 ```
 
 
-3. (todo) construct Mariner workflow request body
+3. Now you can construct the Mariner workflow request
+JSON body, which looks like this:
+```
+{
+  "workflow": <output_from_wftool>,
+  "input": <inputs_mapping_json>,
+  "manifest": <manifest_containing_GUIDs_of_all_commons_input_data>,
+  "tags": {
+    "author": "matt",
+    "type": "example",
+  }
+}
+```
+
+#### Notes
+
+Notice you can apply tags to your workflow request,
+which can be useful for identifying or categorizing your workflow runs.
+For example if you are running a certain set of workflows for one study,
+and another set of workflows for another,
+you could apply a studyID tag to each workflow run.
+
+The `manifest` field will (very) soon be removed from the workflow request body,
+since of course Mariner can generate the required manifest 
+by parsing the inputs mapping file and collecting all the GUIDs it comes across.
 
 #### Learning Resources
 
@@ -137,7 +163,7 @@ which contains a number of example workflows with explanations
 of all the different parts of the syntax - what they mean and how they function -
 in the context of each example.
 
-### Browsing and Retrieving Output From A Workflow Run (todo)
+### Browsing and Retrieving Output From A Workflow Run (next)
 
 right now directly use S3 CLI
 eventually, something like a user-data-client, effectively like an auth'd wrapper around S3 CLI
