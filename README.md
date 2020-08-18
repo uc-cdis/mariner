@@ -87,11 +87,28 @@ curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs
 curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>/cancel
 ```
 
-## Resources
+### Writing And Running Your Own Workflows "from scratch" (next)
+
+1. CWL - using wftool to pack CWL to JSON
+2. inputs.json - commons data and user data
+3. construct Mariner workflow request body
+
+#### Learning Resources
 
 A good way to get a handle on CWL in a relatively short period of time
 is to explore the [CWL User Guide](https://www.commonwl.org/user_guide/02-1st-example/index.html),
 which contains a number of example workflows with explanations
 of all the different parts of the syntax - what they mean and how they function -
 in the context of each example.
+
+### Browsing and Retrieving Output From A Workflow Run (todo)
+
+right now directly use S3 CLI
+eventually, something like a user-data-client, effectively like an auth'd wrapper around S3 CLI
+
+## Running the CWL Conformance Tests against Mariner (todo)
+
+link to conformance testing doc that already exists
+
+
 
