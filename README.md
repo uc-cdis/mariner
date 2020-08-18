@@ -96,7 +96,7 @@ A workflow request to Mariner consists of the following:
 The workflow specifies the computations to run,
 the inputs mapping file specifies the data to run those computations on.
 
-So if you want to write and run your own workflows with Mariner,
+So if you want to write and run your own workflow with Mariner,
 the process would go like this:
 
 1. Write your CWL workflow.
@@ -104,11 +104,29 @@ the process would go like this:
 2. Use the [Mariner wftool](https://github.com/uc-cdis/mariner/tree/master/wftool) 
 to serialize your CWL file(s) into a single JSON file.
 
-3. (here)
+3. Create your inputs mapping file, which
+is a JSON file where the keys are CWL input parameters
+and the values are the corresponding input values
+for those parameters. Here is an example 
+of an inputs mapping file with two inputs,
+which are both files. One file is commons data
+and is specified by GUID with the prefix `COMMONS/`,
+and the other file is a user file, which exists in
+the "user data space" or "user analysis space"
+```
+{
+    "commons_file_1": {
+        "class": "File",
+        "location": "COMMONS/8bc9f306-5b5d-4b6b-b34e-f90680824b17"
+    },
+    "user_file": {
+        "class": "File",
+        "location": "USER/user-data.txt"
+    }
+}
+```
 
 
-1. (okay) CWL - using wftool to pack CWL to JSON
-2. (next) inputs.json - commons data and user data
 3. (todo) construct Mariner workflow request body
 
 #### Learning Resources
@@ -128,5 +146,7 @@ eventually, something like a user-data-client, effectively like an auth'd wrappe
 
 link to conformance testing doc that already exists
 
+## Gen3 Centralized Compute Idea (todo)
 
+See [here](https://docs.google.com/document/d/1_-y5Tpw-xeh0Ce1D7DwalLkrdVQ0Osgrd8k7RE-H6tY/edit).
 
