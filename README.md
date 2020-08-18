@@ -89,9 +89,27 @@ curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-
 
 ### Writing And Running Your Own Workflows "from scratch" (next)
 
-1. CWL - using wftool to pack CWL to JSON
-2. inputs.json - commons data and user data
-3. construct Mariner workflow request body
+A workflow request to Mariner consists of the following:
+1. A CWL workflow (serialized into JSON)
+2. An inputs mapping file (also in the form of JSON)
+
+The workflow specifies the computations to run,
+the inputs mapping file specifies the data to run those computations on.
+
+So if you want to write and run your own workflows with Mariner,
+the process would go like this:
+
+1. Write your CWL workflow.
+
+2. Use the [Mariner wftool](https://github.com/uc-cdis/mariner/tree/master/wftool) 
+to serialize your CWL file(s) into a single JSON file.
+
+3. (here)
+
+
+1. (okay) CWL - using wftool to pack CWL to JSON
+2. (next) inputs.json - commons data and user data
+3. (todo) construct Mariner workflow request body
 
 #### Learning Resources
 
