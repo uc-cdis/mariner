@@ -7,6 +7,11 @@ standard [WES API](https://ga4gh.github.io/workflow-execution-service-schemas).
 
 A sketch of the Centralized Gen3 Compute Environment idea can be found [here](https://docs.google.com/document/d/1_-y5Tpw-xeh0Ce1D7DwalLkrdVQ0Osgrd8k7RE-H6tY/edit).
 
+Mariner presentations:
+- [Mariner pt. 1](https://docs.google.com/presentation/d/1FKlOJeGyimX3MVURNiM9gOtdHB8gu9sx6NJP0WfTtHI/edit#slide=id.p) - gives 
+context for the service, why it's critical to Gen3, how it fits in with the larger data commons picture
+- [Mariner pt. 2](https://docs.google.com/presentation/d/1C52GialV2VYUzVW_KlObQArZi22kGuIhhRnm3mDgMDE/edit#slide=id.g7e9daf6d29_0_0) - gives high level details on the Mariner service itself, API, overview of architectural components
+
 ## How to deploy Mariner in a Gen3 environment
 
 ### Prereq's
