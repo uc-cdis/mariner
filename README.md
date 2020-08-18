@@ -12,7 +12,7 @@ context for the service, why it's critical to Gen3, how it fits in with the larg
 
 A sketch of the Centralized Gen3 Compute Environment idea can be found [here](https://docs.google.com/document/d/1_-y5Tpw-xeh0Ce1D7DwalLkrdVQ0Osgrd8k7RE-H6tY/edit).
 
-The original technical design proposal for Mariner can be found [here](https://github.com/uc-cdis/mariner/blob/chore/doc/TechnicalDesignProposal.md).
+The original technical design proposal for Mariner can be found [here](https://github.com/uc-cdis/mariner/blob/master/TechnicalDesignProposal.md).
 
 ## How to deploy Mariner in a Gen3 environment
 
