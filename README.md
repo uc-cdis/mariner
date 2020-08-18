@@ -5,6 +5,8 @@ for running [CWL](https://www.commonwl.org) workflows on [Kubernetes](https://ku
 Mariner's API is an implementation of the [GA4GH](https://www.ga4gh.org) 
 standard [WES API](https://ga4gh.github.io/workflow-execution-service-schemas).
 
+See a sketch of the Centralized Gen3 Compute Environment idea [here](https://docs.google.com/document/d/1_-y5Tpw-xeh0Ce1D7DwalLkrdVQ0Osgrd8k7RE-H6tY/edit).
+
 ## How to deploy Mariner in a Gen3 environment
 
 ### Prereq's
@@ -201,7 +203,4 @@ you must use the [AWS S3 CLI](https://docs.aws.amazon.com/cli/latest/reference/s
 
 See [here](https://github.com/uc-cdis/mariner/tree/master/conformance).
 
-## Gen3 Centralized Compute Idea
-
-See [here](https://docs.google.com/document/d/1_-y5Tpw-xeh0Ce1D7DwalLkrdVQ0Osgrd8k7RE-H6tY/edit).
 
