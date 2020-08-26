@@ -200,6 +200,11 @@ func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
 	jobName := tool.jobName()
 	tool.JobName = jobName
 	job = jobSpec(marinerTask, engine.UserID)
+
+	if engine.Log.Request.ServiceAccountName != "" {
+		job.Spec.Template.Spec.ServiceAccountName = engine.Log.Request.ServiceAccountName
+	}
+
 	job.Spec.Template.Spec.Volumes = workflowVolumes()
 	job.Spec.Template.Spec.Containers, err = engine.taskContainers(tool)
 	if err != nil {
