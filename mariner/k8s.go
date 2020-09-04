@@ -297,7 +297,7 @@ func (tool *Tool) cltArgs() []string {
 			cd %v
 			echo "running command $(cat %vrun.sh)"
 			%v %vrun.sh
-			echo "commandlinetool has finished running" > %vdone
+			touch %vdone
 			`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
 	}
 
