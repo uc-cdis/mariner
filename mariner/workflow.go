@@ -46,7 +46,7 @@ type Task struct {
 	ScatterMethod string                 // if task is step in a workflow and requires scatter; scatter method specified - "dotproduct" or "flatcrossproduct" or ""
 	ScatterTasks  map[int]*Task          // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
 	ScatterIndex  int                    // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
-	Children      map[string]*Task       // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
+	Children      *GoStringToTask        // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
 	OutputIDMap   *GoStringToString      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	InputIDMap    *GoStringToString
 	OriginalStep  *cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
@@ -54,6 +54,30 @@ type Task struct {
 	// --- New Fields ---
 	Log           *Log           // contains Status, Stats, Event
 	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
+}
+
+// GoStringToTask is safe for concurrent read/write
+type GoStringToTask struct {
+	sync.RWMutex
+	Map map[string]*Task
+}
+
+func (m *GoStringToTask) update(k string, v *Task) {
+	m.Lock()
+	defer m.Unlock()
+	m.Map[k] = v
+}
+
+func (m *GoStringToTask) delete(k string) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.Map, k)
+}
+
+func (m *GoStringToTask) read(k string) *Task {
+	m.Lock()
+	defer m.Unlock()
+	return m.Map[k]
 }
 
 // GoStringToString is safe for concurrent read/write
@@ -86,7 +110,7 @@ func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {
 	task.infof("begin check if step param %v is a File param", stepParam)
 	defer task.infof("end check if step param %v is a File param", stepParam)
 	childTaskParam := step2taskID(step, stepParam)
-	childTask := task.Children[step.ID]
+	childTask := task.Children.read(step.ID)
 	for _, input := range childTask.Root.Inputs {
 		if input.ID == childTaskParam && inputParamFile(input) {
 			return true
@@ -143,7 +167,9 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 		engine.infof("begin resolve graph")
 	}
 	if curTask.Root.Class == CWLWorkflow {
-		curTask.Children = make(map[string]*Task)
+		curTask.Children = &GoStringToTask{
+			Map: make(map[string]*Task),
+		}
 
 		// serious "gotcha": https://medium.com/@betable/3-go-gotchas-590b8c014e0a
 		/*
@@ -168,7 +194,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 
 			engine.resolveGraph(rootMap, newTask)
 
-			curTask.Children[step.ID] = newTask
+			curTask.Children.update(step.ID, newTask)
 		}
 	}
 	if curTask.Root.ID == mainProcessID {
@@ -299,7 +325,7 @@ func (engine *K8sEngine) mergeChildParams(task *Task) (err error) {
 
 func (task *Task) mergeChildInputs() {
 	task.infof("begin merge child inputs")
-	for _, child := range task.Children {
+	for _, child := range task.Children.Map {
 		for param := range child.Parameters {
 			if wfParam := task.InputIDMap.read(param); wfParam != "" {
 				task.Log.Input[wfParam] = child.Log.Input[param]
@@ -334,7 +360,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 		if depStepID := parentTask.OutputIDMap.read(source); depStepID != "" {
 			// wait until all dependency step output has been collected
 			// and then assign output parameter of dependency step (which has just finished running) to input parameter of this step
-			depTask := parentTask.Children[depStepID]
+			depTask := parentTask.Children.read(depStepID)
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
 			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
@@ -390,7 +416,7 @@ func (engine *K8sEngine) runSteps(task *Task) {
 		Map: make(map[string]string),
 	}
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
-	for curStepID, subtask := range task.Children {
+	for curStepID, subtask := range task.Children.Map {
 		go engine.runStep(curStepID, task, subtask)
 	}
 
@@ -428,10 +454,10 @@ func (task *Task) mergeChildOutputs() error {
 			if stepID == "" {
 				return task.errorf("failed to find output source: %v", source)
 			}
-			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
+			subtaskOutputID := step2taskID(task.Children.read(stepID).OriginalStep, source)
 			task.infof("waiting to merge child outputs")
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
-				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {
+				if outputVal, ok := task.Children.read(stepID).Outputs[subtaskOutputID]; ok {
 					task.Outputs[output.ID] = outputVal
 				}
 			}

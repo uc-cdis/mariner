@@ -273,7 +273,7 @@ func (engine *K8sEngine) monitorParamDeps(task *Task, stepID string, param strin
 	for depStepID := range condition.DependentSteps {
 		go func(task *Task, depStepID string, condition *DeleteCondition) {
 			// wait for depTask to finish
-			for !(*task.Children[depStepID].Done) {
+			for !(*task.Children.read(depStepID).Done) {
 			}
 			// now depTask is done running - remove it from this param's dep queue
 			condition.Queue.delete(depStepID)
@@ -323,8 +323,8 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 // note: this fn is currently not being used
 func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteIntermediateFiles for: ", step.ID, outputParam)
-	childTask := task.Children[step.ID]
-	subtaskOutputID := step2taskID(task.Children[step.ID].OriginalStep, outputParam)
+	childTask := task.Children.read(step.ID)
+	subtaskOutputID := step2taskID(task.Children.read(step.ID).OriginalStep, outputParam)
 	fileOutput := childTask.Outputs[subtaskOutputID]
 	fmt.Println("\there is fileOutput:")
 	printJSON(fileOutput)
