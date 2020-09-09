@@ -287,8 +287,10 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 func (task *Task) tool(runID string) *Tool {
 	task.infof("begin make tool object")
-	task.Outputs = make(map[string]interface{})
-	task.Log.Output = task.Outputs
+	task.Outputs = &GoStringToInterface{
+		Map: make(map[string]interface{}),
+	}
+	task.Log.Output = task.Outputs.Map
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),

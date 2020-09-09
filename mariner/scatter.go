@@ -75,7 +75,9 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	engine.infof("begin gather scatter outputs for task: %v", task.Root.ID)
-	task.Outputs = make(map[string]interface{})
+	task.Outputs = &GoStringToInterface{
+		Map: make(map[string]interface{}),
+	}
 	totalOutput := make(map[string][]interface{})
 	for _, param := range task.Root.Outputs {
 		totalOutput[param.ID] = make([]interface{}, len(task.ScatterTasks))
@@ -91,15 +93,15 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
 			for _, param := range task.Root.Outputs {
-				totalOutput[param.ID][scatterTask.ScatterIndex-1] = scatterTask.Outputs[param.ID]
+				totalOutput[param.ID][scatterTask.ScatterIndex-1] = scatterTask.Outputs.read(param.ID)
 			}
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
 	for param, val := range totalOutput {
-		task.Outputs[param] = val
+		task.Outputs.update(param, val)
 	}
-	task.Log.Output = task.Outputs
+	task.Log.Output = task.Outputs.Map
 	engine.infof("end gather scatter outputs for task: %v", task.Root.ID)
 	return nil
 }

@@ -174,11 +174,11 @@ func (tool *Tool) handleCLTOutput() (err error) {
 			// fmt.Println("output type is file")
 
 			// fixme - add error handling for cases len(results) != 1
-			tool.Task.Outputs[output.ID] = results[0]
+			tool.Task.Outputs.update(output.ID, results[0])
 		} else {
 			// output should be an array of File objects
 			// note: also need to add error handling here
-			tool.Task.Outputs[output.ID] = results
+			tool.Task.Outputs.update(output.ID, results)
 		}
 		tool.Task.infof("end handle output param: %v", output.ID)
 	}
@@ -255,7 +255,7 @@ func (tool *Tool) handleETOutput() error {
 		}
 
 		// assign retrieved value to output param in Task object
-		tool.Task.Outputs[output.ID] = val
+		tool.Task.Outputs.update(output.ID, val)
 	}
 	tool.Task.infof("end handle ExpressionTool output")
 	return nil
@@ -297,7 +297,7 @@ func (tool *Tool) outputEval(output *cwl.Output, fileArray []*File) (err error) 
 	}
 
 	// assign expression eval result to output parameter
-	tool.Task.Outputs[output.ID] = evalResult
+	tool.Task.Outputs.update(output.ID, evalResult)
 
 	tool.Task.infof("end output eval for output param %v", output.ID)
 	return nil

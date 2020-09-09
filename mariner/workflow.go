@@ -39,15 +39,15 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 	task.Children is a map, where keys are the taskIDs and values are the Task objects of the workflow steps
 */
 type Task struct {
-	Parameters    cwl.Parameters         // input parameters of this task
-	Root          *cwl.Root              // "root" of the "namespace" of the cwl file for this task
-	Outputs       map[string]interface{} // output parameters of this task
-	Scatter       []string               // if task is a step in a workflow and requires scatter; input parameters to scatter are stored here
-	ScatterMethod string                 // if task is step in a workflow and requires scatter; scatter method specified - "dotproduct" or "flatcrossproduct" or ""
-	ScatterTasks  map[int]*Task          // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
-	ScatterIndex  int                    // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
-	Children      *GoStringToTask        // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
-	OutputIDMap   *GoStringToString      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
+	Parameters    cwl.Parameters       // input parameters of this task
+	Root          *cwl.Root            // "root" of the "namespace" of the cwl file for this task
+	Outputs       *GoStringToInterface // output parameters of this task
+	Scatter       []string             // if task is a step in a workflow and requires scatter; input parameters to scatter are stored here
+	ScatterMethod string               // if task is step in a workflow and requires scatter; scatter method specified - "dotproduct" or "flatcrossproduct" or ""
+	ScatterTasks  map[int]*Task        // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
+	ScatterIndex  int                  // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
+	Children      *GoStringToTask      // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
+	OutputIDMap   *GoStringToString    // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
 	InputIDMap    *GoStringToString
 	OriginalStep  *cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool     // false until all output for this task has been collected, then true
@@ -366,7 +366,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
 				if *depTask.Done {
-					task.Parameters[taskInput] = depTask.Outputs[outputID]
+					task.Parameters[taskInput] = depTask.Outputs.read(outputID)
 					// fmt.Println("\tDependency task complete!")
 					// fmt.Println("\tSuccessfully collected output from dependency task.")
 					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
@@ -441,7 +441,9 @@ func step2taskID(step *cwl.Step, stepParam string) string {
 // -> this outputValue gets mapped from the workflow step's outputs to the output of the workflow itself
 func (task *Task) mergeChildOutputs() error {
 	task.infof("begin merge child outputs")
-	task.Outputs = make(map[string]interface{})
+	task.Outputs = &GoStringToInterface{
+		Map: make(map[string]interface{}),
+	}
 	if task.Children == nil {
 		return task.errorf("failed to merge child outputs - no child tasks found")
 	}
@@ -456,9 +458,13 @@ func (task *Task) mergeChildOutputs() error {
 			}
 			subtaskOutputID := step2taskID(task.Children.read(stepID).OriginalStep, source)
 			task.infof("waiting to merge child outputs")
-			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
-				if outputVal, ok := task.Children.read(stepID).Outputs[subtaskOutputID]; ok {
-					task.Outputs[output.ID] = outputVal
+			var v interface{}
+			for outputPresent := false; !outputPresent; {
+				if outputVal := task.Children.read(stepID).Outputs.read(subtaskOutputID); outputVal != nil {
+					task.Outputs.update(output.ID, outputVal)
+				}
+				if v = task.Outputs.read(output.ID); v != nil {
+					outputPresent = true
 				}
 			}
 		} else {
@@ -467,7 +473,7 @@ func (task *Task) mergeChildOutputs() error {
 		}
 		task.infof("end handle output param: %v", output.ID)
 	}
-	task.Log.Output = task.Outputs
+	task.Log.Output = task.Outputs.Map
 	task.infof("end merge child outputs")
 	return nil
 }

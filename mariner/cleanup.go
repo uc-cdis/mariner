@@ -325,7 +325,7 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 	fmt.Println("\tin deleteIntermediateFiles for: ", step.ID, outputParam)
 	childTask := task.Children.read(step.ID)
 	subtaskOutputID := step2taskID(task.Children.read(step.ID).OriginalStep, outputParam)
-	fileOutput := childTask.Outputs[subtaskOutputID]
+	fileOutput := childTask.Outputs.read(subtaskOutputID)
 	fmt.Println("\there is fileOutput:")
 	printJSON(fileOutput)
 	fmt.Printf("\t(%T)\n", fileOutput)
