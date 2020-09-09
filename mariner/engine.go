@@ -26,7 +26,7 @@ type K8sEngine struct {
 	TaskSequence    []string            // for testing purposes
 	UnfinishedProcs *GoStringToBool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   *GoStringToBool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
-	CleanupProcs    map[CleanupKey]bool // engine's stack of running cleanup processes
+	CleanupProcs    *GoCleanupKeyToBool // engine's stack of running cleanup processes
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
@@ -53,6 +53,30 @@ func (m *GoStringToBool) delete(k string) {
 }
 
 func (m *GoStringToBool) read(k string) bool {
+	m.Lock()
+	defer m.Unlock()
+	return m.Map[k]
+}
+
+// GoCleanupKeyToBool is safe for concurrent read/write
+type GoCleanupKeyToBool struct {
+	sync.RWMutex
+	Map map[CleanupKey]bool
+}
+
+func (m *GoCleanupKeyToBool) update(k CleanupKey, v bool) {
+	m.Lock()
+	defer m.Unlock()
+	m.Map[k] = v
+}
+
+func (m *GoCleanupKeyToBool) delete(k CleanupKey) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.Map, k)
+}
+
+func (m *GoCleanupKeyToBool) read(k CleanupKey) bool {
 	m.Lock()
 	defer m.Unlock()
 	return m.Map[k]
@@ -128,9 +152,11 @@ func engine(runID string) *K8sEngine {
 		UnfinishedProcs: &GoStringToBool{
 			Map: make(map[string]bool),
 		},
-		CleanupProcs: make(map[CleanupKey]bool),
-		RunID:        runID,
-		Log:          mainLog(fmt.Sprintf(pathToLogf, runID)),
+		CleanupProcs: &GoCleanupKeyToBool{
+			Map: make(map[CleanupKey]bool),
+		},
+		RunID: runID,
+		Log:   mainLog(fmt.Sprintf(pathToLogf, runID)),
 	}
 
 	// note: check if log already exists - if yes, then this is a 'restart'

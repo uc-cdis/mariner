@@ -255,7 +255,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			if fileParam {
 				fmt.Println("\tlaunching go routine to delete files at condition")
 				key := CleanupKey{step.ID, stepOutput.ID}
-				engine.CleanupProcs[key] = true
+				engine.CleanupProcs.update(key, true)
 				go engine.monitorParamDeps(task, step.ID, stepOutput.ID)
 				go engine.deleteFilesAtCondition(task, step, stepOutput.ID)
 			}
@@ -307,7 +307,7 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 	}
 	fmt.Println("\tnot deleting files because parent workflow dependency: ", step.ID, outputParam)
 	fmt.Println("\tupdating cleanupProc stack..")
-	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam}) // maybe just put this in one place, not have it twice
+	engine.CleanupProcs.delete(CleanupKey{step.ID, outputParam}) // maybe just put this in one place, not have it twice
 }
 
 // this function gets called iff
@@ -372,5 +372,5 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 		}
 	}
 	fmt.Println("\tfinished deleting files, updating cleanupProc stack..")
-	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam})
+	engine.CleanupProcs.delete(CleanupKey{step.ID, outputParam})
 }
