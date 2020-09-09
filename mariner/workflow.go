@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -53,6 +54,24 @@ type Task struct {
 	// --- New Fields ---
 	Log           *Log           // contains Status, Stats, Event
 	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
+}
+
+// GoStringToString is safe for concurrent read/write
+type GoStringToString struct {
+	sync.RWMutex
+	Map map[string]string
+}
+
+func (m *GoStringToString) update(k string, v string) {
+	m.Lock()
+	defer m.Unlock()
+	m.Map[k] = v
+}
+
+func (m *GoStringToString) delete(k string) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.Map, k)
 }
 
 // fileParam returns a bool indicating whether the given step-level input param corresponds to a set of files
