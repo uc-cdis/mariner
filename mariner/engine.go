@@ -96,9 +96,33 @@ type Tool struct {
 	JobID            string // if a k8s job (i.e., if a CommandLineTool)
 	WorkingDir       string
 	Command          *exec.Cmd
-	StepInputMap     map[string]*cwl.StepInput
+	StepInputMap     *GoStringToStepInput
 	ExpressionResult *GoStringToInterface
 	Task             *Task
+}
+
+// GoStringToStepInput is safe for concurrent read/write
+type GoStringToStepInput struct {
+	sync.RWMutex
+	Map map[string]*cwl.StepInput
+}
+
+func (m *GoStringToStepInput) update(k string, v *cwl.StepInput) {
+	m.Lock()
+	defer m.Unlock()
+	m.Map[k] = v
+}
+
+func (m *GoStringToStepInput) delete(k string) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.Map, k)
+}
+
+func (m *GoStringToStepInput) read(k string) *cwl.StepInput {
+	m.Lock()
+	defer m.Unlock()
+	return m.Map[k]
 }
 
 // GoStringToInterface is safe for concurrent read/write

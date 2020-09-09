@@ -45,10 +45,12 @@ func (tool *Tool) buildStepInputMap() {
 	}
 
 	tool.Task.infof("begin build step input map")
-	tool.StepInputMap = make(map[string]*cwl.StepInput)
+	tool.StepInputMap = &GoStringToStepInput{
+		Map: make(map[string]*cwl.StepInput),
+	}
 	for _, in := range tool.Task.OriginalStep.In {
 		localID := lastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
-		tool.StepInputMap[localID] = &in
+		tool.StepInputMap.update(localID, &in)
 	}
 	tool.Task.infof("end build step input map")
 }
@@ -184,12 +186,11 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	localID := lastInPath(input.ID)
 
 	// stepInput ValueFrom case
-	if len(tool.StepInputMap) > 0 {
+	if len(tool.StepInputMap.Map) > 0 {
 		// no processing needs to happen if the valueFrom field is empty
-		if tool.StepInputMap[localID].ValueFrom != "" {
-
+		if tool.StepInputMap.read(localID).ValueFrom != "" {
 			// here the valueFrom field is not empty, so we need to handle valueFrom
-			valueFrom := tool.StepInputMap[localID].ValueFrom
+			valueFrom := tool.StepInputMap.read(localID).ValueFrom
 			if strings.HasPrefix(valueFrom, "$") {
 				// valueFrom is an expression that needs to be eval'd
 
