@@ -74,6 +74,12 @@ func (m *GoStringToString) delete(k string) {
 	delete(m.Map, k)
 }
 
+func (m *GoStringToString) read(k string) string {
+	m.Lock()
+	defer m.Unlock()
+	return m.Map[k] // returns "" if k isn't in m.Map
+}
+
 // fileParam returns a bool indicating whether the given step-level input param corresponds to a set of files
 // 'task' here is a workflow
 func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {

@@ -118,6 +118,9 @@ func (engine *K8sEngine) loadRequest(runID string) error {
 	engine.Manifest = &request.Manifest
 	engine.UserID = request.UserID
 	engine.Log.Request = request
+	engine.Log.Request.SafeTags = &GoStringToString{
+		Map: request.Tags,
+	}
 	engine.infof("end load workflow request")
 	return nil
 }

@@ -402,7 +402,8 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	conformanceTestFlag := k8sv1.EnvVar{
 		Name: "CONFORMANCE_TEST",
 	}
-	if engine.Log.Request.Tags["conformanceTest"] == "true" {
+
+	if engine.Log.Request.SafeTags.read("conformanceTest") == "true" {
 		conformanceTestFlag.Value = "true"
 	} else {
 		conformanceTestFlag.Value = "false"
