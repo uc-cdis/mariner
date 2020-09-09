@@ -97,8 +97,32 @@ type Tool struct {
 	WorkingDir       string
 	Command          *exec.Cmd
 	StepInputMap     map[string]*cwl.StepInput
-	ExpressionResult map[string]interface{}
+	ExpressionResult *GoStringToInterface
 	Task             *Task
+}
+
+// GoStringToInterface is safe for concurrent read/write
+type GoStringToInterface struct {
+	sync.RWMutex
+	Map map[string]interface{}
+}
+
+func (m *GoStringToInterface) update(k string, v interface{}) {
+	m.Lock()
+	defer m.Unlock()
+	m.Map[k] = v
+}
+
+func (m *GoStringToInterface) delete(k string) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.Map, k)
+}
+
+func (m *GoStringToInterface) read(k string) interface{} {
+	m.Lock()
+	defer m.Unlock()
+	return m.Map[k]
 }
 
 // Engine runs an instance of the mariner engine job
@@ -381,9 +405,12 @@ func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	// see description of `expression` field here:
 	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
 	var ok bool
-	tool.ExpressionResult, ok = result.(map[string]interface{})
+	r, ok := result.(map[string]interface{})
 	if !ok {
 		return engine.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
+	}
+	tool.ExpressionResult = &GoStringToInterface{
+		Map: r,
 	}
 	engine.infof("end run ExpressionTool: %v", tool.Task.Root.ID)
 	return nil

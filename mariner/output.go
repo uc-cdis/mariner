@@ -249,8 +249,8 @@ func (tool *Tool) handleETOutput() error {
 		localOutputID := lastInPath(output.ID)
 
 		// access output param value from expression result
-		val, ok := tool.ExpressionResult[localOutputID]
-		if !ok {
+		val := tool.ExpressionResult.read(localOutputID)
+		if val == nil {
 			return tool.Task.errorf("no value found for output parameter %v", output.ID)
 		}
 
