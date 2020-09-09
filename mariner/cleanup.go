@@ -14,11 +14,13 @@ import (
 // collect all paths to not delete during basic file cleanup
 func (engine *K8sEngine) collectKeepFiles() {
 	engine.infof("begin collect paths to keep")
-	engine.KeepFiles = make(map[string]bool)
+	engine.KeepFiles = &GoStringToBool{
+		Map: make(map[string]bool),
+	}
 
 	// be sure to not delete to logfile
 	pathToLog := fmt.Sprintf(pathToLogf, engine.RunID)
-	engine.KeepFiles[pathToLog] = true
+	engine.KeepFiles.update(pathToLog, true)
 
 	// iterate through main workflow outputs
 	// collect paths from all file param outputs
@@ -28,11 +30,11 @@ func (engine *K8sEngine) collectKeepFiles() {
 		switch output.(type) {
 		case *File:
 			path = output.(*File).Path
-			engine.KeepFiles[path] = true
+			engine.KeepFiles.update(path, true)
 		case []*File:
 			files := output.([]*File)
 			for _, f := range files {
-				engine.KeepFiles[f.Path] = true
+				engine.KeepFiles.update(f.Path, true)
 			}
 		case []map[string]interface{}:
 			// secretly this is a file array
@@ -43,7 +45,7 @@ func (engine *K8sEngine) collectKeepFiles() {
 					engine.Log.Main.Event.warnf("failed to extract path from file: %v", f)
 					continue
 				}
-				engine.KeepFiles[path] = true
+				engine.KeepFiles.update(path, true)
 			}
 		}
 	}
@@ -65,7 +67,7 @@ func (engine *K8sEngine) basicCleanup() {
 	var parentDir string
 	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
 	_ = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
-		if (!info.IsDir() && !engine.KeepFiles[path]) || isEmptyDir(path) {
+		if (!info.IsDir() && !engine.KeepFiles.read(path)) || isEmptyDir(path) {
 			if err = os.Remove(path); err != nil {
 				engine.Log.Main.Event.warnf("failed to delete file: %v; error: %v", path, err)
 			}

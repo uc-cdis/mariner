@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -23,14 +24,38 @@ import (
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
 	TaskSequence    []string            // for testing purposes
-	UnfinishedProcs map[string]bool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
-	FinishedProcs   map[string]bool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
+	UnfinishedProcs *GoStringToBool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
+	FinishedProcs   *GoStringToBool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
 	CleanupProcs    map[CleanupKey]bool // engine's stack of running cleanup processes
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
 	Log             *MainLog            //
-	KeepFiles       map[string]bool     // all the paths to not delete during basic file cleanup
+	KeepFiles       *GoStringToBool     // all the paths to not delete during basic file cleanup
+}
+
+// GoStringToBool is safe for concurrent read/write
+type GoStringToBool struct {
+	sync.RWMutex
+	Map map[string]bool
+}
+
+func (m *GoStringToBool) update(k string, v bool) {
+	m.Lock()
+	defer m.Unlock()
+	m.Map[k] = v
+}
+
+func (m *GoStringToBool) delete(k string) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.Map, k)
+}
+
+func (m *GoStringToBool) read(k string) bool {
+	m.Lock()
+	defer m.Unlock()
+	return m.Map[k]
 }
 
 // Tool represents a leaf in the graph of a workflow
@@ -97,11 +122,15 @@ func request(runID string) (*WorkflowRequest, error) {
 // instantiate a K8sEngine object
 func engine(runID string) *K8sEngine {
 	e := &K8sEngine{
-		FinishedProcs:   make(map[string]bool),
-		UnfinishedProcs: make(map[string]bool),
-		CleanupProcs:    make(map[CleanupKey]bool),
-		RunID:           runID,
-		Log:             mainLog(fmt.Sprintf(pathToLogf, runID)),
+		FinishedProcs: &GoStringToBool{
+			Map: make(map[string]bool),
+		},
+		UnfinishedProcs: &GoStringToBool{
+			Map: make(map[string]bool),
+		},
+		CleanupProcs: make(map[CleanupKey]bool),
+		RunID:        runID,
+		Log:          mainLog(fmt.Sprintf(pathToLogf, runID)),
 	}
 
 	// note: check if log already exists - if yes, then this is a 'restart'
@@ -159,8 +188,8 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 
 // move proc from unfinished to finished stack
 func (engine *K8sEngine) finishTask(task *Task) {
-	delete(engine.UnfinishedProcs, task.Root.ID)
-	engine.FinishedProcs[task.Root.ID] = true
+	engine.UnfinishedProcs.delete(task.Root.ID)
+	engine.FinishedProcs.update(task.Root.ID, true)
 	engine.Log.finish(task)
 	task.Done = &trueVal
 }
@@ -168,7 +197,7 @@ func (engine *K8sEngine) finishTask(task *Task) {
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	engine.UnfinishedProcs[task.Root.ID] = true
+	engine.UnfinishedProcs.update(task.Root.ID, true)
 	engine.Log.start(task)
 }
 
