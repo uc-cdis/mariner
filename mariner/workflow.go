@@ -47,8 +47,8 @@ type Task struct {
 	ScatterTasks  map[int]*Task          // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
 	ScatterIndex  int                    // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
 	Children      map[string]*Task       // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
-	OutputIDMap   map[string]string      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
-	InputIDMap    map[string]string
+	OutputIDMap   *GoStringToString      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
+	InputIDMap    *GoStringToString
 	OriginalStep  *cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool     // false until all output for this task has been collected, then true
 	// --- New Fields ---
@@ -301,7 +301,7 @@ func (task *Task) mergeChildInputs() {
 	task.infof("begin merge child inputs")
 	for _, child := range task.Children {
 		for param := range child.Parameters {
-			if wfParam, ok := task.InputIDMap[param]; ok {
+			if wfParam := task.InputIDMap.read(param); wfParam != "" {
 				task.Log.Input[wfParam] = child.Log.Input[param]
 			}
 		}
@@ -331,7 +331,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 
 		// I/O DEPENDENCY HANDLING
 		// if this input's source is the ID of an output parameter of another step
-		if depStepID, ok := parentTask.OutputIDMap[source]; ok {
+		if depStepID := parentTask.OutputIDMap.read(source); depStepID != "" {
 			// wait until all dependency step output has been collected
 			// and then assign output parameter of dependency step (which has just finished running) to input parameter of this step
 			depTask := parentTask.Children[depStepID]
@@ -353,7 +353,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			task.Parameters[taskInput] = parentTask.Parameters[source]
 
 			// used for logging to merge child inputs for a workflow
-			parentTask.InputIDMap[taskInput] = source
+			parentTask.InputIDMap.update(taskInput, source)
 		}
 	}
 
@@ -386,7 +386,9 @@ func (engine *K8sEngine) runSteps(task *Task) {
 	// i.e., after the workflow is done running, not as the workflow is running
 	// engine.cleanupByStep(task)
 
-	task.InputIDMap = make(map[string]string)
+	task.InputIDMap = &GoStringToString{
+		Map: make(map[string]string),
+	}
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
 	for curStepID, subtask := range task.Children {
 		go engine.runStep(curStepID, task, subtask)
@@ -422,8 +424,8 @@ func (task *Task) mergeChildOutputs() error {
 		if len(output.Source) == 1 {
 			// fixme - again, here assuming len(source) is exactly 1
 			source := output.Source[0]
-			stepID, ok := task.OutputIDMap[source]
-			if !ok {
+			stepID := task.OutputIDMap.read(source)
+			if stepID == "" {
 				return task.errorf("failed to find output source: %v", source)
 			}
 			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
@@ -453,10 +455,12 @@ func (task *Task) mergeChildOutputs() error {
 // before the dependent step can execute
 func (task *Task) setupOutputMap() {
 	task.infof("begin setup output map")
-	task.OutputIDMap = make(map[string]string)
+	task.OutputIDMap = &GoStringToString{
+		Map: make(map[string]string),
+	}
 	for _, step := range task.Root.Steps {
 		for _, stepOutput := range step.Out {
-			task.OutputIDMap[stepOutput.ID] = step.ID
+			task.OutputIDMap.update(stepOutput.ID, step.ID)
 		}
 	}
 	task.infof("end setup output map")
