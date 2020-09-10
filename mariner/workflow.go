@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -39,93 +38,21 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 	task.Children is a map, where keys are the taskIDs and values are the Task objects of the workflow steps
 */
 type Task struct {
-	Parameters    *GoParameters        // input parameters of this task
-	Root          *cwl.Root            // "root" of the "namespace" of the cwl file for this task
-	Outputs       *GoStringToInterface // output parameters of this task
-	Scatter       []string             // if task is a step in a workflow and requires scatter; input parameters to scatter are stored here
-	ScatterMethod string               // if task is step in a workflow and requires scatter; scatter method specified - "dotproduct" or "flatcrossproduct" or ""
-	ScatterTasks  map[int]*Task        // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
-	ScatterIndex  int                  // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
-	Children      *GoStringToTask      // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
-	OutputIDMap   *GoStringToString    // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
-	InputIDMap    *GoStringToString
+	Parameters    cwl.Parameters         // input parameters of this task
+	Root          *cwl.Root              // "root" of the "namespace" of the cwl file for this task
+	Outputs       map[string]interface{} // output parameters of this task
+	Scatter       []string               // if task is a step in a workflow and requires scatter; input parameters to scatter are stored here
+	ScatterMethod string                 // if task is step in a workflow and requires scatter; scatter method specified - "dotproduct" or "flatcrossproduct" or ""
+	ScatterTasks  map[int]*Task          // if task is a step in a workflow and requires scatter; scattered subtask objects stored here; scattered subtasks are enumerated
+	ScatterIndex  int                    // if a task gets scattered, each subtask belonging to that task gets enumerated, and that index is stored here
+	Children      map[string]*Task       // if task is a workflow; the Task objects of the workflow steps are stored here; {taskID: task} pairs
+	OutputIDMap   map[string]string      // if task is a workflow; a map of {outputID: stepID} pairs in order to trace i/o dependencies between steps
+	InputIDMap    map[string]string
 	OriginalStep  *cwl.Step // if this task is a step in a workflow, this is the information from this task's step entry in the parent workflow's cwl file
 	Done          *bool     // false until all output for this task has been collected, then true
 	// --- New Fields ---
 	Log           *Log           // contains Status, Stats, Event
 	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
-}
-
-// GoParameters is safe for concurrent read/write
-type GoParameters struct {
-	sync.RWMutex
-	Map cwl.Parameters
-}
-
-func (m *GoParameters) update(k string, v cwl.Parameter) {
-	m.Lock()
-	defer m.Unlock()
-	m.Map[k] = v
-}
-
-func (m *GoParameters) delete(k string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.Map, k)
-}
-
-func (m *GoParameters) read(k string) cwl.Parameter {
-	m.Lock()
-	defer m.Unlock()
-	return m.Map[k]
-}
-
-// GoStringToTask is safe for concurrent read/write
-type GoStringToTask struct {
-	sync.RWMutex
-	Map map[string]*Task
-}
-
-func (m *GoStringToTask) update(k string, v *Task) {
-	m.Lock()
-	defer m.Unlock()
-	m.Map[k] = v
-}
-
-func (m *GoStringToTask) delete(k string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.Map, k)
-}
-
-func (m *GoStringToTask) read(k string) *Task {
-	m.Lock()
-	defer m.Unlock()
-	return m.Map[k]
-}
-
-// GoStringToString is safe for concurrent read/write
-type GoStringToString struct {
-	sync.RWMutex
-	Map map[string]string
-}
-
-func (m *GoStringToString) update(k string, v string) {
-	m.Lock()
-	defer m.Unlock()
-	m.Map[k] = v
-}
-
-func (m *GoStringToString) delete(k string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.Map, k)
-}
-
-func (m *GoStringToString) read(k string) string {
-	m.Lock()
-	defer m.Unlock()
-	return m.Map[k] // returns "" if k isn't in m.Map
 }
 
 // fileParam returns a bool indicating whether the given step-level input param corresponds to a set of files
@@ -134,7 +61,7 @@ func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {
 	task.infof("begin check if step param %v is a File param", stepParam)
 	defer task.infof("end check if step param %v is a File param", stepParam)
 	childTaskParam := step2taskID(step, stepParam)
-	childTask := task.Children.read(step.ID)
+	childTask := task.Children[step.ID]
 	for _, input := range childTask.Root.Inputs {
 		if input.ID == childTaskParam && inputParamFile(input) {
 			return true
@@ -191,9 +118,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 		engine.infof("begin resolve graph")
 	}
 	if curTask.Root.Class == CWLWorkflow {
-		curTask.Children = &GoStringToTask{
-			Map: make(map[string]*Task),
-		}
+		curTask.Children = make(map[string]*Task)
 
 		// serious "gotcha": https://medium.com/@betable/3-go-gotchas-590b8c014e0a
 		/*
@@ -208,10 +133,8 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			}
 
 			newTask := &Task{
-				Root: stepRoot,
-				Parameters: &GoParameters{
-					Map: make(cwl.Parameters),
-				},
+				Root:         stepRoot,
+				Parameters:   make(cwl.Parameters),
 				OriginalStep: &curTask.Root.Steps[i],
 				Log:          logger(),
 				Done:         &falseVal,
@@ -220,7 +143,7 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 
 			engine.resolveGraph(rootMap, newTask)
 
-			curTask.Children.update(step.ID, newTask)
+			curTask.Children[step.ID] = newTask
 		}
 	}
 	if curTask.Root.ID == mainProcessID {
@@ -271,12 +194,10 @@ func (engine *K8sEngine) runWorkflow() error {
 		if process.ID == mainProcessID {
 			// construct `mainTask` - the task object for the top level workflow
 			mainTask = &Task{
-				Root: process,
-				Parameters: &GoParameters{
-					Map: params,
-				},
-				Log:  logger(), // initialize empty Log object with status NOT_STARTED
-				Done: &falseVal,
+				Root:       process,
+				Parameters: params,
+				Log:        logger(), // initialize empty Log object with status NOT_STARTED
+				Done:       &falseVal,
 			}
 		}
 	}
@@ -321,7 +242,6 @@ concurrency notes:
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) (err error) {
 	engine.infof("begin run task: %v", task.Root.ID)
-	printJSON(engine)
 	engine.startTask(task)
 	switch {
 	case task.Scatter != nil:
@@ -354,9 +274,9 @@ func (engine *K8sEngine) mergeChildParams(task *Task) (err error) {
 
 func (task *Task) mergeChildInputs() {
 	task.infof("begin merge child inputs")
-	for _, child := range task.Children.Map {
-		for param := range child.Parameters.Map {
-			if wfParam := task.InputIDMap.read(param); wfParam != "" {
+	for _, child := range task.Children {
+		for param := range child.Parameters {
+			if wfParam, ok := task.InputIDMap[param]; ok {
 				task.Log.Input[wfParam] = child.Log.Input[param]
 			}
 		}
@@ -386,33 +306,29 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 
 		// I/O DEPENDENCY HANDLING
 		// if this input's source is the ID of an output parameter of another step
-		if depStepID := parentTask.OutputIDMap.read(source); depStepID != "" {
+		if depStepID, ok := parentTask.OutputIDMap[source]; ok {
 			// wait until all dependency step output has been collected
 			// and then assign output parameter of dependency step (which has just finished running) to input parameter of this step
-			depTask := parentTask.Children.read(depStepID)
+			depTask := parentTask.Children[depStepID]
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
 			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
-			var v cwl.Parameter
-			for inputPresent := false; !inputPresent; {
+			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
 				if *depTask.Done {
-					task.Parameters.update(taskInput, depTask.Outputs.read(outputID))
+					task.Parameters[taskInput] = depTask.Outputs[outputID]
 					// fmt.Println("\tDependency task complete!")
 					// fmt.Println("\tSuccessfully collected output from dependency task.")
 					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
-				}
-				if v = task.Parameters.read(taskInput); v != nil {
-					inputPresent = true
 				}
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {
 			// if the input source to this step is not the outputID of another step
 			// but is an input of the parent workflow
 			// assign input parameter of parent workflow to input parameter of this step
-			task.Parameters.update(taskInput, parentTask.Parameters.read(source))
+			task.Parameters[taskInput] = parentTask.Parameters[source]
 
 			// used for logging to merge child inputs for a workflow
-			parentTask.InputIDMap.update(taskInput, source)
+			parentTask.InputIDMap[taskInput] = source
 		}
 	}
 
@@ -445,11 +361,9 @@ func (engine *K8sEngine) runSteps(task *Task) {
 	// i.e., after the workflow is done running, not as the workflow is running
 	// engine.cleanupByStep(task)
 
-	task.InputIDMap = &GoStringToString{
-		Map: make(map[string]string),
-	}
+	task.InputIDMap = make(map[string]string)
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
-	for curStepID, subtask := range task.Children.Map {
+	for curStepID, subtask := range task.Children {
 		go engine.runStep(curStepID, task, subtask)
 	}
 
@@ -474,9 +388,7 @@ func step2taskID(step *cwl.Step, stepParam string) string {
 // -> this outputValue gets mapped from the workflow step's outputs to the output of the workflow itself
 func (task *Task) mergeChildOutputs() error {
 	task.infof("begin merge child outputs")
-	task.Outputs = &GoStringToInterface{
-		Map: make(map[string]interface{}),
-	}
+	task.Outputs = make(map[string]interface{})
 	if task.Children == nil {
 		return task.errorf("failed to merge child outputs - no child tasks found")
 	}
@@ -485,19 +397,15 @@ func (task *Task) mergeChildOutputs() error {
 		if len(output.Source) == 1 {
 			// fixme - again, here assuming len(source) is exactly 1
 			source := output.Source[0]
-			stepID := task.OutputIDMap.read(source)
-			if stepID == "" {
+			stepID, ok := task.OutputIDMap[source]
+			if !ok {
 				return task.errorf("failed to find output source: %v", source)
 			}
-			subtaskOutputID := step2taskID(task.Children.read(stepID).OriginalStep, source)
+			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
 			task.infof("waiting to merge child outputs")
-			var v interface{}
-			for outputPresent := false; !outputPresent; {
-				if outputVal := task.Children.read(stepID).Outputs.read(subtaskOutputID); outputVal != nil {
-					task.Outputs.update(output.ID, outputVal)
-				}
-				if v = task.Outputs.read(output.ID); v != nil {
-					outputPresent = true
+			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
+				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {
+					task.Outputs[output.ID] = outputVal
 				}
 			}
 		} else {
@@ -506,7 +414,7 @@ func (task *Task) mergeChildOutputs() error {
 		}
 		task.infof("end handle output param: %v", output.ID)
 	}
-	task.Log.Output = task.Outputs.Map
+	task.Log.Output = task.Outputs
 	task.infof("end merge child outputs")
 	return nil
 }
@@ -520,12 +428,10 @@ func (task *Task) mergeChildOutputs() error {
 // before the dependent step can execute
 func (task *Task) setupOutputMap() {
 	task.infof("begin setup output map")
-	task.OutputIDMap = &GoStringToString{
-		Map: make(map[string]string),
-	}
+	task.OutputIDMap = make(map[string]string)
 	for _, step := range task.Root.Steps {
 		for _, stepOutput := range step.Out {
-			task.OutputIDMap.update(stepOutput.ID, step.ID)
+			task.OutputIDMap[stepOutput.ID] = step.ID
 		}
 	}
 	task.infof("end setup output map")

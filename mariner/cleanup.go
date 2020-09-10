@@ -14,13 +14,11 @@ import (
 // collect all paths to not delete during basic file cleanup
 func (engine *K8sEngine) collectKeepFiles() {
 	engine.infof("begin collect paths to keep")
-	engine.KeepFiles = &GoStringToBool{
-		Map: make(map[string]bool),
-	}
+	engine.KeepFiles = make(map[string]bool)
 
 	// be sure to not delete to logfile
 	pathToLog := fmt.Sprintf(pathToLogf, engine.RunID)
-	engine.KeepFiles.update(pathToLog, true)
+	engine.KeepFiles[pathToLog] = true
 
 	// iterate through main workflow outputs
 	// collect paths from all file param outputs
@@ -30,11 +28,11 @@ func (engine *K8sEngine) collectKeepFiles() {
 		switch output.(type) {
 		case *File:
 			path = output.(*File).Path
-			engine.KeepFiles.update(path, true)
+			engine.KeepFiles[path] = true
 		case []*File:
 			files := output.([]*File)
 			for _, f := range files {
-				engine.KeepFiles.update(f.Path, true)
+				engine.KeepFiles[f.Path] = true
 			}
 		case []map[string]interface{}:
 			// secretly this is a file array
@@ -45,7 +43,7 @@ func (engine *K8sEngine) collectKeepFiles() {
 					engine.Log.Main.Event.warnf("failed to extract path from file: %v", f)
 					continue
 				}
-				engine.KeepFiles.update(path, true)
+				engine.KeepFiles[path] = true
 			}
 		}
 	}
@@ -67,7 +65,7 @@ func (engine *K8sEngine) basicCleanup() {
 	var parentDir string
 	runDir := fmt.Sprintf(pathToRunf, engine.RunID)
 	_ = filepath.Walk(runDir, func(path string, info os.FileInfo, err error) error {
-		if (!info.IsDir() && !engine.KeepFiles.read(path)) || isEmptyDir(path) {
+		if (!info.IsDir() && !engine.KeepFiles[path]) || isEmptyDir(path) {
 			if err = os.Remove(path); err != nil {
 				engine.Log.Main.Event.warnf("failed to delete file: %v; error: %v", path, err)
 			}
@@ -255,7 +253,7 @@ func (engine *K8sEngine) cleanupByStep(task *Task) error {
 			if fileParam {
 				fmt.Println("\tlaunching go routine to delete files at condition")
 				key := CleanupKey{step.ID, stepOutput.ID}
-				engine.CleanupProcs.update(key, true)
+				engine.CleanupProcs[key] = true
 				go engine.monitorParamDeps(task, step.ID, stepOutput.ID)
 				go engine.deleteFilesAtCondition(task, step, stepOutput.ID)
 			}
@@ -273,7 +271,7 @@ func (engine *K8sEngine) monitorParamDeps(task *Task, stepID string, param strin
 	for depStepID := range condition.DependentSteps {
 		go func(task *Task, depStepID string, condition *DeleteCondition) {
 			// wait for depTask to finish
-			for !(*task.Children.read(depStepID).Done) {
+			for !(*task.Children[depStepID].Done) {
 			}
 			// now depTask is done running - remove it from this param's dep queue
 			condition.Queue.delete(depStepID)
@@ -307,7 +305,7 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 	}
 	fmt.Println("\tnot deleting files because parent workflow dependency: ", step.ID, outputParam)
 	fmt.Println("\tupdating cleanupProc stack..")
-	engine.CleanupProcs.delete(CleanupKey{step.ID, outputParam}) // maybe just put this in one place, not have it twice
+	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam}) // maybe just put this in one place, not have it twice
 }
 
 // this function gets called iff
@@ -323,9 +321,9 @@ func (engine *K8sEngine) deleteFilesAtCondition(task *Task, step cwl.Step, outpu
 // note: this fn is currently not being used
 func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outputParam string) {
 	fmt.Println("\tin deleteIntermediateFiles for: ", step.ID, outputParam)
-	childTask := task.Children.read(step.ID)
-	subtaskOutputID := step2taskID(task.Children.read(step.ID).OriginalStep, outputParam)
-	fileOutput := childTask.Outputs.read(subtaskOutputID)
+	childTask := task.Children[step.ID]
+	subtaskOutputID := step2taskID(task.Children[step.ID].OriginalStep, outputParam)
+	fileOutput := childTask.Outputs[subtaskOutputID]
 	fmt.Println("\there is fileOutput:")
 	printJSON(fileOutput)
 	fmt.Printf("\t(%T)\n", fileOutput)
@@ -372,5 +370,5 @@ func (engine *K8sEngine) deleteIntermediateFiles(task *Task, step cwl.Step, outp
 		}
 	}
 	fmt.Println("\tfinished deleting files, updating cleanupProc stack..")
-	engine.CleanupProcs.delete(CleanupKey{step.ID, outputParam})
+	delete(engine.CleanupProcs, CleanupKey{step.ID, outputParam})
 }

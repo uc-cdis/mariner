@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -24,62 +23,14 @@ import (
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
 	TaskSequence    []string            // for testing purposes
-	UnfinishedProcs *GoStringToBool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
-	FinishedProcs   *GoStringToBool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
-	CleanupProcs    *GoCleanupKeyToBool `json:"-"` // engine's stack of running cleanup processes
+	UnfinishedProcs map[string]bool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
+	FinishedProcs   map[string]bool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
+	CleanupProcs    map[CleanupKey]bool // engine's stack of running cleanup processes
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
 	Log             *MainLog            //
-	KeepFiles       *GoStringToBool     // all the paths to not delete during basic file cleanup
-}
-
-// GoStringToBool is safe for concurrent read/write
-type GoStringToBool struct {
-	sync.RWMutex
-	Map map[string]bool
-}
-
-func (m *GoStringToBool) update(k string, v bool) {
-	m.Lock()
-	defer m.Unlock()
-	m.Map[k] = v
-}
-
-func (m *GoStringToBool) delete(k string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.Map, k)
-}
-
-func (m *GoStringToBool) read(k string) bool {
-	m.Lock()
-	defer m.Unlock()
-	return m.Map[k]
-}
-
-// GoCleanupKeyToBool is safe for concurrent read/write
-type GoCleanupKeyToBool struct {
-	sync.RWMutex
-	Map map[CleanupKey]bool
-}
-
-func (m *GoCleanupKeyToBool) update(k CleanupKey, v bool) {
-	m.Lock()
-	defer m.Unlock()
-	m.Map[k] = v
-}
-
-func (m *GoCleanupKeyToBool) delete(k CleanupKey) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.Map, k)
-}
-
-func (m *GoCleanupKeyToBool) read(k CleanupKey) bool {
-	m.Lock()
-	defer m.Unlock()
-	return m.Map[k]
+	KeepFiles       map[string]bool     // all the paths to not delete during basic file cleanup
 }
 
 // Tool represents a leaf in the graph of a workflow
@@ -96,57 +47,9 @@ type Tool struct {
 	JobID            string // if a k8s job (i.e., if a CommandLineTool)
 	WorkingDir       string
 	Command          *exec.Cmd
-	StepInputMap     *GoStringToStepInput
-	ExpressionResult *GoStringToInterface
+	StepInputMap     map[string]*cwl.StepInput
+	ExpressionResult map[string]interface{}
 	Task             *Task
-}
-
-// GoStringToStepInput is safe for concurrent read/write
-type GoStringToStepInput struct {
-	sync.RWMutex
-	Map map[string]*cwl.StepInput
-}
-
-func (m *GoStringToStepInput) update(k string, v *cwl.StepInput) {
-	m.Lock()
-	defer m.Unlock()
-	m.Map[k] = v
-}
-
-func (m *GoStringToStepInput) delete(k string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.Map, k)
-}
-
-func (m *GoStringToStepInput) read(k string) *cwl.StepInput {
-	m.Lock()
-	defer m.Unlock()
-	return m.Map[k]
-}
-
-// GoStringToInterface is safe for concurrent read/write
-type GoStringToInterface struct {
-	sync.RWMutex
-	Map map[string]interface{}
-}
-
-func (m *GoStringToInterface) update(k string, v interface{}) {
-	m.Lock()
-	defer m.Unlock()
-	m.Map[k] = v
-}
-
-func (m *GoStringToInterface) delete(k string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.Map, k)
-}
-
-func (m *GoStringToInterface) read(k string) interface{} {
-	m.Lock()
-	defer m.Unlock()
-	return m.Map[k]
 }
 
 // Engine runs an instance of the mariner engine job
@@ -194,17 +97,11 @@ func request(runID string) (*WorkflowRequest, error) {
 // instantiate a K8sEngine object
 func engine(runID string) *K8sEngine {
 	e := &K8sEngine{
-		FinishedProcs: &GoStringToBool{
-			Map: make(map[string]bool),
-		},
-		UnfinishedProcs: &GoStringToBool{
-			Map: make(map[string]bool),
-		},
-		CleanupProcs: &GoCleanupKeyToBool{
-			Map: make(map[CleanupKey]bool),
-		},
-		RunID: runID,
-		Log:   mainLog(fmt.Sprintf(pathToLogf, runID)),
+		FinishedProcs:   make(map[string]bool),
+		UnfinishedProcs: make(map[string]bool),
+		CleanupProcs:    make(map[CleanupKey]bool),
+		RunID:           runID,
+		Log:             mainLog(fmt.Sprintf(pathToLogf, runID)),
 	}
 
 	// note: check if log already exists - if yes, then this is a 'restart'
@@ -221,9 +118,6 @@ func (engine *K8sEngine) loadRequest(runID string) error {
 	engine.Manifest = &request.Manifest
 	engine.UserID = request.UserID
 	engine.Log.Request = request
-	engine.Log.Request.SafeTags = &GoStringToString{
-		Map: request.Tags,
-	}
 	engine.infof("end load workflow request")
 	return nil
 }
@@ -262,8 +156,8 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 
 // move proc from unfinished to finished stack
 func (engine *K8sEngine) finishTask(task *Task) {
-	engine.UnfinishedProcs.delete(task.Root.ID)
-	engine.FinishedProcs.update(task.Root.ID, true)
+	delete(engine.UnfinishedProcs, task.Root.ID)
+	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
 	task.Done = &trueVal
 }
@@ -271,7 +165,7 @@ func (engine *K8sEngine) finishTask(task *Task) {
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	engine.UnfinishedProcs.update(task.Root.ID, true)
+	engine.UnfinishedProcs[task.Root.ID] = true
 	engine.Log.start(task)
 }
 
@@ -287,10 +181,8 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 func (task *Task) tool(runID string) *Tool {
 	task.infof("begin make tool object")
-	task.Outputs = &GoStringToInterface{
-		Map: make(map[string]interface{}),
-	}
-	task.Log.Output = task.Outputs.Map
+	task.Outputs = make(map[string]interface{})
+	task.Log.Output = task.Outputs
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
@@ -431,12 +323,9 @@ func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	// see description of `expression` field here:
 	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
 	var ok bool
-	r, ok := result.(map[string]interface{})
+	tool.ExpressionResult, ok = result.(map[string]interface{})
 	if !ok {
 		return engine.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
-	}
-	tool.ExpressionResult = &GoStringToInterface{
-		Map: r,
 	}
 	engine.infof("end run ExpressionTool: %v", tool.Task.Root.ID)
 	return nil

@@ -32,7 +32,6 @@ type WorkflowRequest struct {
 	Input    json.RawMessage   `json:"input"`
 	UserID   string            `json:"user"`
 	Tags     map[string]string `json:"tags,omitempty"` // optional set of key:val pairs provided by user to annotate workflow run - NOTE: val is a string
-	SafeTags *GoStringToString `json:"-"`
 	Manifest Manifest          `json:"manifest"`
 	JobName  string            `json:"jobName,omitempty"` // populated internally by server
 

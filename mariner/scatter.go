@@ -39,7 +39,7 @@ func (task *Task) scatterParams() (scatterParams map[string][]interface{}, err e
 	scatterParams = make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
 		task.infof("begin handle scatter param: %v", scatterKey)
-		input := task.Parameters.read(scatterKey)
+		input := task.Parameters[scatterKey]
 		paramArray, ok := buildArray(input) // returns object of type []interface{}
 		if !ok {
 			return nil, task.errorf("scatter on non-array input %v", scatterKey)
@@ -75,15 +75,12 @@ func uniformLength(scatterParams map[string][]interface{}) (uniform bool, length
 
 func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	engine.infof("begin gather scatter outputs for task: %v", task.Root.ID)
-	task.Outputs = &GoStringToInterface{
-		Map: make(map[string]interface{}),
-	}
+	task.Outputs = make(map[string]interface{})
 	totalOutput := make(map[string][]interface{})
 	for _, param := range task.Root.Outputs {
 		totalOutput[param.ID] = make([]interface{}, len(task.ScatterTasks))
 	}
 	var wg sync.WaitGroup
-	mutex := &sync.Mutex{}
 	for _, scatterTask := range task.ScatterTasks {
 		wg.Add(1)
 		// HERE - add sync.Lock mechanism for safe concurrent writing to map
@@ -94,17 +91,15 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
 			for _, param := range task.Root.Outputs {
-				mutex.Lock()
-				totalOutput[param.ID][scatterTask.ScatterIndex-1] = scatterTask.Outputs.read(param.ID)
-				mutex.Unlock()
+				totalOutput[param.ID][scatterTask.ScatterIndex-1] = scatterTask.Outputs[param.ID]
 			}
 		}(scatterTask, totalOutput)
 	}
 	wg.Wait()
 	for param, val := range totalOutput {
-		task.Outputs.update(param, val)
+		task.Outputs[param] = val
 	}
-	task.Log.Output = task.Outputs.Map
+	task.Log.Output = task.Outputs
 	engine.infof("end gather scatter outputs for task: %v", task.Root.ID)
 	return nil
 }
@@ -200,10 +195,8 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	for i := 0; i < inputLength; i++ {
 		task.infof("begin build subtask %v", i)
 		subtask := &Task{
-			Root: task.Root,
-			Parameters: &GoParameters{
-				Map: make(cwl.Parameters),
-			},
+			Root:         task.Root,
+			Parameters:   make(cwl.Parameters),
 			OriginalStep: task.OriginalStep,
 			Done:         &falseVal,
 			Log:          logger(),
@@ -212,7 +205,7 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 		// assign the i'th element of each input array as input to this scatter subtask
 		for param, inputArray := range scatterParams {
 			task.infof("assigning val %v to param %v", inputArray[i], param)
-			subtask.Parameters.update(param, inputArray[i])
+			subtask.Parameters[param] = inputArray[i]
 		}
 		// assign values to all non-scattered parameters
 		subtask.fillNonScatteredParams(task)
@@ -244,10 +237,8 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 	for ix := make([]int, len(inputArrays)); ix[0] < lens(0); nextIndex(ix, lens) {
 		task.infof("begin build subtask %v", scatterIndex)
 		subtask := &Task{
-			Root: task.Root,
-			Parameters: &GoParameters{
-				Map: make(cwl.Parameters),
-			},
+			Root:         task.Root,
+			Parameters:   make(cwl.Parameters),
 			OriginalStep: task.OriginalStep,
 			Done:         &falseVal,
 			Log:          logger(),
@@ -255,7 +246,7 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 		}
 		for j, k := range ix {
 			task.infof("assigning val %v to param %v", inputArrays[j][k], paramIDList[j])
-			subtask.Parameters.update(paramIDList[j], inputArrays[j][k])
+			subtask.Parameters[paramIDList[j]] = inputArrays[j][k]
 		}
 		subtask.fillNonScatteredParams(task)
 		task.ScatterTasks[scatterIndex] = subtask
@@ -289,10 +280,10 @@ func nextIndex(ix []int, lens func(i int) int) {
 // see simpleScatter(), dotproduct(), flatCrossproduct()
 func (task *Task) fillNonScatteredParams(parentTask *Task) {
 	task.infof("begin fill non-scattered params")
-	for param, val := range parentTask.Parameters.Map {
-		if v := task.Parameters.read(param); v == nil {
+	for param, val := range parentTask.Parameters {
+		if _, ok := task.Parameters[param]; !ok {
 			task.infof("assigning val %v to non-scattered param %v", val, param)
-			task.Parameters.update(param, val)
+			task.Parameters[param] = val
 		}
 	}
 	task.infof("end fill non-scattered params")
