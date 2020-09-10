@@ -7,7 +7,8 @@ RUN apk update && apk add --no-cache git gcc musl-dev
 RUN mkdir -p /go/src/github.com/uc-cdis/mariner
 WORKDIR /go/src/github.com/uc-cdis/mariner
 ADD . .
-RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
+## DEBUG - including race detector into build
+RUN go build -race -ldflags "-linkmode external -extldflags -static" -o bin/mariner
 
 FROM alpine
 COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /go/src/github.com/uc-cdis/mariner/Docker/engine/engineDockerrun.sh /
