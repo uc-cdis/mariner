@@ -184,7 +184,7 @@ func (mainLog *MainLog) write() error {
 		ByProcess: mainLog.ByProcess,
 	}
 
-	j, err := json.Marshal(mainLogJSON) // #race #testing
+	j, err := json.Marshal(mainLogJSON) // #race #okay
 	check(err)
 	err = ioutil.WriteFile(mainLogJSON.Path, j, 0644)
 	check(err)
@@ -246,7 +246,7 @@ type Log struct {
 	ContainerImage string                 `json:"containerImage,omitempty"`
 	Status         string                 `json:"status"`             // okay
 	Stats          *Stats                 `json:"stats"`              // TODO
-	Event          EventLog               `json:"eventLog,omitempty"` // TODO
+	Event          *EventLog              `json:"eventLog,omitempty"` // TODO
 	Input          map[string]interface{} `json:"input"`              // TODO for workflow; okay for task
 	Output         map[string]interface{} `json:"output"`             // okay
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
@@ -298,6 +298,7 @@ func logger() *Log {
 		Status: notStarted,
 		Input:  make(map[string]interface{}),
 		Stats:  &Stats{},
+		Event:  &EventLog{},
 	}
 	logger.Event.info("init log")
 	return logger
@@ -316,26 +317,32 @@ type Stats struct {
 	NRetries      int                 `json:"nretries"`  // TODO
 }
 
-// ResourceStat is for logging resource requests vs. actual usage
+// ResourceRequirement is for logging resource requests vs. actual usage
 type ResourceRequirement struct {
 	Min int64 `json:"min"`
 	Max int64 `json:"max"`
 }
 
+// ResourceUsage ..
 type ResourceUsage struct {
 	Series         ResourceUsageSeries `json:"data"`
 	SamplingPeriod int                 `json:"samplingPeriod"`
 }
 
+// ResourceUsageSeries ..
 type ResourceUsageSeries []ResourceUsageSamplePoint
 
+// ResourceUsageSamplePoint ..
 type ResourceUsageSamplePoint struct {
 	CPU    int64 `json:"cpu"`
 	Memory int64 `json:"mem"`
 }
 
 // EventLog is an event logger for a mariner component (i.e., engine or task)
-type EventLog []string
+type EventLog struct {
+	sync.RWMutex
+	Events []string `json:"events,omitempty"`
+}
 
 // update log (i.e., write to log file) each time there's an error, to capture point of failure
 func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
@@ -368,10 +375,12 @@ func (task *Task) infof(f string, v ...interface{}) {
 
 // a record is "<timestamp> - <level> - <message>"
 func (log *EventLog) write(level, message string) {
+	log.Lock()
+	defer log.Unlock()
 	timestamp := ts()
 	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
-	*log = append(*log, record) // #race
+	log.Events = append(log.Events, record) // #race #testing
 }
 
 func (log *EventLog) infof(f string, v ...interface{}) {
