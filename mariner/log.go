@@ -263,7 +263,9 @@ func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
 
 // called when a task is run
 func (mainLog *MainLog) start(task *Task) {
+	mainLog.Lock()
 	task.Log.start()
+	mainLog.Unlock()
 	mainLog.write()
 }
 
@@ -290,7 +292,7 @@ func (log *Log) start() {
 	log.Created = timef(t)
 	log.LastUpdatedObj = t
 	log.LastUpdated = timef(t)
-	log.Status = running // #race
+	log.Status = running // #race #okay
 }
 
 func logger() *Log {
@@ -380,7 +382,7 @@ func (log *EventLog) write(level, message string) {
 	timestamp := ts()
 	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
-	log.Events = append(log.Events, record) // #race #testing
+	log.Events = append(log.Events, record) // #race #okay
 }
 
 func (log *EventLog) infof(f string, v ...interface{}) {
