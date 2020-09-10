@@ -321,6 +321,7 @@ concurrency notes:
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) (err error) {
 	engine.infof("begin run task: %v", task.Root.ID)
+	printJSON(engine)
 	engine.startTask(task)
 	switch {
 	case task.Scatter != nil:

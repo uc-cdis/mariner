@@ -271,9 +271,7 @@ func (engine *K8sEngine) finishTask(task *Task) {
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	fmt.Print("-- update unfinished procs --")
 	engine.UnfinishedProcs.update(task.Root.ID, true)
-	fmt.Print("-- done updating unfinished procs --")
 	engine.Log.start(task)
 }
 
