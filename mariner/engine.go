@@ -26,7 +26,7 @@ type K8sEngine struct {
 	TaskSequence    []string            // for testing purposes
 	UnfinishedProcs *GoStringToBool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   *GoStringToBool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
-	CleanupProcs    *GoCleanupKeyToBool // engine's stack of running cleanup processes
+	CleanupProcs    *GoCleanupKeyToBool `json:"-"` // engine's stack of running cleanup processes
 	UserID          string              // the userID for the user who requested the workflow run
 	RunID           string              // the workflow timestamp
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
