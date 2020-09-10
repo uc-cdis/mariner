@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,6 +22,15 @@ import (
 
 // MainLog is the interface for writing logs to workflowHistorydb
 type MainLog struct {
+	sync.RWMutex `json:"-"`
+	Path         string           `json:"path"` // tentative  - maybe can't write this - path to log file to write/update
+	Request      *WorkflowRequest `json:"request"`
+	Main         *Log             `json:"main"`
+	ByProcess    map[string]*Log  `json:"byProcess"`
+}
+
+// MainLogJSON gets written to workflowHistorydb
+type MainLogJSON struct {
 	Path      string           `json:"path"` // tentative  - maybe can't write this - path to log file to write/update
 	Request   *WorkflowRequest `json:"request"`
 	Main      *Log             `json:"main"`
@@ -165,10 +175,18 @@ func (mainLog *MainLog) write() error {
 	*/
 
 	// fmt.Println("marshalling MainLog to json..")
-	j, err := json.Marshal(*mainLog)
+	mainLog.Lock()
+	defer mainLog.Unlock()
+	mainLogJSON := MainLogJSON{
+		Path:      mainLog.Path,
+		Request:   mainLog.Request,
+		Main:      mainLog.Main,
+		ByProcess: mainLog.ByProcess,
+	}
+
+	j, err := json.Marshal(mainLogJSON) // #race #testing
 	check(err)
-	// fmt.Println("writing data to file..")
-	err = ioutil.WriteFile(mainLog.Path, j, 0644)
+	err = ioutil.WriteFile(mainLogJSON.Path, j, 0644)
 	check(err)
 	return nil
 }
@@ -265,7 +283,7 @@ func (log *Log) start() {
 	log.Created = timef(t)
 	log.LastUpdatedObj = t
 	log.LastUpdated = timef(t)
-	log.Status = running
+	log.Status = running // #race
 }
 
 func logger() *Log {
@@ -346,7 +364,7 @@ func (log *EventLog) write(level, message string) {
 	timestamp := ts()
 	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
-	*log = append(*log, record)
+	*log = append(*log, record) // #race
 }
 
 func (log *EventLog) infof(f string, v ...interface{}) {
