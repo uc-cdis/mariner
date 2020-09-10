@@ -39,7 +39,7 @@ func (task *Task) scatterParams() (scatterParams map[string][]interface{}, err e
 	scatterParams = make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
 		task.infof("begin handle scatter param: %v", scatterKey)
-		input := task.Parameters[scatterKey]
+		input := task.Parameters.read(scatterKey)
 		paramArray, ok := buildArray(input) // returns object of type []interface{}
 		if !ok {
 			return nil, task.errorf("scatter on non-array input %v", scatterKey)
@@ -200,8 +200,10 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	for i := 0; i < inputLength; i++ {
 		task.infof("begin build subtask %v", i)
 		subtask := &Task{
-			Root:         task.Root,
-			Parameters:   make(cwl.Parameters),
+			Root: task.Root,
+			Parameters: &GoParameters{
+				Map: make(cwl.Parameters),
+			},
 			OriginalStep: task.OriginalStep,
 			Done:         &falseVal,
 			Log:          logger(),
@@ -210,7 +212,7 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 		// assign the i'th element of each input array as input to this scatter subtask
 		for param, inputArray := range scatterParams {
 			task.infof("assigning val %v to param %v", inputArray[i], param)
-			subtask.Parameters[param] = inputArray[i]
+			subtask.Parameters.update(param, inputArray[i])
 		}
 		// assign values to all non-scattered parameters
 		subtask.fillNonScatteredParams(task)
@@ -242,8 +244,10 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 	for ix := make([]int, len(inputArrays)); ix[0] < lens(0); nextIndex(ix, lens) {
 		task.infof("begin build subtask %v", scatterIndex)
 		subtask := &Task{
-			Root:         task.Root,
-			Parameters:   make(cwl.Parameters),
+			Root: task.Root,
+			Parameters: &GoParameters{
+				Map: make(cwl.Parameters),
+			},
 			OriginalStep: task.OriginalStep,
 			Done:         &falseVal,
 			Log:          logger(),
@@ -251,7 +255,7 @@ func (task *Task) flatCrossproduct(scatterParams map[string][]interface{}) (err 
 		}
 		for j, k := range ix {
 			task.infof("assigning val %v to param %v", inputArrays[j][k], paramIDList[j])
-			subtask.Parameters[paramIDList[j]] = inputArrays[j][k]
+			subtask.Parameters.update(paramIDList[j], inputArrays[j][k])
 		}
 		subtask.fillNonScatteredParams(task)
 		task.ScatterTasks[scatterIndex] = subtask
@@ -285,10 +289,10 @@ func nextIndex(ix []int, lens func(i int) int) {
 // see simpleScatter(), dotproduct(), flatCrossproduct()
 func (task *Task) fillNonScatteredParams(parentTask *Task) {
 	task.infof("begin fill non-scattered params")
-	for param, val := range parentTask.Parameters {
-		if _, ok := task.Parameters[param]; !ok {
+	for param, val := range parentTask.Parameters.Map {
+		if v := task.Parameters.read(param); v == nil {
 			task.infof("assigning val %v to non-scattered param %v", val, param)
-			task.Parameters[param] = val
+			task.Parameters.update(param, val)
 		}
 	}
 	task.infof("end fill non-scattered params")

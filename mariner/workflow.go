@@ -39,7 +39,7 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 	task.Children is a map, where keys are the taskIDs and values are the Task objects of the workflow steps
 */
 type Task struct {
-	Parameters    cwl.Parameters       // input parameters of this task
+	Parameters    *GoParameters        // input parameters of this task
 	Root          *cwl.Root            // "root" of the "namespace" of the cwl file for this task
 	Outputs       *GoStringToInterface // output parameters of this task
 	Scatter       []string             // if task is a step in a workflow and requires scatter; input parameters to scatter are stored here
@@ -54,6 +54,30 @@ type Task struct {
 	// --- New Fields ---
 	Log           *Log           // contains Status, Stats, Event
 	CleanupByStep *CleanupByStep // if task is a workflow; info for deleting intermediate files after they are no longer needed
+}
+
+// GoParameters is safe for concurrent read/write
+type GoParameters struct {
+	sync.RWMutex
+	Map cwl.Parameters
+}
+
+func (m *GoParameters) update(k string, v cwl.Parameter) {
+	m.Lock()
+	defer m.Unlock()
+	m.Map[k] = v
+}
+
+func (m *GoParameters) delete(k string) {
+	m.Lock()
+	defer m.Unlock()
+	delete(m.Map, k)
+}
+
+func (m *GoParameters) read(k string) cwl.Parameter {
+	m.Lock()
+	defer m.Unlock()
+	return m.Map[k]
 }
 
 // GoStringToTask is safe for concurrent read/write
@@ -184,8 +208,10 @@ func (engine *K8sEngine) resolveGraph(rootMap map[string]*cwl.Root, curTask *Tas
 			}
 
 			newTask := &Task{
-				Root:         stepRoot,
-				Parameters:   make(cwl.Parameters),
+				Root: stepRoot,
+				Parameters: &GoParameters{
+					Map: make(cwl.Parameters),
+				},
 				OriginalStep: &curTask.Root.Steps[i],
 				Log:          logger(),
 				Done:         &falseVal,
@@ -245,10 +271,12 @@ func (engine *K8sEngine) runWorkflow() error {
 		if process.ID == mainProcessID {
 			// construct `mainTask` - the task object for the top level workflow
 			mainTask = &Task{
-				Root:       process,
-				Parameters: params,
-				Log:        logger(), // initialize empty Log object with status NOT_STARTED
-				Done:       &falseVal,
+				Root: process,
+				Parameters: &GoParameters{
+					Map: params,
+				},
+				Log:  logger(), // initialize empty Log object with status NOT_STARTED
+				Done: &falseVal,
 			}
 		}
 	}
@@ -326,7 +354,7 @@ func (engine *K8sEngine) mergeChildParams(task *Task) (err error) {
 func (task *Task) mergeChildInputs() {
 	task.infof("begin merge child inputs")
 	for _, child := range task.Children.Map {
-		for param := range child.Parameters {
+		for param := range child.Parameters.Map {
 			if wfParam := task.InputIDMap.read(param); wfParam != "" {
 				task.Log.Input[wfParam] = child.Log.Input[param]
 			}
@@ -364,19 +392,23 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
 			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
-			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
+			var v cwl.Parameter
+			for inputPresent := false; !inputPresent; {
 				if *depTask.Done {
-					task.Parameters[taskInput] = depTask.Outputs.read(outputID)
+					task.Parameters.update(taskInput, depTask.Outputs.read(outputID))
 					// fmt.Println("\tDependency task complete!")
 					// fmt.Println("\tSuccessfully collected output from dependency task.")
 					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
+				}
+				if v = task.Parameters.read(taskInput); v != nil {
+					inputPresent = true
 				}
 			}
 		} else if strings.HasPrefix(source, parentTask.Root.ID) {
 			// if the input source to this step is not the outputID of another step
 			// but is an input of the parent workflow
 			// assign input parameter of parent workflow to input parameter of this step
-			task.Parameters[taskInput] = parentTask.Parameters[source]
+			task.Parameters.update(taskInput, parentTask.Parameters.read(source))
 
 			// used for logging to merge child inputs for a workflow
 			parentTask.InputIDMap.update(taskInput, source)

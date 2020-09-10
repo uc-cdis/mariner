@@ -342,10 +342,10 @@ loadInputValue logic:
 // i.e., handles all optional/null/default param/value logic
 func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin load input value for input: %v", input.ID)
-	var required, ok bool
+	var required bool
 	// 1. take value from given param value set
-	out, ok = tool.Task.Parameters[input.ID]
-	if !ok || out == nil {
+	out = tool.Task.Parameters.read(input.ID)
+	if out == nil {
 		// 2. take default value
 		if out = input.Default.Self; out == nil {
 			// so there's no value provided in the params
