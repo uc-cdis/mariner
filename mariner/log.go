@@ -200,7 +200,14 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 	uploader := s3manager.NewUploader(sess)
 
 	fmt.Println("marshalling MainLog to json..")
-	j, err := json.Marshal(*mainLog)
+	mainLogJSON := MainLogJSON{
+		Path:      mainLog.Path,
+		Request:   mainLog.Request,
+		Main:      mainLog.Main,
+		ByProcess: mainLog.ByProcess,
+	}
+	j, err := json.Marshal(mainLogJSON)
+
 	check(err)
 
 	fmt.Println("writing data to s3..")
