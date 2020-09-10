@@ -83,6 +83,7 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 		totalOutput[param.ID] = make([]interface{}, len(task.ScatterTasks))
 	}
 	var wg sync.WaitGroup
+	mutex := &sync.Mutex{}
 	for _, scatterTask := range task.ScatterTasks {
 		wg.Add(1)
 		// HERE - add sync.Lock mechanism for safe concurrent writing to map
@@ -93,7 +94,9 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
 			for _, param := range task.Root.Outputs {
+				mutex.Lock()
 				totalOutput[param.ID][scatterTask.ScatterIndex-1] = scatterTask.Outputs.read(param.ID)
+				mutex.Unlock()
 			}
 		}(scatterTask, totalOutput)
 	}
