@@ -432,7 +432,10 @@ func (tool *Tool) inputsToVM() (err error) {
 		// fixme: handle array of files
 		// note: this code block is extraordinarily janky and needs to be refactored
 		// error here.
-		if input.Types[0].Type == CWLFileType {
+		switch {
+		case input.Provided == nil:
+			context[inputID] = nil
+		case input.Types[0].Type == CWLFileType:
 			if input.Provided.Entry != nil {
 				// no valueFrom specified in inputBinding
 				if input.Provided.Entry.Location != "" {
@@ -454,7 +457,7 @@ func (tool *Tool) inputsToVM() (err error) {
 				return tool.Task.errorf("failed to preprocess file context: %v; error: %v", f, err)
 			}
 			context[inputID] = fileContext
-		} else {
+		default:
 			context[inputID] = input.Provided.Raw // not sure if this will work in general - so far, so good though - need to test further
 		}
 	}
