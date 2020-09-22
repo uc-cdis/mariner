@@ -29,7 +29,13 @@ func (tool *Tool) loadInputs() (err error) {
 			return tool.Task.errorf("failed to load input: %v", err)
 		}
 		// map parameter to value for log
-		tool.Task.Log.Input[in.ID] = in.Provided.Raw
+		if in.Provided != nil {
+			tool.Task.Log.Input[in.ID] = in.Provided.Raw
+		} else {
+			// implies an unused input parameter
+			// e.g., an optional input with no value or default provided
+			tool.Task.Log.Input[in.ID] = nil
+		}
 	}
 	tool.Task.infof("end load inputs")
 	return nil
