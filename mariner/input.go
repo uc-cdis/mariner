@@ -178,6 +178,10 @@ func processFileList(l interface{}) ([]*File, error) {
 // if err and input is not optional, it is a fatal error and the run should fail out
 func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin transform input: %v", input.ID)
+
+	// debug
+	fmt.Printf("begin transform input: %v\n", input.ID)
+
 	/*
 		NOTE: presently only context loaded into js vm's here is `self`
 		Will certainly need to add more context to handle all cases
@@ -195,13 +199,19 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	*/
 	localID := lastInPath(input.ID)
 
+	fmt.Println(1)
 	// stepInput ValueFrom case
 	if len(tool.StepInputMap) > 0 {
+		fmt.Println(2)
+		fmt.Println("step input map:")
+		printJSON(tool.StepInputMap)
 		// no processing needs to happen if the valueFrom field is empty
 		if tool.StepInputMap[localID].ValueFrom != "" {
+			fmt.Println(3)
 
 			// here the valueFrom field is not empty, so we need to handle valueFrom
 			valueFrom := tool.StepInputMap[localID].ValueFrom
+			fmt.Println(4)
 			if strings.HasPrefix(valueFrom, "$") {
 				// valueFrom is an expression that needs to be eval'd
 
