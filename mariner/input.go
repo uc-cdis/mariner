@@ -69,6 +69,11 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	fmt.Print(1)
 	if provided, err := tool.transformInput(input); err == nil {
 		fmt.Print(2)
+		// debug gwas
+		// handle case: optional input with no value or default provided
+		// -- an input param that goes unused
+		// tool.transformInput(input) returns (nil, nil)
+		// this might work from here on, or it may error
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 		fmt.Print(3)
 	} else {
@@ -79,6 +84,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	fmt.Print(5)
 	if input.Default == nil && input.Binding == nil && input.Provided == nil {
 		fmt.Print(6)
+		printJSON(input)
 		return tool.Task.errorf("input %s not provided and no default specified", input.ID)
 	}
 	fmt.Print(7)
@@ -274,6 +280,12 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		out, err = tool.loadInputValue(input)
 		if err != nil {
 			return nil, tool.Task.errorf("failed to load input value: %v", err)
+		}
+		if out == nil {
+			// implies an optional parameter with no value provided and no default value specified
+			// this input parameter is not used by the tool
+			tool.Task.infof("optional input with no value or default provided - skipping: %v", input.ID)
+			return nil, nil
 		}
 	}
 
