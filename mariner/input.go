@@ -364,15 +364,15 @@ loadInputValue logic:
 func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin load input value for input: %v", input.ID)
 	var required, ok bool
-	// 1. take value from given param value set
+	// take value from given param value set
 	out, ok = tool.Task.Parameters[input.ID]
+	// if no value exists in the provided parameter map
 	if !ok || out == nil {
-		// 2. take default value
-		if out = input.Default.Self; out == nil {
-			// so there's no value provided in the params
-			// AND there's no default value provided
+		// check if default value is provided
+		if input.Default == nil {
+			// implies no default value provided
 
-			// 3. determine if this param is required or optional
+			// determine if this param is required or optional
 			required = true
 			for _, t := range input.Types {
 				if t.Type == CWLNullType {
@@ -380,10 +380,14 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 				}
 			}
 
-			// 4. return error if this is a required param
+			// return error if this is a required param
 			if required {
 				return nil, tool.Task.errorf("missing value for required input param %v", input.ID)
 			}
+		} else {
+			// implies a default value is provided
+			// in this case you return the default value
+			out = input.Default.Self
 		}
 	}
 	tool.Task.infof("end load input value for input: %v", input.ID)
