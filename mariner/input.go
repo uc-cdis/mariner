@@ -73,6 +73,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
 	// so that information would be specified in a cwl tool file like CommandLineTool.cwl or ExpressionTool.cwl
 	fmt.Print(1)
+	required := true
 	if provided, err := tool.transformInput(input); err == nil {
 		fmt.Print(2)
 		if provided == nil {
@@ -81,6 +82,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 			// and so does not show up on the command line
 			// so here we set the binding to nil to signal to mariner later on
 			// -- to not look at this input when building the tool command
+			required = false
 			input.Binding = nil
 		}
 		// debug gwas
@@ -95,10 +97,10 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	}
 
 	fmt.Print(5)
-	if input.Default == nil && input.Binding == nil && input.Provided == nil {
+	if required && input.Default == nil && input.Binding == nil && input.Provided == nil {
 		fmt.Print(6)
 		printJSON(input)
-		return tool.Task.errorf("input %s not provided and no default specified", input.ID)
+		return tool.Task.errorf("required input %s value not provided and no default specified", input.ID)
 	}
 	fmt.Print(7)
 	if key, needed := input.Types[0].NeedRequirement(); needed {
