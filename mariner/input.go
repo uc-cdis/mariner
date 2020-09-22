@@ -201,7 +201,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 
 	fmt.Println(1)
 	// stepInput ValueFrom case
-	if len(tool.StepInputMap) > 0 {
+	if tool.StepInputMap[localID] != nil {
 		fmt.Println(2)
 		fmt.Println("step input map:")
 		printJSON(tool.StepInputMap)
