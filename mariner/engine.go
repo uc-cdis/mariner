@@ -134,6 +134,13 @@ func done(runID string) error {
 // DispatchTask does some setup for and dispatches workflow Tools
 func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 	engine.infof("begin dispatch task: %v", task.Root.ID)
+
+	// debug
+	fmt.Printf("----- dispatching task: %v ------", task.Root.ID)
+	printJSON(task)
+	fmt.Print("----- inputs -----")
+	printJSON(task.Root.Inputs)
+
 	tool := task.tool(engine.RunID)
 	err = tool.setupTool()
 	if err != nil {
