@@ -75,11 +75,18 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	fmt.Print(1)
 	if provided, err := tool.transformInput(input); err == nil {
 		fmt.Print(2)
+		if provided == nil {
+			// optional input with no value or default provided
+			// this is an unused input parameter
+			// and so does not show up on the command line
+			// so here we set the binding to nil to signal to mariner later on
+			// -- to not look at this input when building the tool command
+			input.Binding = nil
+		}
 		// debug gwas
 		// handle case: optional input with no value or default provided
 		// -- an input param that goes unused
 		// tool.transformInput(input) returns (nil, nil)
-		// this might work from here on, or it may error
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
 		fmt.Print(3)
 	} else {
