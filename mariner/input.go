@@ -56,20 +56,32 @@ func (tool *Tool) buildStepInputMap() {
 // loadInput passes input parameter value to input.Provided
 func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	tool.Task.infof("begin load input: %v", input.ID)
+
+	// debug
+	fmt.Printf("------ begin load input: %v -------- \n", input.ID)
+	printJSON(input)
+
 	// transformInput() handles any valueFrom statements at the workflowStepInput level and the tool input level
 	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
 	// so that would be specified in a cwl workflow file like Workflow.cwl
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
 	// so that information would be specified in a cwl tool file like CommandLineTool.cwl or ExpressionTool.cwl
+	fmt.Print(1)
 	if provided, err := tool.transformInput(input); err == nil {
+		fmt.Print(2)
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
+		fmt.Print(3)
 	} else {
+		fmt.Print(4)
 		return tool.Task.errorf("failed to transform input: %v; error: %v", input.ID, err)
 	}
 
+	fmt.Print(5)
 	if input.Default == nil && input.Binding == nil && input.Provided == nil {
+		fmt.Print(6)
 		return tool.Task.errorf("input %s not provided and no default specified", input.ID)
 	}
+	fmt.Print(7)
 	if key, needed := input.Types[0].NeedRequirement(); needed {
 		for _, req := range tool.Task.Root.Requirements {
 			for _, requiredtype := range req.Types {
