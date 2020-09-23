@@ -205,6 +205,9 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 		5. handle shellQuote -> need to test (feature not yet supported on array inputs)
 	*/
 
+	// NOTICE: shellQuote default value is true - everything gets shellQuote'd unless `shellQuote: false` is specified
+	// see: https://www.commonwl.org/v1.0/CommandLineTool.html#ShellCommandRequirement
+
 	var s string
 	switch inputType {
 	case "object": // TODO - presently bindings on 'object' inputs not supported - have yet to find an example to work with
@@ -284,12 +287,15 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 		}
 		// "if true, add 'prefix' to the commandline. If false, add nothing."
 		if boolVal {
-			// need to test shellQuote feature
-			if binding.ShellQuote {
-				val = append(val, "\""+binding.Prefix+"\"")
-			} else {
-				val = append(val, binding.Prefix)
-			}
+			/*
+				// need to test shellQuote feature - default value is true
+				if binding.ShellQuote {
+					val = append(val, "\""+binding.Prefix+"\"")
+				} else {
+					val = append(val, binding.Prefix)
+				}
+			*/
+			val = append(val, binding.Prefix)
 		}
 		return val, nil
 
@@ -310,10 +316,12 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 	if !binding.Separate {
 		val = []string{strings.Join(val, "")}
 	}
-	// need to test ShellQuote feature
-	if binding.ShellQuote {
-		val = []string{"\"" + strings.Join(val, " ") + "\""}
-	}
+	/*
+		// need to test ShellQuote feature - default value is true
+		if binding.ShellQuote {
+			val = []string{"\"" + strings.Join(val, " ") + "\""}
+		}
+	*/
 	return val, nil
 }
 
@@ -463,10 +471,12 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 			return nil, tool.Task.errorf("%v", err)
 		}
 
-		// handle shellQuote - default value is true
-		if arg.Binding.ShellQuote {
-			resolvedText = "\"" + resolvedText + "\""
-		}
+		/*
+			// handle shellQuote - default value is true
+			if arg.Binding.ShellQuote {
+				resolvedText = "\"" + resolvedText + "\""
+			}
+		*/
 
 		// capture result
 		val = append(val, resolvedText)
