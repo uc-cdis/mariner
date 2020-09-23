@@ -289,7 +289,7 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 		}
 		return val, nil
 
-	case "string", "number":
+	case "string", "number", "int", "long", "float", "double":
 		s, err = valFromRaw(rawInput)
 	case CWLFileType, CWLDirectoryType:
 		s, err = pathFromRaw(rawInput)
