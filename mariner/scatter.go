@@ -111,6 +111,9 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 func (task *Task) validateScatterMethod() (err error) {
 	task.infof("begin validate scatter method")
 
+	// populate task ScatterMethod field here
+	task.ScatterMethod = task.OriginalStep.ScatterMethod
+
 	// gwas debug
 	fmt.Println("begin validate scatter method for task:")
 	printJSON(task)
