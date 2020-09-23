@@ -82,7 +82,11 @@ func (tool *Tool) generateCommand() (err error) {
 	for _, cmdElt := range cmdElts {
 		cmd = append(cmd, cmdElt.Value...)
 	}
+	fmt.Println("cmd:")
+	fmt.Println(cmd)
 	tool.Command = exec.Command(cmd[0], cmd[1:]...)
+	fmt.Println("command:")
+	fmt.Println(tool.Command)
 	tool.Task.infof("end generate command")
 	return nil
 }
