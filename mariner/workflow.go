@@ -297,11 +297,21 @@ func (task *Task) mergeChildInputs() {
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
 	engine.infof("begin run step %v of parent task %v", curStepID, parentTask.Root.ID)
 
+	// debug
+	fmt.Printf("begin run step %v of parent task %v\n", curStepID, parentTask.Root.ID)
+
 	curStep := task.OriginalStep
+
+	printJSON(curStep)
+
 	stepIDMap := make(map[string]string)
 	for _, input := range curStep.In {
 		taskInput := step2taskID(curStep, input.ID)
 		stepIDMap[input.ID] = taskInput // step input ID maps to [sub]task input ID
+
+		// debug
+		fmt.Printf("handling step input: %v\n", input.ID)
+		printJSON(input)
 
 		// presently not handling the case of multiple sources for a given input parameter
 		// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
