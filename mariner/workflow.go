@@ -316,7 +316,16 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 		// presently not handling the case of multiple sources for a given input parameter
 		// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 		// the section on "Merging", with the "MultipleInputFeatureRequirement" and "linkMerge" fields specifying either "merge_nested" or "merge_flattened"
-		source := input.Source[0]
+		var source string
+		switch len(input.Source) {
+		case 0:
+			source = ""
+		case 1:
+			source = input.Source[0]
+		default:
+			// fixme - multiple input sources not yet supported
+			engine.errorf("NOT SUPPORTED: engine can't handle more than one source per step input (this is a bug)")
+		}
 
 		// I/O DEPENDENCY HANDLING
 		// if this input's source is the ID of an output parameter of another step
