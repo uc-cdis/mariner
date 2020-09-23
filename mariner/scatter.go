@@ -1,6 +1,7 @@
 package mariner
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 
@@ -109,6 +110,11 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 // nested_crossproduct scatterMethod not supported
 func (task *Task) validateScatterMethod() (err error) {
 	task.infof("begin validate scatter method")
+
+	// gwas debug
+	fmt.Println("begin validate scatter method for task:")
+	printJSON(task)
+
 	if len(task.Scatter) == 0 {
 		// this check *might* be redundant - but just in case, keeping it for now
 		// fixme - double check - this might not be an error actually
