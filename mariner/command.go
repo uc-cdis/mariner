@@ -142,13 +142,20 @@ func (tool *Tool) cmdElts() (cmdElts CommandElements, err error) {
 }
 
 // fixme: handle optional inputs
+// UPDATE: optional inputs which are not provided should input.Binding as nil
 func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 	tool.Task.infof("begin handle command input elements")
+
+	// debug
+	fmt.Printf("begin handle command input elements")
+
 	cmdElts = make([]*CommandElement, 0)
 	var inputType string
 	for _, input := range tool.Task.Root.Inputs {
 		// no binding -> input doesn't get processed for representation on the commandline (though this input may be referenced by an argument)
+		fmt.Printf("-- handling input: %v --\n", input.ID)
 		if input.Binding != nil {
+			printJSON(input)
 			pos := input.Binding.Position // default position is 0, as per CWL spec
 			// get non-null input type - should encapsulate this to a function
 			for _, _type := range input.Types {
@@ -161,6 +168,7 @@ func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 			if err != nil {
 				return nil, tool.Task.errorf("%v", err)
 			}
+			fmt.Printf(" - input value: %v -\n", val)
 			cmdElt := &CommandElement{
 				Position: pos,
 				Value:    val,
