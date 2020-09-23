@@ -220,6 +220,10 @@ func (engine *K8sEngine) runWorkflow() error {
 		return engine.errorf("failed to resolve graph: %v", err)
 	}
 
+	// debug
+	fmt.Println("--- mainTask at start of workflow ---")
+	printJSON(mainTask)
+
 	// run the workflow
 	if err = engine.run(mainTask); err != nil {
 		return engine.errorf("failed to run main task: %v", err)
