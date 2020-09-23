@@ -52,9 +52,15 @@ func (tool *Tool) buildStepInputMap() {
 
 	tool.Task.infof("begin build step input map")
 	tool.StepInputMap = make(map[string]*cwl.StepInput)
-	for _, in := range tool.Task.OriginalStep.In {
-		localID := lastInPath(in.ID) // e.g., "file_array" instead of "#subworkflow_test.cwl/test_expr/file_array"
-		tool.StepInputMap[localID] = &in
+	// serious "gotcha": https://medium.com/@betable/3-go-gotchas-590b8c014e0a
+	/*
+		"Go uses a copy of the value instead of the value itself within a range clause.
+		So when we take the pointer of value, we’re actually taking the pointer of a copy
+		of the value. This copy gets reused throughout the range clause [...]"
+	*/
+	for j := range tool.Task.OriginalStep.In {
+		localID := lastInPath(tool.Task.OriginalStep.In[j].ID)
+		tool.StepInputMap[localID] = &tool.Task.OriginalStep.In[j]
 	}
 	tool.Task.infof("end build step input map")
 }
