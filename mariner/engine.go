@@ -206,13 +206,16 @@ func (task *Task) tool(runID string) *Tool {
 func (task *Task) workingDir(runID string) string {
 	task.infof("begin make task working dir")
 
-	// fixme - task.Root.ID is not unique among tool runs
-	// e.g. - multiple calls to the same tool (task) result in the same working directory name
-	// this is fundamentally problematic
-	// need a unique name for the working dir
-	// ID per run of a tool
-	// fix-gwas
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
+
+	// task.Root.ID is not unique among tool runs
+	// so, adding this random 4 char suffix
+	// this is not really a perfect solution
+	// because errors can still happen, though with very low probability
+	// "error" here meaning by chance creating a `safeID` that's already been used
+	// --- by a previous run of this same tool/task object
+	safeID = fmt.Sprintf("%v-%v", safeID, getRandString(4))
+
 	dir := fmt.Sprintf(pathToWorkingDirf, runID, safeID)
 	if task.ScatterIndex > 0 {
 		dir = fmt.Sprintf("%v-scatter-%v", dir, task.ScatterIndex)
