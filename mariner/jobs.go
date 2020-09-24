@@ -135,8 +135,8 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	tool.Task.Log.Stats.ResourceUsage.init() // #race #ok
 	engine.Unlock()
 
-	for !*tool.Task.Done { // #race #fixme
-
+	done := false
+	for !done {
 		// collect (cpu, mem) sample point
 		if err = tool.sampleResourceUsage(podsClient, label); err != nil {
 			engine.Log.Main.Event.warnf("failed to sample resource usage for task: %v; error: %v", tool.Task.Root.ID, err)
@@ -147,6 +147,10 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 
 		// wait out sampling period duration to next sample
 		time.Sleep(metricsSamplingPeriod * time.Second)
+
+		tool.Task.Lock()
+		done = *tool.Task.Done // #race #ok
+		tool.Task.Unlock()
 	}
 
 	engine.infof("end collect metrics for task: %v", tool.Task.Root.ID)

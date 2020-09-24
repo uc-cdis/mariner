@@ -172,9 +172,9 @@ func (engine *K8sEngine) finishTask(task *Task) {
 	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
 
-	engine.Lock()
+	task.Lock()
 	task.Done = &trueVal // #race #ok
-	engine.Unlock()
+	task.Unlock()
 }
 
 // push newly started process onto the engine's stack of running processes

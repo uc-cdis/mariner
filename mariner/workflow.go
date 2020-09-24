@@ -356,9 +356,15 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
 			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
+			done := false
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
-				if *depTask.Done {
-					task.Parameters[taskInput] = depTask.Outputs[outputID] // #race
+				depTask.Lock()
+				done = *depTask.Done
+				depTask.Unlock()
+				if done {
+					depTask.Lock()
+					task.Parameters[taskInput] = depTask.Outputs[outputID] // #race #ok (?)
+					depTask.Unlock()
 					if task.Parameters[taskInput] == nil {
 						if input.Default != nil {
 							task.Parameters[taskInput] = input.Default.Self
@@ -454,7 +460,10 @@ func (task *Task) mergeChildOutputs() error {
 			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
 			task.infof("waiting to merge child outputs")
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
-				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok { // #race !
+				task.Lock()
+				outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID] // #race #ok (?)
+				task.Unlock()
+				if ok {
 					task.Outputs[output.ID] = outputVal
 				}
 			}
