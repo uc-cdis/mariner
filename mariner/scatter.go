@@ -40,6 +40,14 @@ func (task *Task) scatterParams() (scatterParams map[string][]interface{}, err e
 	scatterParams = make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
 		task.infof("begin handle scatter param: %v", scatterKey)
+
+		// debug gwas
+		fmt.Printf("begin handle scatter param: %v", scatterKey)
+		fmt.Println("task.Parameters:")
+		printJSON(task.Parameters)
+		fmt.Println("task.Scatter:")
+		printJSON(task.Scatter)
+
 		input := task.Parameters[scatterKey]
 		paramArray, ok := buildArray(input) // returns object of type []interface{}
 		if !ok {

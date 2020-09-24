@@ -309,6 +309,17 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 		taskInput := step2taskID(curStep, input.ID)
 		stepIDMap[input.ID] = taskInput // step input ID maps to [sub]task input ID
 
+		// for handling default values in step inputs
+		// see: https://www.commonwl.org/v1.1/Workflow.html#WorkflowStepInput
+		/*
+			"""
+			The default value for this parameter to use
+			if either there is no source field,
+			or the value produced by the source is null.
+			The default must be applied prior to scattering or evaluating valueFrom.
+			"""
+		*/
+
 		// debug
 		fmt.Printf("handling step input: %v\n", input.ID)
 		printJSON(input)
@@ -319,7 +330,14 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 		var source string
 		switch len(input.Source) {
 		case 0:
+			// no source specified -> use default value
 			source = ""
+			if input.Default != nil {
+				task.Parameters[taskInput] = input.Default.Self
+			} else {
+				// for now, treating this as a warning and not an error
+				engine.warnf("no source or default provided for step input: %v", input.ID)
+			}
 		case 1:
 			source = input.Source[0]
 		default:
@@ -339,6 +357,13 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
 				if *depTask.Done {
 					task.Parameters[taskInput] = depTask.Outputs[outputID]
+					if task.Parameters[taskInput] == nil {
+						if input.Default != nil {
+							task.Parameters[taskInput] = input.Default.Self
+						} else {
+							engine.warnf("source returned null and no default provided for step input: %v", input.ID)
+						}
+					}
 					// fmt.Println("\tDependency task complete!")
 					// fmt.Println("\tSuccessfully collected output from dependency task.")
 					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
