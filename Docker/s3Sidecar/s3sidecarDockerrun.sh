@@ -30,7 +30,7 @@ if [ $MARINER_COMPONENT == "engine" ]; then
   echo "waiting for workflow to finish.."
   sleep 10
   while [[ ! -f /$ENGINE_WORKSPACE/workflowRuns/$RUN_ID/done ]]; do
-    sleep 10
+    sleep 5
   done
 else # $MARINER_COMPONENT is "task"
   echo "setting up for a task.."
@@ -46,9 +46,11 @@ else # $MARINER_COMPONENT is "task"
   ls $TOOL_WORKING_DIR
   sleep 10
   while [[ ! -f $TOOL_WORKING_DIR\done ]]; do
-    sleep 10
+    sleep 5
   done
 fi
+
+sleep 5
 
 # unmount engine workspace
 echo "done, unmounting goofys"
