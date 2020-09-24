@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -21,6 +22,15 @@ import (
 
 // MainLog is the interface for writing logs to workflowHistorydb
 type MainLog struct {
+	sync.RWMutex `json:"-"`
+	Path         string           `json:"path"` // tentative  - maybe can't write this - path to log file to write/update
+	Request      *WorkflowRequest `json:"request"`
+	Main         *Log             `json:"main"`
+	ByProcess    map[string]*Log  `json:"byProcess"`
+}
+
+// MainLogJSON gets written to workflowHistorydb
+type MainLogJSON struct {
 	Path      string           `json:"path"` // tentative  - maybe can't write this - path to log file to write/update
 	Request   *WorkflowRequest `json:"request"`
 	Main      *Log             `json:"main"`
@@ -165,10 +175,18 @@ func (mainLog *MainLog) write() error {
 	*/
 
 	// fmt.Println("marshalling MainLog to json..")
-	j, err := json.Marshal(*mainLog)
+	mainLog.Lock()
+	defer mainLog.Unlock()
+	mainLogJSON := MainLogJSON{
+		Path:      mainLog.Path,
+		Request:   mainLog.Request,
+		Main:      mainLog.Main,
+		ByProcess: mainLog.ByProcess,
+	}
+
+	j, err := json.Marshal(mainLogJSON)
 	check(err)
-	// fmt.Println("writing data to file..")
-	err = ioutil.WriteFile(mainLog.Path, j, 0644)
+	err = ioutil.WriteFile(mainLogJSON.Path, j, 0644)
 	check(err)
 	return nil
 }
@@ -182,7 +200,14 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 	uploader := s3manager.NewUploader(sess)
 
 	fmt.Println("marshalling MainLog to json..")
-	j, err := json.Marshal(*mainLog)
+	mainLogJSON := MainLogJSON{
+		Path:      mainLog.Path,
+		Request:   mainLog.Request,
+		Main:      mainLog.Main,
+		ByProcess: mainLog.ByProcess,
+	}
+	j, err := json.Marshal(mainLogJSON)
+
 	check(err)
 
 	fmt.Println("writing data to s3..")
@@ -221,7 +246,7 @@ type Log struct {
 	ContainerImage string                 `json:"containerImage,omitempty"`
 	Status         string                 `json:"status"`             // okay
 	Stats          *Stats                 `json:"stats"`              // TODO
-	Event          EventLog               `json:"eventLog,omitempty"` // TODO
+	Event          *EventLog              `json:"eventLog,omitempty"` // TODO
 	Input          map[string]interface{} `json:"input"`              // TODO for workflow; okay for task
 	Output         map[string]interface{} `json:"output"`             // okay
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
@@ -238,7 +263,9 @@ func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
 
 // called when a task is run
 func (mainLog *MainLog) start(task *Task) {
+	mainLog.Lock()
 	task.Log.start()
+	mainLog.Unlock()
 	mainLog.write()
 }
 
@@ -273,6 +300,7 @@ func logger() *Log {
 		Status: notStarted,
 		Input:  make(map[string]interface{}),
 		Stats:  &Stats{},
+		Event:  &EventLog{},
 	}
 	logger.Event.info("init log")
 	return logger
@@ -291,26 +319,32 @@ type Stats struct {
 	NRetries      int                 `json:"nretries"`  // TODO
 }
 
-// ResourceStat is for logging resource requests vs. actual usage
+// ResourceRequirement is for logging resource requests vs. actual usage
 type ResourceRequirement struct {
 	Min int64 `json:"min"`
 	Max int64 `json:"max"`
 }
 
+// ResourceUsage ..
 type ResourceUsage struct {
 	Series         ResourceUsageSeries `json:"data"`
 	SamplingPeriod int                 `json:"samplingPeriod"`
 }
 
+// ResourceUsageSeries ..
 type ResourceUsageSeries []ResourceUsageSamplePoint
 
+// ResourceUsageSamplePoint ..
 type ResourceUsageSamplePoint struct {
 	CPU    int64 `json:"cpu"`
 	Memory int64 `json:"mem"`
 }
 
 // EventLog is an event logger for a mariner component (i.e., engine or task)
-type EventLog []string
+type EventLog struct {
+	sync.RWMutex
+	Events []string `json:"events,omitempty"`
+}
 
 // update log (i.e., write to log file) each time there's an error, to capture point of failure
 func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
@@ -343,10 +377,12 @@ func (task *Task) infof(f string, v ...interface{}) {
 
 // a record is "<timestamp> - <level> - <message>"
 func (log *EventLog) write(level, message string) {
+	log.Lock()
+	defer log.Unlock()
 	timestamp := ts()
 	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
-	*log = append(*log, record)
+	log.Events = append(log.Events, record)
 }
 
 func (log *EventLog) infof(f string, v ...interface{}) {

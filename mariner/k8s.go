@@ -227,6 +227,7 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 		Value: tool.WorkingDir,
 	}
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
+	task.Env = append(task.Env, workingDir)
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
 	engine.infof("end load container spec for tool: %v", tool.Task.Root.ID)
 	return containers, nil
