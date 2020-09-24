@@ -176,6 +176,7 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
+		// race condition somewhere
 		fmt.Println("HERE - check output types")
 		printJSON(output)
 
