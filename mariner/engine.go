@@ -166,13 +166,13 @@ func (engine *K8sEngine) finishTask(task *Task) {
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
-	task.Done = &trueVal
+	task.Done = &trueVal // #race
 }
 
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	engine.UnfinishedProcs[task.Root.ID] = true
+	engine.UnfinishedProcs[task.Root.ID] = true // #race
 	engine.Log.start(task)
 }
 
@@ -188,8 +188,8 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 func (task *Task) tool(runID string) *Tool {
 	task.infof("begin make tool object")
-	task.Outputs = make(map[string]interface{})
-	task.Log.Output = task.Outputs
+	task.Outputs = make(map[string]interface{}) // #race
+	task.Log.Output = task.Outputs              // #race
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),

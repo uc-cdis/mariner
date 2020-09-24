@@ -131,9 +131,9 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	}
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
-	tool.Task.Log.Stats.ResourceUsage.init()
+	tool.Task.Log.Stats.ResourceUsage.init() // #race
 
-	for !*tool.Task.Done {
+	for !*tool.Task.Done { // #race
 
 		// collect (cpu, mem) sample point
 		if err = tool.sampleResourceUsage(podsClient, label); err != nil {

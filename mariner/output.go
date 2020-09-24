@@ -191,7 +191,7 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		} else {
 			// output should be an array of File objects
 			// note: also need to add error handling here
-			tool.Task.Outputs[output.ID] = results
+			tool.Task.Outputs[output.ID] = results // #race
 		}
 		tool.Task.infof("end handle output param: %v", output.ID)
 	}

@@ -189,7 +189,7 @@ func buildArray(i interface{}) (arr []interface{}, isArr bool) {
 func (task *Task) buildScatterTasks(scatterParams map[string][]interface{}) (err error) {
 	task.infof("begin build scatter subtasks for %v input(s) with scatterMethod %v", len(scatterParams), task.ScatterMethod)
 	task.ScatterTasks = make(map[int]*Task)
-	task.Log.Scatter = make(map[int]*Log)
+	task.Log.Scatter = make(map[int]*Log) // #race
 	switch task.ScatterMethod {
 	case "", "dotproduct": // simple scattering over one input is a special case of dotproduct
 		err = task.dotproduct(scatterParams)

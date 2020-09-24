@@ -253,8 +253,8 @@ type Log struct {
 }
 
 func (r *ResourceUsage) init() {
-	r.Series = ResourceUsageSeries{}
-	r.SamplingPeriod = metricsSamplingPeriod
+	r.Series = ResourceUsageSeries{}         // #race
+	r.SamplingPeriod = metricsSamplingPeriod // #race
 }
 
 func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
