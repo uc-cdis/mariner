@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -38,6 +39,7 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 	task.Children is a map, where keys are the taskIDs and values are the Task objects of the workflow steps
 */
 type Task struct {
+	sync.RWMutex  `json:"-"`
 	Parameters    cwl.Parameters         // input parameters of this task
 	Root          *cwl.Root              // "root" of the "namespace" of the cwl file for this task
 	Outputs       map[string]interface{} // output parameters of this task

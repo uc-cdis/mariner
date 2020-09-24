@@ -134,7 +134,7 @@ func done(runID string) error {
 }
 
 // DispatchTask does some setup for and dispatches workflow Tools
-func (engine K8sEngine) dispatchTask(task *Task) (err error) {
+func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 	engine.infof("begin dispatch task: %v", task.Root.ID)
 
 	// debug
@@ -143,7 +143,10 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 	fmt.Print("----- inputs -----")
 	printJSON(task.Root.Inputs)
 
-	tool := task.tool(engine.RunID)
+	engine.Lock()
+	tool := task.tool(engine.RunID) // #race #ok
+	engine.Unlock()
+
 	err = tool.setupTool()
 	if err != nil {
 		return engine.errorf("failed to setup tool: %v; error: %v", task.Root.ID, err)
@@ -196,8 +199,8 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 func (task *Task) tool(runID string) *Tool {
 	task.infof("begin make tool object")
-	task.Outputs = make(map[string]interface{}) // #race
-	task.Log.Output = task.Outputs              // #race
+	task.Outputs = make(map[string]interface{}) // #race #ok
+	task.Log.Output = task.Outputs              // #race #ok
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
@@ -300,7 +303,7 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 // runCommandLineTool..
 // 1. generates the command to execute
 // 2. makes call to RunK8sJob to dispatch job to run the commandline tool
-func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
+func (engine *K8sEngine) runCommandLineTool(tool *Tool) (err error) {
 	engine.infof("begin run CommandLineTool: %v", tool.Task.Root.ID)
 	err = tool.generateCommand()
 	if err != nil {

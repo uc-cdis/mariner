@@ -131,9 +131,11 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	}
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
-	tool.Task.Log.Stats.ResourceUsage.init() // #race
+	engine.Lock()
+	tool.Task.Log.Stats.ResourceUsage.init() // #race #ok
+	engine.Unlock()
 
-	for !*tool.Task.Done { // #race
+	for !*tool.Task.Done { // #race #fixme
 
 		// collect (cpu, mem) sample point
 		if err = tool.sampleResourceUsage(podsClient, label); err != nil {
@@ -152,7 +154,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	return nil
 }
 
-func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
+func (engine *K8sEngine) dispatchTaskJob(tool *Tool) error {
 	engine.infof("begin dispatch task job: %v", tool.Task.Root.ID)
 	batchJob, err := engine.taskJob(tool)
 	if err != nil {
