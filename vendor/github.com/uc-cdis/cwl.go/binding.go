@@ -34,6 +34,8 @@ func (binding Binding) New(i interface{}) *Binding {
 				dest.Position = int(v.(float64))
 			case "prefix":
 				dest.Prefix = v.(string)
+			case "separate":
+				dest.Separate = v.(bool)
 			case "itemSeparator":
 				dest.Separator = v.(string)
 			case "loadContents":
