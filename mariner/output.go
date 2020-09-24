@@ -1,6 +1,7 @@
 package mariner
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,6 +55,11 @@ func (tool *Tool) handleCLTOutput() (err error) {
 	tool.Task.infof("begin handle CommandLineTool output")
 	for _, output := range tool.Task.Root.Outputs {
 		tool.Task.infof("begin handle output param: %v", output.ID)
+
+		// debug gwas
+		fmt.Printf("begin handle output param: %v", output.ID)
+		printJSON(output)
+
 		if output.Binding == nil {
 			return tool.Task.errorf("binding not found")
 		}
@@ -75,6 +81,9 @@ func (tool *Tool) handleCLTOutput() (err error) {
 			if err != nil {
 				return tool.Task.errorf("%v", err)
 			}
+			fmt.Println("glob results:")
+			printJSON(results)
+
 		}
 
 		// 2. Load Contents
@@ -191,14 +200,25 @@ func (tool *Tool) handleCLTOutput() (err error) {
 func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
 	tool.Task.infof("begin glob")
 
+	// debug gwas
+	fmt.Println("begin glob")
+
 	os.Chdir("/") // always glob from root (?)
 
 	var pattern string
 	for _, glob := range output.Binding.Glob {
+
+		fmt.Println("handling glob:")
+		printJSON(output.Binding.Glob)
+
 		pattern, err = tool.pattern(glob)
 		if err != nil {
 			return results, tool.Task.errorf("%v", err)
 		}
+
+		fmt.Println("pattern:")
+		fmt.Println(pattern)
+
 		paths, err := filepath.Glob(tool.WorkingDir + pattern)
 		if err != nil {
 			return results, tool.Task.errorf("%v", err)
