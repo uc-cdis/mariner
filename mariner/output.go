@@ -176,6 +176,9 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
+		fmt.Println("HERE - check output types")
+		printJSON(output)
+
 		// at this point we have file results captured in `results`
 		// output should be a CWLFileType or "array of Files"
 		// fixme - make this case handling more specific in the else condition - don't just catch anything
