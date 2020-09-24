@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -22,6 +23,7 @@ import (
 // NOTE: engine object code store all the logs/event-monitoring/statistics for the workflow run
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
+	sync.RWMutex    `json:"-"`
 	TaskSequence    []string            // for testing purposes
 	UnfinishedProcs map[string]bool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   map[string]bool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
@@ -166,13 +168,19 @@ func (engine *K8sEngine) finishTask(task *Task) {
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
-	task.Done = &trueVal // #race
+
+	engine.Lock()
+	task.Done = &trueVal // #race #ok
+	engine.Unlock()
 }
 
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	engine.UnfinishedProcs[task.Root.ID] = true // #race
+	engine.Lock()
+	engine.UnfinishedProcs[task.Root.ID] = true // #race #ok
+	engine.Unlock()
+
 	engine.Log.start(task)
 }
 
