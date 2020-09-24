@@ -83,7 +83,6 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 	var wg sync.WaitGroup
 	for _, scatterTask := range task.ScatterTasks {
 		wg.Add(1)
-		// dev'ing - add sync.Lock mechanism for safe concurrent writing to map
 		mtx := &sync.Mutex{}
 		go func(scatterTask *Task, totalOutput map[string][]interface{}) {
 			defer wg.Done()

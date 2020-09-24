@@ -328,7 +328,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			task.Parameters[taskInput] = parentTask.Parameters[source]
 
 			// used for logging to merge child inputs for a workflow
-			parentTask.InputIDMap[taskInput] = source // #race
+			parentTask.InputIDMap[taskInput] = source
 		}
 	}
 

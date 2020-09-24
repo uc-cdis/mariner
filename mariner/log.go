@@ -184,7 +184,7 @@ func (mainLog *MainLog) write() error {
 		ByProcess: mainLog.ByProcess,
 	}
 
-	j, err := json.Marshal(mainLogJSON) // #race #okay
+	j, err := json.Marshal(mainLogJSON)
 	check(err)
 	err = ioutil.WriteFile(mainLogJSON.Path, j, 0644)
 	check(err)
@@ -292,7 +292,7 @@ func (log *Log) start() {
 	log.Created = timef(t)
 	log.LastUpdatedObj = t
 	log.LastUpdated = timef(t)
-	log.Status = running // #race #okay
+	log.Status = running
 }
 
 func logger() *Log {
@@ -382,7 +382,7 @@ func (log *EventLog) write(level, message string) {
 	timestamp := ts()
 	// timezone???
 	record := fmt.Sprintf("%v - %v - %v", timestamp, level, message)
-	log.Events = append(log.Events, record) // #race #okay
+	log.Events = append(log.Events, record)
 }
 
 func (log *EventLog) infof(f string, v ...interface{}) {
