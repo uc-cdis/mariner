@@ -162,13 +162,16 @@ func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 
 // move proc from unfinished to finished stack
 func (engine *K8sEngine) finishTask(task *Task) {
+	engine.Lock()
+	defer engine.Unlock()
+
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
 
-	task.Lock()
+	// task.Lock()
 	task.Done = &trueVal // #race #ok
-	task.Unlock()
+	// task.Unlock()
 }
 
 // push newly started process onto the engine's stack of running processes
