@@ -151,7 +151,6 @@ func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 	for _, input := range tool.Task.Root.Inputs {
 		// no binding -> input doesn't get processed for representation on the commandline (though this input may be referenced by an argument)
 		if input.Binding != nil {
-			printJSON(input)
 			pos := input.Binding.Position // default position is 0, as per CWL spec
 			// get non-null input type - should encapsulate this to a function
 			for _, _type := range input.Types {
