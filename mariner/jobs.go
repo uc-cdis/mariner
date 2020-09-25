@@ -202,11 +202,9 @@ func containerMetrics(targetPod k8sCore.Pod, targetContainer string, pods *metri
 	var containerMetrics metricsBeta1.ContainerMetrics
 	var containerMetricsList []metricsBeta1.ContainerMetrics
 	for _, i := range pods.Items {
-		fmt.Println(i.Name)
 		if i.Name == targetPod.Name {
 			containerMetricsList = i.Containers
 			for _, container := range containerMetricsList {
-				fmt.Println("container name: ", container.Name)
 				if container.Name == targetContainer {
 					containerMetrics = container
 				}
@@ -215,7 +213,6 @@ func containerMetrics(targetPod k8sCore.Pod, targetContainer string, pods *metri
 	}
 
 	if containerMetrics.Name == "" {
-		fmt.Println("container not found in list returned by metrics API")
 		return nil, fmt.Errorf("container %v of pod %v not found in list returned by metrics API", targetContainer, targetPod.Name)
 	}
 

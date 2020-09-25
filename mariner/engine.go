@@ -137,12 +137,6 @@ func done(runID string) error {
 func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 	engine.infof("begin dispatch task: %v", task.Root.ID)
 
-	// debug
-	fmt.Printf("----- dispatching task: %v ------", task.Root.ID)
-	printJSON(task)
-	fmt.Print("----- inputs -----")
-	printJSON(task.Root.Inputs)
-
 	engine.Lock()
 	tool := task.tool(engine.RunID) // #race #ok
 	engine.Unlock()

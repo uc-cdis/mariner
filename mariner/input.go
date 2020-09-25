@@ -69,46 +69,30 @@ func (tool *Tool) buildStepInputMap() {
 func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	tool.Task.infof("begin load input: %v", input.ID)
 
-	// debug
-	fmt.Printf("------ begin load input: %v -------- \n", input.ID)
-	printJSON(input)
-
 	// transformInput() handles any valueFrom statements at the workflowStepInput level and the tool input level
 	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
 	// so that would be specified in a cwl workflow file like Workflow.cwl
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
 	// so that information would be specified in a cwl tool file like CommandLineTool.cwl or ExpressionTool.cwl
-	fmt.Print(1)
 	required := true
 	if provided, err := tool.transformInput(input); err == nil {
-		fmt.Print(2)
 		if provided == nil {
 			// optional input with no value or default provided
 			// this is an unused input parameter
 			// and so does not show up on the command line
 			// so here we set the binding to nil to signal to mariner later on
-			// -- to not look at this input when building the tool command
+			// to not look at this input when building the tool command
 			required = false
 			input.Binding = nil
 		}
-		// debug gwas
-		// handle case: optional input with no value or default provided
-		// -- an input param that goes unused
-		// tool.transformInput(input) returns (nil, nil)
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
-		fmt.Print(3)
 	} else {
-		fmt.Print(4)
 		return tool.Task.errorf("failed to transform input: %v; error: %v", input.ID, err)
 	}
 
-	fmt.Print(5)
 	if required && input.Default == nil && input.Binding == nil && input.Provided == nil {
-		fmt.Print(6)
-		printJSON(input)
 		return tool.Task.errorf("required input %s value not provided and no default specified", input.ID)
 	}
-	fmt.Print(7)
 	if key, needed := input.Types[0].NeedRequirement(); needed {
 		for _, req := range tool.Task.Root.Requirements {
 			for _, requiredtype := range req.Types {
@@ -206,9 +190,6 @@ func processFileList(l interface{}) ([]*File, error) {
 func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin transform input: %v", input.ID)
 
-	// debug
-	fmt.Printf("begin transform input: %v\n", input.ID)
-
 	/*
 		NOTE: presently only context loaded into js vm's here is `self`
 		Will certainly need to add more context to handle all cases
@@ -226,19 +207,12 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	*/
 	localID := lastInPath(input.ID)
 
-	fmt.Println(1)
 	// stepInput ValueFrom case
 	if tool.StepInputMap[localID] != nil {
-		fmt.Println(2)
-		fmt.Println("step input map:")
-		printJSON(tool.StepInputMap)
 		// no processing needs to happen if the valueFrom field is empty
 		if tool.StepInputMap[localID].ValueFrom != "" {
-			fmt.Println(3)
-
 			// here the valueFrom field is not empty, so we need to handle valueFrom
 			valueFrom := tool.StepInputMap[localID].ValueFrom
-			fmt.Println(4)
 			if strings.HasPrefix(valueFrom, "$") {
 				// valueFrom is an expression that needs to be eval'd
 
@@ -310,9 +284,6 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		}
 	}
 
-	// fmt.Println("before creating file object:")
-	// PrintJSON(out)
-
 	// if file, need to ensure that all file attributes get populated (e.g., basename)
 	/*
 		fixme: handle array of files
@@ -340,29 +311,22 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		// fmt.Println("is not a file object")
 	}
 
-	// fmt.Println("after creating file object:")
-	// PrintJSON(out)
-
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
 	// so `out` will be what we work with in this next block as an initial value
 	// tool inputBinding ValueFrom case
 	if input.Binding != nil && input.Binding.ValueFrom != nil {
 		valueFrom := input.Binding.ValueFrom.String
-		// fmt.Println("here is valueFrom:")
-		// fmt.Println(valueFrom)
 		if strings.HasPrefix(valueFrom, "$") {
 			vm := otto.New()
 			var context interface{}
 			// fixme: handle array of files
 			switch out.(type) {
 			case *File, []*File:
-				// fmt.Println("context is a file or array of files")
 				context, err = preProcessContext(out)
 				if err != nil {
 					return nil, tool.Task.errorf("failed to preprocess context: %v", err)
 				}
 			default:
-				// fmt.Println("context is not a file")
 				context = out
 			}
 
@@ -376,8 +340,6 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		}
 	}
 
-	// fmt.Println("Here's tranformed input:")
-	// PrintJSON(out)
 	tool.Task.infof("end transform input: %v", input.ID)
 	return out, nil
 }
@@ -436,12 +398,6 @@ func (tool *Tool) inputsToVM() (err error) {
 	context := make(map[string]interface{})
 	var f interface{}
 	for _, input := range tool.Task.Root.Inputs {
-		/*
-			fmt.Println("input:")
-			PrintJSON(input)
-			fmt.Println("input provided:")
-			PrintJSON(input.Provided)
-		*/
 		inputID := strings.TrimPrefix(input.ID, prefix)
 
 		// fixme: handle array of files

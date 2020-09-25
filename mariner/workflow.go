@@ -78,8 +78,6 @@ func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {
 // ----  also not nice that Root.Inputs is an array rather than a map
 // ----  could fix these things
 func inputParamFile(input *cwl.Input) bool {
-	fmt.Println("input.Types:")
-	printJSON(input.Types)
 	if input.Types[0].Type == CWLFileType {
 		return true
 	}
@@ -95,8 +93,6 @@ func inputParamFile(input *cwl.Input) bool {
 
 // exact same function.. - NOTE: maybe implement method in cwl.go library instead of here
 func outputParamFile(output cwl.Output) bool {
-	fmt.Println("output.Types:")
-	printJSON(output.Types)
 	if output.Types[0].Type == CWLFileType {
 		return true
 	}
@@ -222,10 +218,6 @@ func (engine *K8sEngine) runWorkflow() error {
 		return engine.errorf("failed to resolve graph: %v", err)
 	}
 
-	// debug
-	fmt.Println("--- mainTask at start of workflow ---")
-	printJSON(mainTask)
-
 	// run the workflow
 	if err = engine.run(mainTask); err != nil {
 		return engine.errorf("failed to run main task: %v", err)
@@ -299,12 +291,7 @@ func (task *Task) mergeChildInputs() {
 func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task) {
 	engine.infof("begin run step %v of parent task %v", curStepID, parentTask.Root.ID)
 
-	// debug
-	fmt.Printf("begin run step %v of parent task %v\n", curStepID, parentTask.Root.ID)
-
 	curStep := task.OriginalStep
-
-	printJSON(curStep)
 
 	stepIDMap := make(map[string]string)
 	for _, input := range curStep.In {
@@ -321,10 +308,6 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			The default must be applied prior to scattering or evaluating valueFrom.
 			"""
 		*/
-
-		// debug
-		fmt.Printf("handling step input: %v\n", input.ID)
-		printJSON(input)
 
 		// presently not handling the case of multiple sources for a given input parameter
 		// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput

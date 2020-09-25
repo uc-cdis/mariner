@@ -82,11 +82,7 @@ func (tool *Tool) generateCommand() (err error) {
 	for _, cmdElt := range cmdElts {
 		cmd = append(cmd, cmdElt.Value...)
 	}
-	fmt.Println("cmd:")
-	fmt.Println(cmd)
 	tool.Command = exec.Command(cmd[0], cmd[1:]...)
-	fmt.Println("command:")
-	fmt.Println(tool.Command)
 	tool.Task.infof("end generate command")
 	return nil
 }
@@ -150,14 +146,10 @@ func (tool *Tool) cmdElts() (cmdElts CommandElements, err error) {
 func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 	tool.Task.infof("begin handle command input elements")
 
-	// debug
-	fmt.Printf("begin handle command input elements")
-
 	cmdElts = make([]*CommandElement, 0)
 	var inputType string
 	for _, input := range tool.Task.Root.Inputs {
 		// no binding -> input doesn't get processed for representation on the commandline (though this input may be referenced by an argument)
-		fmt.Printf("-- handling input: %v --\n", input.ID)
 		if input.Binding != nil {
 			printJSON(input)
 			pos := input.Binding.Position // default position is 0, as per CWL spec
@@ -172,7 +164,6 @@ func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 			if err != nil {
 				return nil, tool.Task.errorf("%v", err)
 			}
-			fmt.Printf(" - input value: %v -\n", val)
 			cmdElt := &CommandElement{
 				Position: pos,
 				Value:    val,
@@ -441,11 +432,9 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 	val = make([]string, 0)
 	if arg.Value != "" {
 		// implies string literal or expression to eval - see NOTE at typeSwitch
-		// fmt.Println("string literal or expression to eval..")
 		// NOTE: *might* need to check "$(" or "${" instead of just "$"
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
-			// fmt.Println("expression to eval..")
 			result, err := evalExpression(arg.Value, tool.Task.Root.InputsVM)
 			if err != nil {
 				return nil, tool.Task.errorf("failed to evaluate expression: %v; err: %v", arg.Value, err)
@@ -464,7 +453,6 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 			val = append(val, arg.Value)
 		}
 	} else {
-		// fmt.Println("resolving valueFrom..")
 		// get value from `valueFrom` field which may itself be a string literal, an expression, or a string which contains one or more expressions
 		resolvedText, _, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
 		if err != nil {

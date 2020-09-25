@@ -1,7 +1,6 @@
 package mariner
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 
@@ -40,14 +39,6 @@ func (task *Task) scatterParams() (scatterParams map[string][]interface{}, err e
 	scatterParams = make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
 		task.infof("begin handle scatter param: %v", scatterKey)
-
-		// debug gwas
-		fmt.Printf("begin handle scatter param: %v", scatterKey)
-		fmt.Println("task.Parameters:")
-		printJSON(task.Parameters)
-		fmt.Println("task.Scatter:")
-		printJSON(task.Scatter)
-
 		input := task.Parameters[scatterKey]
 		paramArray, ok := buildArray(input) // returns object of type []interface{}
 		if !ok {
@@ -123,10 +114,6 @@ func (task *Task) validateScatterMethod() (err error) {
 
 	// populate task ScatterMethod field here
 	task.ScatterMethod = task.OriginalStep.ScatterMethod
-
-	// gwas debug
-	fmt.Println("begin validate scatter method for task:")
-	printJSON(task)
 
 	if len(task.Scatter) == 0 {
 		// this check *might* be redundant - but just in case, keeping it for now

@@ -286,7 +286,6 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 // fixme
 func (tool *Tool) cltArgs() []string {
 	tool.Task.infof("begin load CommandLineTool container args")
-	// Uncomment after debugging
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
