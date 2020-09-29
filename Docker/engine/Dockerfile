@@ -13,7 +13,7 @@ ADD . .
 # original
 # RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
 
-## DEBUG - including race detector into build
+# DEBUG - including race detector into build
 RUN go build -race -ldflags "-linkmode external -extldflags -static" -o bin/mariner
 
 FROM alpine
