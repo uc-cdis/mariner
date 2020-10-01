@@ -153,8 +153,6 @@ func check(err error) {
 }
 
 func (mainLog *MainLog) write() error {
-	// fmt.Println("writing main log..")
-
 	// apply/update timestamps on the main log
 	// not sure if I should collect timestamps of all writes
 	// or just the times of first write and latest writes
@@ -174,9 +172,8 @@ func (mainLog *MainLog) write() error {
 		log.Engine.LastUpdated = t
 	*/
 
-	// fmt.Println("marshalling MainLog to json..")
-	mainLog.Lock()
-	defer mainLog.Unlock()
+	mainLog.RLock()
+	defer mainLog.RUnlock()
 	mainLogJSON := MainLogJSON{
 		Path:      mainLog.Path,
 		Request:   mainLog.Request,
@@ -199,7 +196,6 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 	// Create an uploader with the session and default options
 	uploader := s3manager.NewUploader(sess)
 
-	fmt.Println("marshalling MainLog to json..")
 	mainLogJSON := MainLogJSON{
 		Path:      mainLog.Path,
 		Request:   mainLog.Request,
@@ -209,8 +205,6 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 	j, err := json.Marshal(mainLogJSON)
 
 	check(err)
-
-	fmt.Println("writing data to s3..")
 
 	objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
 
@@ -253,8 +247,8 @@ type Log struct {
 }
 
 func (r *ResourceUsage) init() {
-	r.Series = ResourceUsageSeries{}
-	r.SamplingPeriod = metricsSamplingPeriod
+	r.Series = ResourceUsageSeries{}         // #race #ok
+	r.SamplingPeriod = metricsSamplingPeriod // #race #ok
 }
 
 func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
@@ -263,9 +257,7 @@ func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
 
 // called when a task is run
 func (mainLog *MainLog) start(task *Task) {
-	mainLog.Lock()
 	task.Log.start()
-	mainLog.Unlock()
 	mainLog.write()
 }
 

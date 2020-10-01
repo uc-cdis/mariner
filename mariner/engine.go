@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	cwl "github.com/uc-cdis/cwl.go"
@@ -22,6 +23,7 @@ import (
 // NOTE: engine object code store all the logs/event-monitoring/statistics for the workflow run
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
+	sync.RWMutex    `json:"-"`
 	TaskSequence    []string            // for testing purposes
 	UnfinishedProcs map[string]bool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   map[string]bool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
@@ -132,9 +134,13 @@ func done(runID string) error {
 }
 
 // DispatchTask does some setup for and dispatches workflow Tools
-func (engine K8sEngine) dispatchTask(task *Task) (err error) {
+func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 	engine.infof("begin dispatch task: %v", task.Root.ID)
-	tool := task.tool(engine.RunID)
+
+	engine.Lock()
+	tool := task.tool(engine.RunID) // #race #ok
+	engine.Unlock()
+
 	err = tool.setupTool()
 	if err != nil {
 		return engine.errorf("failed to setup tool: %v; error: %v", task.Root.ID, err)
@@ -156,16 +162,25 @@ func (engine K8sEngine) dispatchTask(task *Task) (err error) {
 
 // move proc from unfinished to finished stack
 func (engine *K8sEngine) finishTask(task *Task) {
+	engine.Lock()
+	defer engine.Unlock()
+
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
 	engine.Log.finish(task)
-	task.Done = &trueVal
+
+	// task.Lock()
+	task.Done = &trueVal // #race #ok
+	// task.Unlock()
 }
 
 // push newly started process onto the engine's stack of running processes
 // initialize log
 func (engine *K8sEngine) startTask(task *Task) {
-	engine.UnfinishedProcs[task.Root.ID] = true
+	engine.Lock()
+	engine.UnfinishedProcs[task.Root.ID] = true // #race #ok
+	engine.Unlock()
+
 	engine.Log.start(task)
 }
 
@@ -181,8 +196,8 @@ func (engine *K8sEngine) collectOutput(tool *Tool) error {
 // The Tool represents a workflow Tool and so is either a CommandLineTool or an ExpressionTool
 func (task *Task) tool(runID string) *Tool {
 	task.infof("begin make tool object")
-	task.Outputs = make(map[string]interface{})
-	task.Log.Output = task.Outputs
+	task.Outputs = make(map[string]interface{}) // #race #ok
+	task.Log.Output = task.Outputs              // #race #ok
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
@@ -198,7 +213,17 @@ func (task *Task) tool(runID string) *Tool {
 // ----- could come up with a better/more uniform naming scheme
 func (task *Task) workingDir(runID string) string {
 	task.infof("begin make task working dir")
+
 	safeID := strings.ReplaceAll(task.Root.ID, "#", "")
+
+	// task.Root.ID is not unique among tool runs
+	// so, adding this random 4 char suffix
+	// this is not really a perfect solution
+	// because errors can still happen, though with very low probability
+	// "error" here meaning by chance creating a `safeID` that's already been used
+	// --- by a previous run of this same tool/task object
+	safeID = fmt.Sprintf("%v-%v", safeID, getRandString(4))
+
 	dir := fmt.Sprintf(pathToWorkingDirf, runID, safeID)
 	if task.ScatterIndex > 0 {
 		dir = fmt.Sprintf("%v-scatter-%v", dir, task.ScatterIndex)
@@ -275,7 +300,7 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 // runCommandLineTool..
 // 1. generates the command to execute
 // 2. makes call to RunK8sJob to dispatch job to run the commandline tool
-func (engine K8sEngine) runCommandLineTool(tool *Tool) (err error) {
+func (engine *K8sEngine) runCommandLineTool(tool *Tool) (err error) {
 	engine.infof("begin run CommandLineTool: %v", tool.Task.Root.ID)
 	err = tool.generateCommand()
 	if err != nil {

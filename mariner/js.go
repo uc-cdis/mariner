@@ -45,7 +45,6 @@ func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 
 		// construct js function definition
 		fnDef := fmt.Sprintf("function f() %s", js)
-		// fmt.Printf("Here's the fnDef:\n%v\n", fnDef)
 
 		// run this function definition so the function exists in the vm
 		vm.Run(fnDef)

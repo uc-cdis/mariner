@@ -54,6 +54,7 @@ func (tool *Tool) handleCLTOutput() (err error) {
 	tool.Task.infof("begin handle CommandLineTool output")
 	for _, output := range tool.Task.Root.Outputs {
 		tool.Task.infof("begin handle output param: %v", output.ID)
+
 		if output.Binding == nil {
 			return tool.Task.errorf("binding not found")
 		}
@@ -171,14 +172,17 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		// output should be a CWLFileType or "array of Files"
 		// fixme - make this case handling more specific in the else condition - don't just catch anything
 		if output.Types[0].Type == CWLFileType {
-			// fmt.Println("output type is file")
 
 			// fixme - add error handling for cases len(results) != 1
-			tool.Task.Outputs[output.ID] = results[0]
+			if len(results) > 0 {
+				tool.Task.Outputs[output.ID] = results[0]
+			}
 		} else {
+			tool.Task.Lock()
 			// output should be an array of File objects
 			// note: also need to add error handling here
-			tool.Task.Outputs[output.ID] = results
+			tool.Task.Outputs[output.ID] = results // #race (?)
+			tool.Task.Unlock()
 		}
 		tool.Task.infof("end handle output param: %v", output.ID)
 	}
@@ -195,10 +199,12 @@ func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
 
 	var pattern string
 	for _, glob := range output.Binding.Glob {
+
 		pattern, err = tool.pattern(glob)
 		if err != nil {
 			return results, tool.Task.errorf("%v", err)
 		}
+
 		paths, err := filepath.Glob(tool.WorkingDir + pattern)
 		if err != nil {
 			return results, tool.Task.errorf("%v", err)

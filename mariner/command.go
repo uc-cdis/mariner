@@ -142,8 +142,10 @@ func (tool *Tool) cmdElts() (cmdElts CommandElements, err error) {
 }
 
 // fixme: handle optional inputs
+// UPDATE: optional inputs which are not provided should input.Binding as nil
 func (tool *Tool) inputElts() (cmdElts CommandElements, err error) {
 	tool.Task.infof("begin handle command input elements")
+
 	cmdElts = make([]*CommandElement, 0)
 	var inputType string
 	for _, input := range tool.Task.Root.Inputs {
@@ -192,6 +194,9 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 
 		5. handle shellQuote -> need to test (feature not yet supported on array inputs)
 	*/
+
+	// NOTICE: shellQuote default value is true - everything gets shellQuote'd unless `shellQuote: false` is specified
+	// see: https://www.commonwl.org/v1.0/CommandLineTool.html#ShellCommandRequirement
 
 	var s string
 	switch inputType {
@@ -272,16 +277,19 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 		}
 		// "if true, add 'prefix' to the commandline. If false, add nothing."
 		if boolVal {
-			// need to test shellQuote feature
-			if binding.ShellQuote {
-				val = append(val, "\""+binding.Prefix+"\"")
-			} else {
-				val = append(val, binding.Prefix)
-			}
+			/*
+				// need to test shellQuote feature - default value is true
+				if binding.ShellQuote {
+					val = append(val, "\""+binding.Prefix+"\"")
+				} else {
+					val = append(val, binding.Prefix)
+				}
+			*/
+			val = append(val, binding.Prefix)
 		}
 		return val, nil
 
-	case "string", "number":
+	case "string", "number", "int", "long", "float", "double":
 		s, err = valFromRaw(rawInput)
 	case CWLFileType, CWLDirectoryType:
 		s, err = pathFromRaw(rawInput)
@@ -298,10 +306,12 @@ func inputValue(input *cwl.Input, rawInput interface{}, inputType string, bindin
 	if !binding.Separate {
 		val = []string{strings.Join(val, "")}
 	}
-	// need to test ShellQuote feature
-	if binding.ShellQuote {
-		val = []string{"\"" + strings.Join(val, " ") + "\""}
-	}
+	/*
+		// need to test ShellQuote feature - default value is true
+		if binding.ShellQuote {
+			val = []string{"\"" + strings.Join(val, " ") + "\""}
+		}
+	*/
 	return val, nil
 }
 
@@ -421,11 +431,9 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 	val = make([]string, 0)
 	if arg.Value != "" {
 		// implies string literal or expression to eval - see NOTE at typeSwitch
-		// fmt.Println("string literal or expression to eval..")
 		// NOTE: *might* need to check "$(" or "${" instead of just "$"
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
-			// fmt.Println("expression to eval..")
 			result, err := evalExpression(arg.Value, tool.Task.Root.InputsVM)
 			if err != nil {
 				return nil, tool.Task.errorf("failed to evaluate expression: %v; err: %v", arg.Value, err)
@@ -444,17 +452,18 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 			val = append(val, arg.Value)
 		}
 	} else {
-		// fmt.Println("resolving valueFrom..")
 		// get value from `valueFrom` field which may itself be a string literal, an expression, or a string which contains one or more expressions
 		resolvedText, _, err := tool.resolveExpressions(arg.Binding.ValueFrom.String)
 		if err != nil {
 			return nil, tool.Task.errorf("%v", err)
 		}
 
-		// handle shellQuote - default value is true
-		if arg.Binding.ShellQuote {
-			resolvedText = "\"" + resolvedText + "\""
-		}
+		/*
+			// handle shellQuote - default value is true
+			if arg.Binding.ShellQuote {
+				resolvedText = "\"" + resolvedText + "\""
+			}
+		*/
 
 		// capture result
 		val = append(val, resolvedText)

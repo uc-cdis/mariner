@@ -131,10 +131,12 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	}
 	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
 
-	tool.Task.Log.Stats.ResourceUsage.init()
+	engine.Lock()
+	tool.Task.Log.Stats.ResourceUsage.init() // #race #ok
+	engine.Unlock()
 
-	for !*tool.Task.Done {
-
+	done := false
+	for !done {
 		// collect (cpu, mem) sample point
 		if err = tool.sampleResourceUsage(podsClient, label); err != nil {
 			engine.Log.Main.Event.warnf("failed to sample resource usage for task: %v; error: %v", tool.Task.Root.ID, err)
@@ -145,6 +147,10 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 
 		// wait out sampling period duration to next sample
 		time.Sleep(metricsSamplingPeriod * time.Second)
+
+		tool.Task.Lock()
+		done = *tool.Task.Done // #race #ok
+		tool.Task.Unlock()
 	}
 
 	engine.infof("end collect metrics for task: %v", tool.Task.Root.ID)
@@ -152,7 +158,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	return nil
 }
 
-func (engine K8sEngine) dispatchTaskJob(tool *Tool) error {
+func (engine *K8sEngine) dispatchTaskJob(tool *Tool) error {
 	engine.infof("begin dispatch task job: %v", tool.Task.Root.ID)
 	batchJob, err := engine.taskJob(tool)
 	if err != nil {
@@ -196,11 +202,9 @@ func containerMetrics(targetPod k8sCore.Pod, targetContainer string, pods *metri
 	var containerMetrics metricsBeta1.ContainerMetrics
 	var containerMetricsList []metricsBeta1.ContainerMetrics
 	for _, i := range pods.Items {
-		fmt.Println(i.Name)
 		if i.Name == targetPod.Name {
 			containerMetricsList = i.Containers
 			for _, container := range containerMetricsList {
-				fmt.Println("container name: ", container.Name)
 				if container.Name == targetContainer {
 					containerMetrics = container
 				}
@@ -209,7 +213,6 @@ func containerMetrics(targetPod k8sCore.Pod, targetContainer string, pods *metri
 	}
 
 	if containerMetrics.Name == "" {
-		fmt.Println("container not found in list returned by metrics API")
 		return nil, fmt.Errorf("container %v of pod %v not found in list returned by metrics API", targetContainer, targetPod.Name)
 	}
 

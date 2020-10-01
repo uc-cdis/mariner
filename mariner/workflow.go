@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -38,6 +39,7 @@ var Config = loadConfig("/mariner-config/mariner-config.json")
 	task.Children is a map, where keys are the taskIDs and values are the Task objects of the workflow steps
 */
 type Task struct {
+	sync.RWMutex  `json:"-"`
 	Parameters    cwl.Parameters         // input parameters of this task
 	Root          *cwl.Root              // "root" of the "namespace" of the cwl file for this task
 	Outputs       map[string]interface{} // output parameters of this task
@@ -76,8 +78,6 @@ func (task *Task) stepParamIsFile(step *cwl.Step, stepParam string) bool {
 // ----  also not nice that Root.Inputs is an array rather than a map
 // ----  could fix these things
 func inputParamFile(input *cwl.Input) bool {
-	fmt.Println("input.Types:")
-	printJSON(input.Types)
 	if input.Types[0].Type == CWLFileType {
 		return true
 	}
@@ -93,8 +93,6 @@ func inputParamFile(input *cwl.Input) bool {
 
 // exact same function.. - NOTE: maybe implement method in cwl.go library instead of here
 func outputParamFile(output cwl.Output) bool {
-	fmt.Println("output.Types:")
-	printJSON(output.Types)
 	if output.Types[0].Type == CWLFileType {
 		return true
 	}
@@ -294,15 +292,43 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 	engine.infof("begin run step %v of parent task %v", curStepID, parentTask.Root.ID)
 
 	curStep := task.OriginalStep
+
 	stepIDMap := make(map[string]string)
 	for _, input := range curStep.In {
 		taskInput := step2taskID(curStep, input.ID)
 		stepIDMap[input.ID] = taskInput // step input ID maps to [sub]task input ID
 
+		// for handling default values in step inputs
+		// see: https://www.commonwl.org/v1.1/Workflow.html#WorkflowStepInput
+		/*
+			"""
+			The default value for this parameter to use
+			if either there is no source field,
+			or the value produced by the source is null.
+			The default must be applied prior to scattering or evaluating valueFrom.
+			"""
+		*/
+
 		// presently not handling the case of multiple sources for a given input parameter
 		// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 		// the section on "Merging", with the "MultipleInputFeatureRequirement" and "linkMerge" fields specifying either "merge_nested" or "merge_flattened"
-		source := input.Source[0]
+		var source string
+		switch len(input.Source) {
+		case 0:
+			// no source specified -> use default value
+			source = ""
+			if input.Default != nil {
+				task.Parameters[taskInput] = input.Default.Self
+			} else {
+				// for now, treating this as a warning and not an error
+				engine.warnf("no source or default provided for step input: %v", input.ID)
+			}
+		case 1:
+			source = input.Source[0]
+		default:
+			// fixme - multiple input sources not yet supported
+			engine.errorf("NOT SUPPORTED: engine can't handle more than one source per step input (this is a bug)")
+		}
 
 		// I/O DEPENDENCY HANDLING
 		// if this input's source is the ID of an output parameter of another step
@@ -313,9 +339,18 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			outputID := depTask.Root.ID + strings.TrimPrefix(source, depStepID)
 
 			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
+			done := false
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
-				if *depTask.Done {
-					task.Parameters[taskInput] = depTask.Outputs[outputID]
+				done = *depTask.Done
+				if done {
+					task.Parameters[taskInput] = depTask.Outputs[outputID] // #race #ok (?)
+					if task.Parameters[taskInput] == nil {
+						if input.Default != nil {
+							task.Parameters[taskInput] = input.Default.Self
+						} else {
+							engine.warnf("source returned null and no default provided for step input: %v", input.ID)
+						}
+					}
 					// fmt.Println("\tDependency task complete!")
 					// fmt.Println("\tSuccessfully collected output from dependency task.")
 					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
@@ -328,7 +363,9 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			task.Parameters[taskInput] = parentTask.Parameters[source]
 
 			// used for logging to merge child inputs for a workflow
+			parentTask.Lock()
 			parentTask.InputIDMap[taskInput] = source
+			parentTask.Unlock()
 		}
 	}
 
@@ -363,9 +400,16 @@ func (engine *K8sEngine) runSteps(task *Task) {
 
 	task.InputIDMap = make(map[string]string)
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
+	// NOTE: seems that WaitGroup is a nice solution for the race condition, not sure how exactly it works though...
+	var wg sync.WaitGroup
 	for curStepID, subtask := range task.Children {
-		go engine.runStep(curStepID, task, subtask)
+		wg.Add(1)
+		go func(curStepID string, task *Task, subtask *Task, wg *sync.WaitGroup) {
+			engine.runStep(curStepID, task, subtask)
+			wg.Done()
+		}(curStepID, task, subtask, &wg)
 	}
+	wg.Wait()
 
 	// note: this log is sort of going to be out of chronological order
 	// because the go routines launch, and this log happens immediately after that
@@ -404,7 +448,10 @@ func (task *Task) mergeChildOutputs() error {
 			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
 			task.infof("waiting to merge child outputs")
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
-				if outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID]; ok {
+				task.RLock()
+				outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID] // #race #ok (?)
+				task.RUnlock()
+				if ok {
 					task.Outputs[output.ID] = outputVal
 				}
 			}

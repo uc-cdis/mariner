@@ -34,6 +34,7 @@ type File struct {
 	Basename       string  `json:"basename"`       // last element of location path
 	NameRoot       string  `json:"nameroot"`       // basename without file extension
 	NameExt        string  `json:"nameext"`        // file extension of basename
+	DirName        string  `json:"dirname"`        // name of directory containing the file
 	Contents       string  `json:"contents"`       // first 64 KiB of file as a string, if loadContents is true
 	SecondaryFiles []*File `json:"secondaryFiles"` // array of secondaryFiles
 }
@@ -44,7 +45,7 @@ type File struct {
 // right now they hold the exact same path
 // prefixissue - don't need to handle here - the 'path' argument is the full path, with working dir and all
 func fileObject(path string) (fileObj *File) {
-	base, root, ext := fileFields(path)
+	base, root, ext, dirname := fileFields(path)
 	fileObj = &File{
 		Class:    CWLFileType,
 		Location: path, // stores the full path
@@ -52,6 +53,7 @@ func fileObject(path string) (fileObj *File) {
 		Basename: base,
 		NameRoot: root,
 		NameExt:  ext,
+		DirName:  dirname,
 	}
 	return fileObj
 }
@@ -59,7 +61,7 @@ func fileObject(path string) (fileObj *File) {
 // pedantic splitting regarding leading periods in the basename
 // see: https://www.commonwl.org/v1.0/Workflow.html#File
 // the description of nameroot and nameext
-func fileFields(path string) (base string, root string, ext string) {
+func fileFields(path string) (base string, root string, ext string, dirname string) {
 	base = lastInPath(path)
 	baseNoLeadingPeriods, nPeriods := trimLeading(base, ".")
 	tmp := strings.Split(baseNoLeadingPeriods, ".")
@@ -73,7 +75,8 @@ func fileFields(path string) (base string, root string, ext string) {
 	}
 	// add back any leading periods that were trimmed from base
 	root = strings.Repeat(".", nPeriods) + root
-	return base, root, ext
+	dirname = strings.TrimSuffix(path, fmt.Sprintf("/%v", base))
+	return base, root, ext, dirname
 }
 
 // given a string s and a character char
