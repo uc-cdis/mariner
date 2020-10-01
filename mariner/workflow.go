@@ -341,13 +341,9 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			engine.infof("begin step %v wait for dependency step %v to finish", curStepID, depStepID)
 			done := false
 			for inputPresent := false; !inputPresent; _, inputPresent = task.Parameters[taskInput] {
-				depTask.Lock()
 				done = *depTask.Done
-				depTask.Unlock()
 				if done {
-					depTask.Lock()
 					task.Parameters[taskInput] = depTask.Outputs[outputID] // #race #ok (?)
-					depTask.Unlock()
 					if task.Parameters[taskInput] == nil {
 						if input.Default != nil {
 							task.Parameters[taskInput] = input.Default.Self
@@ -367,7 +363,9 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			task.Parameters[taskInput] = parentTask.Parameters[source]
 
 			// used for logging to merge child inputs for a workflow
+			parentTask.Lock()
 			parentTask.InputIDMap[taskInput] = source
+			parentTask.Unlock()
 		}
 	}
 
@@ -402,9 +400,16 @@ func (engine *K8sEngine) runSteps(task *Task) {
 
 	task.InputIDMap = make(map[string]string)
 	// NOTE: not sure if this should have a WaitGroup - seems to work fine without one
+	// NOTE: seems that WaitGroup is a nice solution for the race condition, not sure how exactly it works though...
+	var wg sync.WaitGroup
 	for curStepID, subtask := range task.Children {
-		go engine.runStep(curStepID, task, subtask)
+		wg.Add(1)
+		go func(curStepID string, task *Task, subtask *Task, wg *sync.WaitGroup) {
+			engine.runStep(curStepID, task, subtask)
+			wg.Done()
+		}(curStepID, task, subtask, &wg)
 	}
+	wg.Wait()
 
 	// note: this log is sort of going to be out of chronological order
 	// because the go routines launch, and this log happens immediately after that
@@ -443,9 +448,9 @@ func (task *Task) mergeChildOutputs() error {
 			subtaskOutputID := step2taskID(task.Children[stepID].OriginalStep, source)
 			task.infof("waiting to merge child outputs")
 			for outputPresent := false; !outputPresent; _, outputPresent = task.Outputs[output.ID] {
-				task.Lock()
+				task.RLock()
 				outputVal, ok := task.Children[stepID].Outputs[subtaskOutputID] // #race #ok (?)
-				task.Unlock()
+				task.RUnlock()
 				if ok {
 					task.Outputs[output.ID] = outputVal
 				}

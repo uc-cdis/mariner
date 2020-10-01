@@ -172,8 +172,8 @@ func (mainLog *MainLog) write() error {
 		log.Engine.LastUpdated = t
 	*/
 
-	mainLog.Lock()
-	defer mainLog.Unlock()
+	mainLog.RLock()
+	defer mainLog.RUnlock()
 	mainLogJSON := MainLogJSON{
 		Path:      mainLog.Path,
 		Request:   mainLog.Request,
@@ -257,9 +257,7 @@ func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
 
 // called when a task is run
 func (mainLog *MainLog) start(task *Task) {
-	mainLog.Lock()
 	task.Log.start()
-	mainLog.Unlock()
 	mainLog.write()
 }
 
