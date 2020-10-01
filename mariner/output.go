@@ -174,11 +174,15 @@ func (tool *Tool) handleCLTOutput() (err error) {
 		if output.Types[0].Type == CWLFileType {
 
 			// fixme - add error handling for cases len(results) != 1
-			tool.Task.Outputs[output.ID] = results[0]
+			if len(results) > 0 {
+				tool.Task.Outputs[output.ID] = results[0]
+			}
 		} else {
+			tool.Task.Lock()
 			// output should be an array of File objects
 			// note: also need to add error handling here
 			tool.Task.Outputs[output.ID] = results // #race (?)
+			tool.Task.Unlock()
 		}
 		tool.Task.infof("end handle output param: %v", output.ID)
 	}
