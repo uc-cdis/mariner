@@ -12,6 +12,8 @@ import (
 )
 
 // collect all paths to not delete during basic file cleanup
+// # fixme - doesn't collect secondaryFiles, or scatter output (?)
+// # something about this is broken and needs to be tested and fixed
 func (engine *K8sEngine) collectKeepFiles() {
 	engine.infof("begin collect paths to keep")
 	engine.KeepFiles = make(map[string]bool)
@@ -55,6 +57,9 @@ func (engine *K8sEngine) collectKeepFiles() {
 // i.e., delete all paths under the workflow run working dir
 // ----- which are not paths associated with a main workflow output param
 // called after main workflow finishes running
+// # fixme - deletes files that shouldn't be deleted
+// # in particular, secondaryFiles and output of scatter tasks
+// # something about this function is broken and needs to be tested and fixed
 func (engine *K8sEngine) basicCleanup() {
 	engine.infof("begin intermediate file cleanup")
 
@@ -79,7 +84,7 @@ func (engine *K8sEngine) basicCleanup() {
 		}
 		return nil
 	})
-	engine.infof("end intermediate file cleanupf")
+	engine.infof("end intermediate file cleanup")
 	return
 }
 

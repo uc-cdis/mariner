@@ -71,7 +71,10 @@ func Engine(runID string) (err error) {
 	if err = engine.runWorkflow(); err != nil {
 		return engine.errorf("failed to run workflow: %v", err)
 	}
-	engine.basicCleanup()
+
+	// turning off file cleanup because it's busted and must be fixed
+	// engine.basicCleanup()
+
 	if err = done(runID); err != nil {
 		return engine.errorf("failed to signal engine completion to sidecar containers: %v", err)
 	}
