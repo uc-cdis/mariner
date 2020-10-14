@@ -147,8 +147,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 			return err
 		}
 
-		// fixme - <userID>
-		key = strings.Replace(path, "engine-workspace", "<userID>", 1)
+		key = strings.Replace(path, "engine-workspace", fm.UserID, 1)
 
 		obj = s3manager.BatchDownloadObject{
 			Object: &s3.GetObjectInput{

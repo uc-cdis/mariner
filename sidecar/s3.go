@@ -10,17 +10,21 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 )
 
-// list envVars here - to be read into the routine
 const (
-	awsCredsEnvVar     = "AWSCREDS"
-	s3RegionEnvVar     = "S3_REGION"
-	s3BucketNameEnvVar = "S3_BUCKET_NAME"
+	// environment variables
+	awsCredsEnvVar         = "AWSCREDS"
+	s3RegionEnvVar         = "S3_REGION"
+	s3BucketNameEnvVar     = "S3_BUCKET_NAME"
+	userIDEnvVar           = "USER_ID"
+	sharedVolumeNameEnvVar = "ENGINE_WORKSPACE"
 )
 
 // S3FileManager manages interactions with S3
 type S3FileManager struct {
-	AWSConfig    *aws.Config
-	S3BucketName string
+	AWSConfig             *aws.Config
+	S3BucketName          string
+	UserID                string
+	SharedVolumeMountPath string
 }
 type awsCredentials struct {
 	ID     string `json:"id"`
@@ -33,6 +37,8 @@ func (fm *S3FileManager) setup() (err error) {
 		return err
 	}
 	fm.S3BucketName = os.Getenv(s3BucketNameEnvVar)
+	fm.UserID = os.Getenv(userIDEnvVar)
+	fm.SharedVolumeMountPath = fmt.Sprintf("/%v", sharedVolumeNameEnvVar)
 	return nil
 }
 
