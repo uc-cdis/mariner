@@ -116,15 +116,8 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 
 // 2. batch download target s3 paths
 func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
-	// what you want: https://docs.aws.amazon.com/sdk-for-go/api/service/s3/s3manager/#BatchDownloadIterator
-	// -------> func (Downloader) DownloadWithIterator
-	// for downloading batches of files
-
 	sess := fm.newS3Session()
 	svc := s3manager.NewDownloader(sess)
-
-	// s3 path: 's3://workflow-engine-garvin/userID/workflowRuns/runID/taskID/'
-	// '/engine-workspace/'
 
 	/*
 		paths look like:
@@ -133,7 +126,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 		for downloading, need to map that to the actual s3 key:
 		"/userID/path/to/file"
 
-		so, replace 'engine-workspace' with '<userID>'
+		so, replace "/engine-workspace" with "/userID"
 	*/
 
 	var obj s3manager.BatchDownloadObject
@@ -147,12 +140,14 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 			return err
 		}
 
-		key = strings.Replace(path, "engine-workspace", fm.UserID, 1)
+		// replace "/engine-workspace" with "/userID"
+		userIDPrefix := fmt.Sprintf("/%v", fm.UserID)
+		key = strings.Replace(path, fm.SharedVolumeMountPath, userIDPrefix, 1)
 
 		obj = s3manager.BatchDownloadObject{
 			Object: &s3.GetObjectInput{
 				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(key), // fixme
+				Key:    aws.String(key),
 			},
 			Writer: destFile,
 		}

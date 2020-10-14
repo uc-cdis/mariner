@@ -38,6 +38,8 @@ func (fm *S3FileManager) setup() (err error) {
 	}
 	fm.S3BucketName = os.Getenv(s3BucketNameEnvVar)
 	fm.UserID = os.Getenv(userIDEnvVar)
+
+	// "/engine-workspace"
 	fm.SharedVolumeMountPath = fmt.Sprintf("/%v", sharedVolumeNameEnvVar)
 	return nil
 }
