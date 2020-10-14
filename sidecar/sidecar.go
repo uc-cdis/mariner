@@ -1,7 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 func main() {
@@ -24,31 +29,31 @@ func main() {
 	fm.setup()
 
 	// 1. read in the target s3 paths
-	s3Paths, err := fm.readMarinerS3Paths()
+	taskS3Input, err := fm.readMarinerS3Paths()
 	if err != nil {
 		fmt.Println("readMarinerS3Paths failed:", err)
 	}
 
 	// 2. download those files to the shared volume
-	err = downloadInputFiles(s3Paths)
+	err = fm.downloadInputFiles(taskS3Input)
 	if err != nil {
 		fmt.Println("downloadFiles failed:", err)
 	}
 
 	// 3. signal main container to run
-	err = signalTaskToRun()
+	err = fm.signalTaskToRun()
 	if err != nil {
 		fmt.Println("signalTaskToRun failed:", err)
 	}
 
 	// 4. wait for main container to finish
-	err = waitForTaskToFinish()
+	err = fm.waitForTaskToFinish()
 	if err != nil {
 		fmt.Println("waitForTaskToFinish failed:", err)
 	}
 
 	// 5. upload output files to s3 (which files, how to decide exactly? - floating issue)
-	err = uploadOutputFiles()
+	err = fm.uploadOutputFiles()
 	if err != nil {
 		fmt.Println("uploadOutputFiles failed:", err)
 	}
@@ -57,61 +62,59 @@ func main() {
 	return
 }
 
-// 1. read 's3://<twd>/_mariner_s3_paths'
-func (fm *S3FileManager) readMarinerS3Paths() ([]string, error) {
-	/*
-		sess := fm.newS3Session()
+// TaskS3Input ..
+type TaskS3Input struct {
+	Paths []string `json:"paths"`
+}
 
-		// Create a downloader with the session and default options
-		downloader := s3manager.NewDownloader(sess)
+// 1. read 's3://<twd>/_mariner_task_s3_input.json'
+func (fm *S3FileManager) readMarinerS3Paths() (*TaskS3Input, error) {
+	sess := fm.newS3Session()
 
-		// Create a buffer to write the S3 Object contents to.
-		// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
-		buf := &aws.WriteAtBuffer{}
+	// Create a downloader with the session and default options
+	downloader := s3manager.NewDownloader(sess)
 
-		// ## good through here ## //
+	// Create a buffer to write the S3 Object contents to.
+	// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
+	buf := &aws.WriteAtBuffer{}
 
+	objKey := "" // fixme -> '/userID/workflowRuns/runID/taskID/_mariner_task_s3_input.json'
 
-		// objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
-		objKey := ""
+	// Write the contents of S3 Object to the buffer
+	s3Obj := &s3.GetObjectInput{
+		Bucket: aws.String(fm.S3BucketName),
+		Key:    aws.String(objKey),
+	}
+	_, err := downloader.Download(buf, s3Obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file, %v", err)
+	}
 
-		// Write the contents of S3 Object to the buffer
-		s3Obj := &s3.GetObjectInput{
-			Bucket: aws.String(Config.Storage.S3.Name),
-			Key:    aws.String(objKey),
-		}
-		_, err = downloader.Download(buf, s3Obj)
-		if err != nil {
-			return nil, fmt.Errorf("failed to download file, %v", err)
-		}
-		b := buf.Bytes()
-		log := &MainLog{}
-		err = json.Unmarshal(b, log)
-		if err != nil {
-			return nil, fmt.Errorf("error unmarhsalling log: %v", err)
-		}
-		// return log, nil
-	*/
-
-	return nil, nil
+	b := buf.Bytes()
+	taskS3Input := &TaskS3Input{}
+	err = json.Unmarshal(b, taskS3Input)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarhsalling TaskS3Input: %v", err)
+	}
+	return taskS3Input, nil
 }
 
 // 2. batch download target s3 paths
-func downloadInputFiles(s3Paths []string) error {
+func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 	return nil
 }
 
 // 3. signal to main container to run
-func signalTaskToRun() error {
+func (fm *S3FileManager) signalTaskToRun() error {
 	return nil
 }
 
 // 4. wait for main container to finish
-func waitForTaskToFinish() error {
+func (fm *S3FileManager) waitForTaskToFinish() error {
 	return nil
 }
 
 // 5. upload output to s3
-func uploadOutputFiles() error {
+func (fm *S3FileManager) uploadOutputFiles() error {
 	return nil
 }

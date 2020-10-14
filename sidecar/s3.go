@@ -19,7 +19,8 @@ const (
 
 // S3FileManager manages interactions with S3
 type S3FileManager struct {
-	AWSConfig *aws.Config
+	AWSConfig    *aws.Config
+	S3BucketName string
 }
 type awsCredentials struct {
 	ID     string `json:"id"`
@@ -31,6 +32,7 @@ func (fm *S3FileManager) setup() (err error) {
 	if err != nil {
 		return err
 	}
+	fm.S3BucketName = os.Getenv(s3BucketNameEnvVar)
 	return nil
 }
 
