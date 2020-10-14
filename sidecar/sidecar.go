@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -20,6 +21,9 @@ func main() {
 		0. configure the AWS interface with the creds
 		1. read 's3://<twd>/_mariner_s3_paths'
 		2. download those files from s3
+
+		---
+
 		3. signal to main to run
 		4. wait
 		5. upload output files to s3 (?)
@@ -31,30 +35,35 @@ func main() {
 	fm.setup()
 
 	// 1. read in the target s3 paths
+	// #okay
 	taskS3Input, err := fm.fetchTaskS3InputList()
 	if err != nil {
 		fmt.Println("readMarinerS3Paths failed:", err)
 	}
 
 	// 2. download those files to the shared volume
+	// #okay
 	err = fm.downloadInputFiles(taskS3Input)
 	if err != nil {
 		fmt.Println("downloadFiles failed:", err)
 	}
 
 	// 3. signal main container to run
+	// #here! -> double check
 	err = fm.signalTaskToRun()
 	if err != nil {
 		fmt.Println("signalTaskToRun failed:", err)
 	}
 
 	// 4. wait for main container to finish
+	// #todo
 	err = fm.waitForTaskToFinish()
 	if err != nil {
 		fmt.Println("waitForTaskToFinish failed:", err)
 	}
 
 	// 5. upload output files to s3 (which files, how to decide exactly? - floating issue)
+	// #todo
 	err = fm.uploadOutputFiles()
 	if err != nil {
 		fmt.Println("uploadOutputFiles failed:", err)
@@ -165,7 +174,20 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 }
 
 // 3. signal to main container to run
+// fixme - WHY is it that the sidecar passes the task command to the main container?
+// ------> WHY doesn't the engine simply give the task container its command directly?
+// ------> early design decision, probably doesn't make sense any more, should fix it
 func (fm *S3FileManager) signalTaskToRun() error {
+	cmd := os.Getenv("TOOL_COMMAND")
+	pathToTaskCommand := filepath.Join(fm.TaskWorkingDir, "run.sh")
+
+	f, err := os.Open(pathToTaskCommand)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	f.WriteString(cmd)
+
 	return nil
 }
 

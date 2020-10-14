@@ -17,6 +17,7 @@ const (
 	s3BucketNameEnvVar     = "S3_BUCKET_NAME"
 	userIDEnvVar           = "USER_ID"
 	sharedVolumeNameEnvVar = "ENGINE_WORKSPACE"
+	taskWorkingDirEnvVar   = "TOOL_WORKING_DIR"
 )
 
 // S3FileManager manages interactions with S3
@@ -25,6 +26,7 @@ type S3FileManager struct {
 	S3BucketName          string
 	UserID                string
 	SharedVolumeMountPath string
+	TaskWorkingDir        string
 }
 type awsCredentials struct {
 	ID     string `json:"id"`
@@ -41,6 +43,9 @@ func (fm *S3FileManager) setup() (err error) {
 
 	// "/engine-workspace"
 	fm.SharedVolumeMountPath = fmt.Sprintf("/%v", sharedVolumeNameEnvVar)
+
+	fm.TaskWorkingDir = os.Getenv(taskWorkingDirEnvVar)
+
 	return nil
 }
 
