@@ -12,10 +12,8 @@ func main() {
 		1. read 's3://<twd>/_mariner_s3_paths'
 		2. download those files from s3
 		3. signal to main to run
-
-		// here!
 		4. wait
-		5. upload output (?) files to s3
+		5. upload output files to s3 (?)
 		6. exit 0
 
 	*/
@@ -27,7 +25,7 @@ func main() {
 	}
 
 	// 2. download those files to the shared volume
-	err = downloadFiles(s3Paths)
+	err = downloadInputFiles(s3Paths)
 	if err != nil {
 		fmt.Println("downloadFiles failed:", err)
 	}
@@ -38,6 +36,19 @@ func main() {
 		fmt.Println("signalTaskToRun failed:", err)
 	}
 
+	// 4. wait for main container to finish
+	err = waitForTaskToFinish()
+	if err != nil {
+		fmt.Println("waitForTaskToFinish failed:", err)
+	}
+
+	// 5. upload output files to s3 (which files, how to decide exactly? - floating issue)
+	err = uploadOutputFiles()
+	if err != nil {
+		fmt.Println("uploadOutputFiles failed:", err)
+	}
+
+	// 6. exit
 	return
 }
 
@@ -47,11 +58,21 @@ func readMarinerS3Paths() ([]string, error) {
 }
 
 // 2. batch download target s3 paths
-func downloadFiles(s3Paths []string) error {
+func downloadInputFiles(s3Paths []string) error {
 	return nil
 }
 
 // 3. signal to main container to run
 func signalTaskToRun() error {
+	return nil
+}
+
+// 4. wait for main container to finish
+func waitForTaskToFinish() error {
+	return nil
+}
+
+// 5. upload output to s3
+func uploadOutputFiles() error {
 	return nil
 }
