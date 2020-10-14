@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -29,7 +31,7 @@ func main() {
 	fm.setup()
 
 	// 1. read in the target s3 paths
-	taskS3Input, err := fm.readMarinerS3Paths()
+	taskS3Input, err := fm.fetchTaskS3InputList()
 	if err != nil {
 		fmt.Println("readMarinerS3Paths failed:", err)
 	}
@@ -68,7 +70,7 @@ type TaskS3Input struct {
 }
 
 // 1. read 's3://<twd>/_mariner_task_s3_input.json'
-func (fm *S3FileManager) readMarinerS3Paths() (*TaskS3Input, error) {
+func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 	sess := fm.newS3Session()
 
 	// Create a downloader with the session and default options
@@ -99,8 +101,72 @@ func (fm *S3FileManager) readMarinerS3Paths() (*TaskS3Input, error) {
 	return taskS3Input, nil
 }
 
+/*
+	~ Path representations/handling for user-data ~
+
+	s3: 			   "/userID/path/to/file"
+	inputs.json: 	      "USER/path/to/file"
+	mariner: 		"/engine-workspace/path/to/file"
+
+	user-data bucket gets mounted at the 'userID' prefix to dir /engine-workspace/
+
+	so the mapping that happens in this path processing step is this:
+	"USER/path/to/file" -> "/engine-workspace/path/to/file"
+*/
+
 // 2. batch download target s3 paths
 func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
+	// what you want: https://docs.aws.amazon.com/sdk-for-go/api/service/s3/s3manager/#BatchDownloadIterator
+	// -------> func (Downloader) DownloadWithIterator
+	// for downloading batches of files
+
+	sess := fm.newS3Session()
+	svc := s3manager.NewDownloader(sess)
+
+	// s3 path: 's3://workflow-engine-garvin/userID/workflowRuns/runID/taskID/'
+	// '/engine-workspace/'
+
+	/*
+		paths look like:
+		"/engine-workspace/path/to/file"
+
+		for downloading, need to map that to the actual s3 key:
+		"/userID/path/to/file"
+
+		so, replace 'engine-workspace' with '<userID>'
+	*/
+
+	var obj s3manager.BatchDownloadObject
+	var key string
+	objects := []s3manager.BatchDownloadObject{}
+	for _, path := range taskS3Input.Paths {
+
+		destFile, err := os.Open(path)
+		if err != nil {
+			// probably fatal
+			return err
+		}
+
+		// fixme - <userID>
+		key = strings.Replace(path, "engine-workspace", "<userID>", 1)
+
+		obj = s3manager.BatchDownloadObject{
+			Object: &s3.GetObjectInput{
+				Bucket: aws.String(fm.S3BucketName),
+				Key:    aws.String(key), // fixme
+			},
+			Writer: destFile,
+		}
+
+		objects = append(objects, obj)
+	}
+
+	iter := &s3manager.DownloadObjectsIterator{Objects: objects}
+	err := svc.DownloadWithIterator(aws.BackgroundContext(), iter)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
