@@ -166,6 +166,10 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 			Name:  "S3_BUCKET_NAME",
 			Value: Config.Storage.S3.Name,
 		},
+		{
+			Name:  "S3_REGION",
+			Value: Config.Storage.S3.Region,
+		},
 	}
 
 	conformanceTestFlag := k8sv1.EnvVar{
@@ -387,6 +391,10 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 		{
 			Name:  "S3_BUCKET_NAME",
 			Value: Config.Storage.S3.Name,
+		},
+		{
+			Name:  "S3_REGION",
+			Value: Config.Storage.S3.Region,
 		},
 		{
 			Name:  "CONFORMANCE_INPUT_S3_PREFIX",
