@@ -12,16 +12,33 @@ import (
 
 // list envVars here - to be read into the routine
 const (
-	awsCredsEnvVar = "AWSCREDS"
-	s3RegionEnvVar = "S3_REGION"
+	awsCredsEnvVar     = "AWSCREDS"
+	s3RegionEnvVar     = "S3_REGION"
+	s3BucketNameEnvVar = "S3_BUCKET_NAME"
 )
 
+// S3FileManager manages interactions with S3
+type S3FileManager struct {
+	AWSConfig *aws.Config
+}
 type awsCredentials struct {
 	ID     string `json:"id"`
 	Secret string `json:"secret"`
 }
 
-func newS3Session() (*session.Session, error) {
+func (fm *S3FileManager) setup() (err error) {
+	fm.AWSConfig, err = loadAWSConfig()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (fm *S3FileManager) newS3Session() *session.Session {
+	return session.Must(session.NewSession(fm.AWSConfig))
+}
+
+func loadAWSConfig() (*aws.Config, error) {
 	secret := []byte(os.Getenv(awsCredsEnvVar))
 	creds := &awsCredentials{}
 	err := json.Unmarshal(secret, creds)
@@ -33,6 +50,5 @@ func newS3Session() (*session.Session, error) {
 		Region:      aws.String(s3RegionEnvVar),
 		Credentials: credsConfig,
 	}
-	sess := session.Must(session.NewSession(awsConfig))
-	return sess, nil
+	return awsConfig, nil
 }

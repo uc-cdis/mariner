@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func main() {
 
@@ -18,8 +20,11 @@ func main() {
 
 	*/
 
+	fm := &S3FileManager{}
+	fm.setup()
+
 	// 1. read in the target s3 paths
-	s3Paths, err := readMarinerS3Paths()
+	s3Paths, err := fm.readMarinerS3Paths()
 	if err != nil {
 		fmt.Println("readMarinerS3Paths failed:", err)
 	}
@@ -53,7 +58,41 @@ func main() {
 }
 
 // 1. read 's3://<twd>/_mariner_s3_paths'
-func readMarinerS3Paths() ([]string, error) {
+func (fm *S3FileManager) readMarinerS3Paths() ([]string, error) {
+	/*
+		sess := fm.newS3Session()
+
+		// Create a downloader with the session and default options
+		downloader := s3manager.NewDownloader(sess)
+
+		// Create a buffer to write the S3 Object contents to.
+		// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
+		buf := &aws.WriteAtBuffer{}
+
+		// ## good through here ## //
+
+
+		// objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
+		objKey := ""
+
+		// Write the contents of S3 Object to the buffer
+		s3Obj := &s3.GetObjectInput{
+			Bucket: aws.String(Config.Storage.S3.Name),
+			Key:    aws.String(objKey),
+		}
+		_, err = downloader.Download(buf, s3Obj)
+		if err != nil {
+			return nil, fmt.Errorf("failed to download file, %v", err)
+		}
+		b := buf.Bytes()
+		log := &MainLog{}
+		err = json.Unmarshal(b, log)
+		if err != nil {
+			return nil, fmt.Errorf("error unmarhsalling log: %v", err)
+		}
+		// return log, nil
+	*/
+
 	return nil, nil
 }
 
