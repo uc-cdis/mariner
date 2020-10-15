@@ -13,73 +13,50 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+// TaskS3Input ..
+type TaskS3Input struct {
+	Paths []string `json:"paths"`
+}
+
 func main() {
-
-	/*
-		steps:
-
-		00. load in vars from envVars
-		0. configure the AWS interface with the creds
-		1. read 's3://<twd>/_mariner_s3_paths'
-		2. download those files from s3
-
-		---
-
-		3. signal to main to run
-		4. wait
-		5. upload output files to s3 (?)
-		6. exit 0
-
-	*/
 
 	fm := &S3FileManager{}
 	fm.setup()
 
 	// 1. read in the target s3 paths
-	// #okay
 	taskS3Input, err := fm.fetchTaskS3InputList()
 	if err != nil {
 		fmt.Println("readMarinerS3Paths failed:", err)
 	}
 
 	// 2. download those files to the shared volume
-	// #okay
 	err = fm.downloadInputFiles(taskS3Input)
 	if err != nil {
 		fmt.Println("downloadFiles failed:", err)
 	}
 
 	// 3. signal main container to run
-	// #okay
 	err = fm.signalTaskToRun()
 	if err != nil {
 		fmt.Println("signalTaskToRun failed:", err)
 	}
 
 	// 4. wait for main container to finish
-	// #okay
 	err = fm.waitForTaskToFinish()
 	if err != nil {
 		fmt.Println("waitForTaskToFinish failed:", err)
 	}
 
 	// 5. upload output files to s3
-	// #todo - finish
 	err = fm.uploadOutputFiles()
 	if err != nil {
 		fmt.Println("uploadOutputFiles failed:", err)
 	}
 
-	// 6. exit
 	return
 }
 
-// TaskS3Input ..
-type TaskS3Input struct {
-	Paths []string `json:"paths"`
-}
-
-// 1. read 's3://<twd>/_mariner_task_s3_input.json'
+// 1. read this task's input file list from s3
 func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 	sess := fm.newS3Session()
 
@@ -106,11 +83,14 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error unmarhsalling TaskS3Input: %v", err)
 	}
+
 	return taskS3Input, nil
 }
 
-// 2. batch download target s3 paths
+// 2. download this task's input files from s3
 func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error) {
+
+	// note: downloader is safe for concurrent use
 	sess := fm.newS3Session()
 	downloader := s3manager.NewDownloader(sess)
 
@@ -163,6 +143,8 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 // ------> WHY doesn't the engine simply give the task container its command directly?
 // ------> early design decision, probably doesn't make sense any more, should fix it
 func (fm *S3FileManager) signalTaskToRun() error {
+
+	// fixme - make these strings constants
 	cmd := os.Getenv("TOOL_COMMAND")
 	pathToTaskCommand := filepath.Join(fm.TaskWorkingDir, "run.sh")
 
@@ -182,16 +164,24 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 	time.Sleep(10 * time.Second)
 
 	var err error
+
+	/*
+		context:
+		when the task process finishes
+		it writes a file called "done" to the task working directory
+		as soon as that file exists, we can proceed and upload the task output to s3
+	*/
+
 	doneFlag := filepath.Join(fm.TaskWorkingDir, "done")
 	taskDone := false
 	for !taskDone {
 		_, err = os.Stat(doneFlag)
 		switch {
 		case err == nil:
-			// done flag (file) exists
+			// 'done' file exists
 			taskDone = true
 		case os.IsNotExist(err):
-			// done flag doesn't exist
+			// 'done' file doesn't exist
 		default:
 			// unexpected error
 			fmt.Println("unexpected error checking for doneFlag:", err)
@@ -201,7 +191,7 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 	return nil
 }
 
-// 5. upload output to s3
+// 5. upload this task's output to s3
 func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	// collect paths of all files in the task working directory
 	paths := []string{}
@@ -210,14 +200,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 		return nil
 	})
 
-	/*
-		upload files to the task working directory location in S3
-
-		"Once the Uploader instance is created
-		you can call Upload concurrently
-		from multiple goroutines safely."
-			- aws sdk-for-go docs
-	*/
+	// note: uploader is safe for concurrent use
 	sess := fm.newS3Session()
 	uploader := s3manager.NewUploader(sess)
 
