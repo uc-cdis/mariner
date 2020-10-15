@@ -90,12 +90,10 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 	// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
 	buf := &aws.WriteAtBuffer{}
 
-	objKey := "" // fixme -> '/userID/workflowRuns/runID/taskID/_mariner_task_s3_input.json'
-
 	// Write the contents of S3 Object to the buffer
 	s3Obj := &s3.GetObjectInput{
 		Bucket: aws.String(fm.S3BucketName),
-		Key:    aws.String(objKey),
+		Key:    aws.String(fm.InputFileListS3Key),
 	}
 	_, err := downloader.Download(buf, s3Obj)
 	if err != nil {

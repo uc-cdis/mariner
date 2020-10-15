@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -24,12 +25,17 @@ const (
 	// need to investigate how high we can set this bound without running into problems
 	// for now, conservatively setting the bound to 32
 	maxConcurrent = 32
+
+	// resides in the task's working dir in s3
+	// contains list of files that need to be downloaded from s3 in order for this task to run
+	inputFileListName = "_mariner_s3_input.json"
 )
 
 // S3FileManager manages interactions with S3
 type S3FileManager struct {
 	AWSConfig             *aws.Config
 	S3BucketName          string
+	InputFileListS3Key    string
 	UserID                string
 	SharedVolumeMountPath string
 	TaskWorkingDir        string
@@ -55,6 +61,10 @@ func (fm *S3FileManager) setup() (err error) {
 	fm.TaskWorkingDir = os.Getenv(taskWorkingDirEnvVar)
 
 	fm.MaxConcurrent = maxConcurrent
+
+	// "/userID/workflowRuns/runID/taskID/_mariner_s3_input.json"
+	fm.InputFileListS3Key = filepath.Join(fm.s3Key(fm.TaskWorkingDir), inputFileListName)
+
 	return nil
 }
 
