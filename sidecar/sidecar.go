@@ -239,15 +239,15 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 		return nil
 	})
 
-	// upload files to the task working directory location in S3
-	sess := fm.newS3Session()
-
 	/*
+		upload files to the task working directory location in S3
+
 		"Once the Uploader instance is created
 		you can call Upload concurrently
 		from multiple goroutines safely."
 			- aws sdk-for-go docs
 	*/
+	sess := fm.newS3Session()
 	uploader := s3manager.NewUploader(sess)
 
 	var f *os.File
