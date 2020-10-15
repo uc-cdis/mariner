@@ -230,32 +230,44 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 }
 
 // 5. upload output to s3
-// HERE - Thursday
-// do NOT use the batch upload function, for the same reason you can't use the batch download function
 func (fm *S3FileManager) uploadOutputFiles() (err error) {
-	/*
-		sess := fm.newS3Session()
-		scv := s3manager.NewUploader(sess)
+	// collect paths of all files in the task working directory
+	paths := []string{}
+	err = filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
+		paths = append(paths, path)
+		return nil
+	})
 
-		var obj s3manager.BatchUploadObject
-		// var f
-		objects := []s3manager.BatchUploadObject{}
-		err := filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
-			f, err := os.Open(path)
-			defer f.Close()
-			if err != nil {
-				return err
-			}
-			obj = s3manager.BatchUploadObject{
-				Object: &s3manager.UploadInput{
-					Key:    aws.String("REPLACEME"),
-					Bucket: aws.String("REPLACEME"),
-					Body:   f,
-				},
-			}
-			return nil
+	sess := fm.newS3Session()
+	uploader := s3manager.NewUploader(sess)
+
+	// upload individual files to the task working directory location in S3
+	// todo - make concurrent, max 16 threads
+	for _, path := range paths {
+
+		// open file for reading
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+
+		// upload the file contents
+		result, err := uploader.Upload(&s3manager.UploadInput{
+			Bucket: aws.String(fm.S3BucketName),
+			Key:    aws.String("REPLACEME"), // fix
+			Body:   f,
 		})
-	*/
+		if err != nil {
+			return fmt.Errorf("failed to upload file: %v", err)
+		}
+
+		// close the file - very important
+		if err = f.Close(); err != nil {
+			return fmt.Errorf("failed to close file: %v", err)
+		}
+
+		fmt.Println("file uploaded to location:", result.Location)
+	}
 
 	return nil
 }
