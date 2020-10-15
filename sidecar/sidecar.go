@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -49,14 +50,14 @@ func main() {
 	}
 
 	// 3. signal main container to run
-	// #here! -> double check
+	// #okay
 	err = fm.signalTaskToRun()
 	if err != nil {
 		fmt.Println("signalTaskToRun failed:", err)
 	}
 
 	// 4. wait for main container to finish
-	// #todo
+	// #okay
 	err = fm.waitForTaskToFinish()
 	if err != nil {
 		fmt.Println("waitForTaskToFinish failed:", err)
@@ -192,7 +193,27 @@ func (fm *S3FileManager) signalTaskToRun() error {
 }
 
 // 4. wait for main container to finish
+// not sure if this fn should actually return an error or not
 func (fm *S3FileManager) waitForTaskToFinish() error {
+	time.Sleep(10 * time.Second)
+
+	var err error
+	doneFlag := filepath.Join(fm.TaskWorkingDir, "done")
+	taskDone := false
+	for !taskDone {
+		_, err = os.Stat(doneFlag)
+		switch {
+		case err == nil:
+			// done flag (file) exists
+			taskDone = true
+		case os.IsNotExist(err):
+			// done flag doesn't exist
+		default:
+			// unexpected error
+			fmt.Println("unexpected error checking for doneFlag:", err)
+		}
+		time.Sleep(5 * time.Second)
+	}
 	return nil
 }
 
