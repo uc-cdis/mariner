@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -249,34 +250,42 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	uploader := s3manager.NewUploader(sess)
 
 	// upload individual files to the task working directory location in S3
-	// todo - make concurrent, max 16 threads
+	// todo - make concurrent, max 32 threads
 	var f *os.File
 	var result *s3manager.UploadOutput
-	for _, path := range paths {
+	var wg sync.WaitGroup
+	for _, p := range paths {
+		wg.Add(1)
+		go func(path string) {
+			defer wg.Done()
+			// open file for reading
+			f, err = os.Open(path)
+			if err != nil {
+				fmt.Println("failed to open file:", err)
+				return
+			}
 
-		// open file for reading
-		f, err = os.Open(path)
-		if err != nil {
-			return err
-		}
+			// upload the file contents
+			result, err = uploader.Upload(&s3manager.UploadInput{
+				Bucket: aws.String(fm.S3BucketName),
+				Key:    aws.String("REPLACEME"), // fix
+				Body:   f,
+			})
+			if err != nil {
+				fmt.Println("failed to upload file:", err)
+				return
+			}
 
-		// upload the file contents
-		result, err = uploader.Upload(&s3manager.UploadInput{
-			Bucket: aws.String(fm.S3BucketName),
-			Key:    aws.String("REPLACEME"), // fix
-			Body:   f,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to upload file: %v", err)
-		}
+			// close the file - very important
+			if err = f.Close(); err != nil {
+				fmt.Println("failed to close file:", err)
+				return
+			}
 
-		// close the file - very important
-		if err = f.Close(); err != nil {
-			return fmt.Errorf("failed to close file: %v", err)
-		}
+			fmt.Println("file uploaded to location:", result.Location)
+		}(p)
 
-		fmt.Println("file uploaded to location:", result.Location)
 	}
-
+	wg.Wait()
 	return nil
 }
