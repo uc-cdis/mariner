@@ -18,6 +18,11 @@ const (
 	userIDEnvVar           = "USER_ID"
 	sharedVolumeNameEnvVar = "ENGINE_WORKSPACE"
 	taskWorkingDirEnvVar   = "TOOL_WORKING_DIR"
+
+	// setting a max so as to prevent the error of having too many files being open at once
+	// need to investigate how high we can set this bound without running into problems
+	// for now, conservatively setting the bound to 32
+	maxConcurrent = 32
 )
 
 // S3FileManager manages interactions with S3
@@ -27,7 +32,9 @@ type S3FileManager struct {
 	UserID                string
 	SharedVolumeMountPath string
 	TaskWorkingDir        string
+	MaxConcurrent         int
 }
+
 type awsCredentials struct {
 	ID     string `json:"id"`
 	Secret string `json:"secret"`
@@ -46,6 +53,7 @@ func (fm *S3FileManager) setup() (err error) {
 
 	fm.TaskWorkingDir = os.Getenv(taskWorkingDirEnvVar)
 
+	fm.MaxConcurrent = maxConcurrent
 	return nil
 }
 

@@ -239,6 +239,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 		return nil
 	})
 
+	// upload files to the task working directory location in S3
 	sess := fm.newS3Session()
 
 	/*
@@ -249,12 +250,16 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	*/
 	uploader := s3manager.NewUploader(sess)
 
-	// upload individual files to the task working directory location in S3
-	// todo - make concurrent, max 32 threads
 	var f *os.File
 	var result *s3manager.UploadOutput
 	var wg sync.WaitGroup
+
+	guard := make(chan struct{}, fm.MaxConcurrent)
 	for _, p := range paths {
+		// blocks if guard channel is already full to capacity
+		// proceeds as soon as there is an open slot in the channel
+		guard <- struct{}{}
+
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
@@ -283,8 +288,11 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			}
 
 			fmt.Println("file uploaded to location:", result.Location)
-		}(p)
 
+			// release this spot in the guard channel
+			// so the next go routine can run
+			<-guard
+		}(p)
 	}
 	wg.Wait()
 	return nil
