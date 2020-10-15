@@ -112,76 +112,48 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 	return taskS3Input, nil
 }
 
-/*
-	~ Path representations/handling for user-data ~
-
-	s3: 			   "/userID/path/to/file"
-	inputs.json: 	      "USER/path/to/file"
-	mariner: 		"/engine-workspace/path/to/file"
-
-	user-data bucket gets mounted at the 'userID' prefix to dir /engine-workspace/
-
-	so the mapping that happens in this path processing step is this:
-	"USER/path/to/file" -> "/engine-workspace/path/to/file"
-*/
-
 // 2. batch download target s3 paths
-// NOTE: currently using the batch download, which actually is a bad idea
-// reason it's a bad idea: opens opportunity for there to be too many open files at once
-// as it stands, as many paths that there are,
-// that many files could potentially be open at once,
-// and if that number is very larger (larger than the OS max)
-// the program will crash
-//
-// solution: concurrently download individual files,
-// open and close each file individually
-// cap total number allowed goroutines to something reasonable like 16 or __
-//
-// HERE - Thursday
+/*
+	paths look like:
+	"/engine-workspace/path/to/file"
+
+	for downloading, need to map that to the actual s3 key:
+	"/userID/path/to/file"
+
+	so, replace "/engine-workspace" with "/userID"
+*/
 func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 	sess := fm.newS3Session()
-	svc := s3manager.NewDownloader(sess)
+	downloader := s3manager.NewDownloader(sess)
 
-	/*
-		paths look like:
-		"/engine-workspace/path/to/file"
-
-		for downloading, need to map that to the actual s3 key:
-		"/userID/path/to/file"
-
-		so, replace "/engine-workspace" with "/userID"
-	*/
-
-	var obj s3manager.BatchDownloadObject
 	var key string
-	objects := []s3manager.BatchDownloadObject{}
 	for _, path := range taskS3Input.Paths {
 
-		destFile, err := os.Open(path)
-		if err != nil {
-			// probably fatal
-			return err
-		}
-
-		// replace "/engine-workspace" with "/userID"
+		// create s3 key
 		userIDPrefix := fmt.Sprintf("/%v", fm.UserID)
 		key = strings.Replace(path, fm.SharedVolumeMountPath, userIDPrefix, 1)
 
-		obj = s3manager.BatchDownloadObject{
-			Object: &s3.GetObjectInput{
-				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(key),
-			},
-			Writer: destFile,
+		// open file for writing
+		f, err := os.Open(path)
+		if err != nil {
+			fmt.Println("failed to open file:", err)
 		}
 
-		objects = append(objects, obj)
-	}
+		// write s3 object content into file
+		n, err := downloader.Download(f, &s3.GetObjectInput{
+			Bucket: aws.String(fm.S3BucketName),
+			Key:    aws.String(key),
+		})
+		if err != nil {
+			fmt.Println("failed to download file:", err)
+		}
 
-	iter := &s3manager.DownloadObjectsIterator{Objects: objects}
-	err := svc.DownloadWithIterator(aws.BackgroundContext(), iter)
-	if err != nil {
-		return err
+		// close file - very important
+		if err = f.Close(); err != nil {
+			fmt.Println("failed to close file:", err)
+		}
+
+		fmt.Printf("file downloaded, %d bytes\n", n)
 	}
 
 	return nil
