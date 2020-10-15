@@ -125,6 +125,16 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 */
 
 // 2. batch download target s3 paths
+// NOTE: currently using the batch download, which actually is a bad idea
+// reason it's a bad idea: opens opportunity for there to be too many open files at once
+// as it stands, as many paths that there are,
+// that many files could potentially be open at once,
+// and if that number is very larger (larger than the OS max)
+// the program will crash
+//
+// solution: concurrently download individual files,
+// open and close each file individually
+// cap total number allowed goroutines to something reasonable like 16 or __
 func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 	sess := fm.newS3Session()
 	svc := s3manager.NewDownloader(sess)
@@ -218,6 +228,31 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 }
 
 // 5. upload output to s3
-func (fm *S3FileManager) uploadOutputFiles() error {
+// do NOT use the batch upload function, for the same reason you can't use the batch download function
+func (fm *S3FileManager) uploadOutputFiles() (err error) {
+	/*
+		sess := fm.newS3Session()
+		scv := s3manager.NewUploader(sess)
+
+		var obj s3manager.BatchUploadObject
+		// var f
+		objects := []s3manager.BatchUploadObject{}
+		err := filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
+			f, err := os.Open(path)
+			defer f.Close()
+			if err != nil {
+				return err
+			}
+			obj = s3manager.BatchUploadObject{
+				Object: &s3manager.UploadInput{
+					Key:    aws.String("REPLACEME"),
+					Bucket: aws.String("REPLACEME"),
+					Body:   f,
+				},
+			}
+			return nil
+		})
+	*/
+
 	return nil
 }
