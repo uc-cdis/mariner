@@ -43,7 +43,7 @@ func main() {
 	}
 
 	// 2. download those files to the shared volume
-	// #okay
+	// #fixme - no batch download please, thanks - Thursday
 	err = fm.downloadInputFiles(taskS3Input)
 	if err != nil {
 		fmt.Println("downloadFiles failed:", err)
@@ -64,7 +64,7 @@ func main() {
 	}
 
 	// 5. upload output files to s3 (which files, how to decide exactly? - floating issue)
-	// #todo
+	// #todo - Thursday
 	err = fm.uploadOutputFiles()
 	if err != nil {
 		fmt.Println("uploadOutputFiles failed:", err)
@@ -135,6 +135,8 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 // solution: concurrently download individual files,
 // open and close each file individually
 // cap total number allowed goroutines to something reasonable like 16 or __
+//
+// HERE - Thursday
 func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
 	sess := fm.newS3Session()
 	svc := s3manager.NewDownloader(sess)
@@ -228,6 +230,7 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 }
 
 // 5. upload output to s3
+// HERE - Thursday
 // do NOT use the batch upload function, for the same reason you can't use the batch download function
 func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	/*
