@@ -122,40 +122,57 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 
 	so, replace "/engine-workspace" with "/userID"
 */
-func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) error {
+func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error) {
 	sess := fm.newS3Session()
 	downloader := s3manager.NewDownloader(sess)
 
-	var key string
-	for _, path := range taskS3Input.Paths {
+	var key, userIDPrefix string
+	var f *os.File
+	var n int64
 
-		// create s3 key
-		userIDPrefix := fmt.Sprintf("/%v", fm.UserID)
-		key = strings.Replace(path, fm.SharedVolumeMountPath, userIDPrefix, 1)
+	var wg sync.WaitGroup
+	guard := make(chan struct{}, fm.MaxConcurrent)
+	for _, p := range taskS3Input.Paths {
+		// blocks if guard channel is already full to capacity
+		// proceeds as soon as there is an open slot in the channel
+		guard <- struct{}{}
 
-		// open file for writing
-		f, err := os.Open(path)
-		if err != nil {
-			fmt.Println("failed to open file:", err)
-		}
+		wg.Add(1)
+		go func(path string) {
+			defer wg.Done()
 
-		// write s3 object content into file
-		n, err := downloader.Download(f, &s3.GetObjectInput{
-			Bucket: aws.String(fm.S3BucketName),
-			Key:    aws.String(key),
-		})
-		if err != nil {
-			fmt.Println("failed to download file:", err)
-		}
+			// create s3 key
+			userIDPrefix = fmt.Sprintf("/%v", fm.UserID)
+			key = strings.Replace(path, fm.SharedVolumeMountPath, userIDPrefix, 1)
 
-		// close file - very important
-		if err = f.Close(); err != nil {
-			fmt.Println("failed to close file:", err)
-		}
+			// open file for writing
+			f, err = os.Open(path)
+			if err != nil {
+				fmt.Println("failed to open file:", err)
+			}
 
-		fmt.Printf("file downloaded, %d bytes\n", n)
+			// write s3 object content into file
+			n, err = downloader.Download(f, &s3.GetObjectInput{
+				Bucket: aws.String(fm.S3BucketName),
+				Key:    aws.String(key),
+			})
+			if err != nil {
+				fmt.Println("failed to download file:", err)
+			}
+
+			// close file - very important
+			if err = f.Close(); err != nil {
+				fmt.Println("failed to close file:", err)
+			}
+
+			fmt.Printf("file downloaded, %d bytes\n", n)
+
+			// release this spot in the guard channel
+			// so the next goroutine can run
+			<-guard
+		}(p)
 	}
-
+	wg.Wait()
 	return nil
 }
 
@@ -262,7 +279,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			fmt.Println("file uploaded to location:", result.Location)
 
 			// release this spot in the guard channel
-			// so the next go routine can run
+			// so the next goroutine can run
 			<-guard
 		}(p)
 	}
