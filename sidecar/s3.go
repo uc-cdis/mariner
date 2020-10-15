@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -55,6 +56,15 @@ func (fm *S3FileManager) setup() (err error) {
 
 	fm.MaxConcurrent = maxConcurrent
 	return nil
+}
+
+// converts filepath to the corresponding s3 location
+// -> maps the local "task working directory"
+// -- to the S3 "task working directory"
+func (fm *S3FileManager) s3Key(path string) string {
+	userIDPrefix := fmt.Sprintf("/%v", fm.UserID)
+	key := strings.Replace(path, fm.SharedVolumeMountPath, userIDPrefix, 1)
+	return key
 }
 
 func (fm *S3FileManager) newS3Session() *session.Session {

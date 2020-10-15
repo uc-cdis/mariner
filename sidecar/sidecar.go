@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -44,7 +43,7 @@ func main() {
 	}
 
 	// 2. download those files to the shared volume
-	// #fixme - no batch download please, thanks - Thursday
+	// #okay
 	err = fm.downloadInputFiles(taskS3Input)
 	if err != nil {
 		fmt.Println("downloadFiles failed:", err)
@@ -64,8 +63,8 @@ func main() {
 		fmt.Println("waitForTaskToFinish failed:", err)
 	}
 
-	// 5. upload output files to s3 (which files, how to decide exactly? - floating issue)
-	// #todo - Thursday
+	// 5. upload output files to s3
+	// #todo - finish
 	err = fm.uploadOutputFiles()
 	if err != nil {
 		fmt.Println("uploadOutputFiles failed:", err)
@@ -126,10 +125,8 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 	sess := fm.newS3Session()
 	downloader := s3manager.NewDownloader(sess)
 
-	var key, userIDPrefix string
 	var f *os.File
 	var n int64
-
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
 	for _, p := range taskS3Input.Paths {
@@ -141,10 +138,6 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		go func(path string) {
 			defer wg.Done()
 
-			// create s3 key
-			userIDPrefix = fmt.Sprintf("/%v", fm.UserID)
-			key = strings.Replace(path, fm.SharedVolumeMountPath, userIDPrefix, 1)
-
 			// open file for writing
 			f, err = os.Open(path)
 			if err != nil {
@@ -154,7 +147,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 			// write s3 object content into file
 			n, err = downloader.Download(f, &s3.GetObjectInput{
 				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(key),
+				Key:    aws.String(fm.s3Key(path)),
 			})
 			if err != nil {
 				fmt.Println("failed to download file:", err)
@@ -220,6 +213,15 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 }
 
 // 5. upload output to s3
+/*
+	paths look like:
+	"/engine-workspace/path/to/file"
+
+	for uploading, need to map that to the actual s3 key:
+	"/userID/path/to/file"
+
+	so, replace "/engine-workspace" with "/userID"
+*/
 func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	// collect paths of all files in the task working directory
 	paths := []string{}
