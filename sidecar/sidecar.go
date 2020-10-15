@@ -239,20 +239,29 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	})
 
 	sess := fm.newS3Session()
+
+	/*
+		"Once the Uploader instance is created
+		you can call Upload concurrently
+		from multiple goroutines safely."
+			- aws sdk-for-go docs
+	*/
 	uploader := s3manager.NewUploader(sess)
 
 	// upload individual files to the task working directory location in S3
 	// todo - make concurrent, max 16 threads
+	var f *os.File
+	var result *s3manager.UploadOutput
 	for _, path := range paths {
 
 		// open file for reading
-		f, err := os.Open(path)
+		f, err = os.Open(path)
 		if err != nil {
 			return err
 		}
 
 		// upload the file contents
-		result, err := uploader.Upload(&s3manager.UploadInput{
+		result, err = uploader.Upload(&s3manager.UploadInput{
 			Bucket: aws.String(fm.S3BucketName),
 			Key:    aws.String("REPLACEME"), // fix
 			Body:   f,
