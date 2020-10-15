@@ -58,9 +58,19 @@ func (fm *S3FileManager) setup() (err error) {
 	return nil
 }
 
-// converts filepath to the corresponding s3 location
-// -> maps the local "task working directory"
-// -- to the S3 "task working directory"
+/*
+	converts filepath to the corresponding s3 location
+	-> maps the local "task working directory"
+	-- to the S3 "task working directory"
+
+	filepaths look like:
+	"/engine-workspace/path/to/file"
+
+	s3 keys look like:
+	"/userID/path/to/file"
+
+	so, replace "/engine-workspace" with "/userID"
+*/
 func (fm *S3FileManager) s3Key(path string) string {
 	userIDPrefix := fmt.Sprintf("/%v", fm.UserID)
 	key := strings.Replace(path, fm.SharedVolumeMountPath, userIDPrefix, 1)

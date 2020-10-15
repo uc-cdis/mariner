@@ -112,15 +112,6 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 }
 
 // 2. batch download target s3 paths
-/*
-	paths look like:
-	"/engine-workspace/path/to/file"
-
-	for downloading, need to map that to the actual s3 key:
-	"/userID/path/to/file"
-
-	so, replace "/engine-workspace" with "/userID"
-*/
 func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error) {
 	sess := fm.newS3Session()
 	downloader := s3manager.NewDownloader(sess)
@@ -213,19 +204,10 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 }
 
 // 5. upload output to s3
-/*
-	paths look like:
-	"/engine-workspace/path/to/file"
-
-	for uploading, need to map that to the actual s3 key:
-	"/userID/path/to/file"
-
-	so, replace "/engine-workspace" with "/userID"
-*/
 func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	// collect paths of all files in the task working directory
 	paths := []string{}
-	err = filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
 		paths = append(paths, path)
 		return nil
 	})
@@ -244,7 +226,6 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	var f *os.File
 	var result *s3manager.UploadOutput
 	var wg sync.WaitGroup
-
 	guard := make(chan struct{}, fm.MaxConcurrent)
 	for _, p := range paths {
 		// blocks if guard channel is already full to capacity
@@ -264,7 +245,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			// upload the file contents
 			result, err = uploader.Upload(&s3manager.UploadInput{
 				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String("REPLACEME"), // fix
+				Key:    aws.String(fm.s3Key(path)),
 				Body:   f,
 			})
 			if err != nil {
