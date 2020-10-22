@@ -74,7 +74,7 @@ func Engine(runID string) (err error) {
 		}
 	}()
 
-	if err = engine.loadRequest(runID); err != nil {
+	if err = engine.loadRequest(); err != nil {
 		return engine.errorf("failed to load workflow request: %v", err)
 	}
 	if err = engine.runWorkflow(); err != nil {
@@ -90,10 +90,18 @@ func Engine(runID string) (err error) {
 	return err
 }
 
-// get WorkflowRequest object
-func request(runID string) (*WorkflowRequest, error) {
+// get WorkflowRequestJSON from the run working directory in S3
+// #no-fuse - fetch workflow request from s3 location
+//
+// location of request:
+// s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
+// key is "/$USER_ID/workflowRuns/$RUN_ID/request.json"
+// key format is "/%s/workflowRuns/%s/%s"
+//
+// key := fmt.Sprintf("/%s/workflowRuns/%s/%s", r.UserID, r.JobName, requestFile)
+func (engine *K8sEngine) fetchRequestFromS3() (*WorkflowRequest, error) {
 	request := &WorkflowRequest{}
-	f, err := os.Open(fmt.Sprintf(pathToRequestf, runID))
+	f, err := os.Open(fmt.Sprintf(pathToRequestf, engine.RunID))
 	if err != nil {
 		return request, err
 	}
@@ -127,17 +135,9 @@ func engine(runID string) *K8sEngine {
 	return e
 }
 
-// #no-fuse - fetch workflow request from s3 location
-//
-// location of request:
-// s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
-// key is "/$USER_ID/workflowRuns/$RUN_ID/request.json"
-// key format is "/%s/workflowRuns/%s/%s"
-//
-// key := fmt.Sprintf("/%s/workflowRuns/%s/%s", r.UserID, r.JobName, requestFile)
-func (engine *K8sEngine) loadRequest(runID string) error {
+func (engine *K8sEngine) loadRequest() error {
 	engine.infof("begin load workflow request")
-	request, err := request(runID)
+	request, err := engine.fetchRequestFromS3()
 	if err != nil {
 		return engine.errorf("failed to load workflow request: %v", err)
 	}
