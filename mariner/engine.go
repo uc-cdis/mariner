@@ -52,6 +52,14 @@ type Tool struct {
 	StepInputMap     map[string]*cwl.StepInput
 	ExpressionResult map[string]interface{}
 	Task             *Task
+
+	// dev'ing
+	S3Input *ToolS3Input
+}
+
+// ToolS3Input ..
+type ToolS3Input struct {
+	Paths []string `json:"paths"`
 }
 
 // Engine runs an instance of the mariner engine job
@@ -204,6 +212,9 @@ func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
+		S3Input: &ToolS3Input{
+			Paths: []string{},
+		},
 	}
 	task.infof("end make tool object")
 	return tool

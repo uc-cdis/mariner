@@ -107,6 +107,21 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	return nil
 }
 
+// wrapper around processFile() - collects path of input file and all secondary files
+func (tool *Tool) processFile(f interface{}) (*File, error) {
+	obj, err := processFile(f)
+	if err != nil {
+		return nil, err
+	}
+
+	tool.S3Input.Paths = append(tool.S3Input.Paths, obj.Path)
+	for _, sf := range obj.SecondaryFiles {
+		tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Path)
+	}
+
+	return obj, nil
+}
+
 // called in transformInput() routine
 // handles path prefix issue
 func processFile(f interface{}) (*File, error) {
@@ -163,7 +178,7 @@ func processFile(f interface{}) (*File, error) {
 }
 
 // called in transformInput() routine
-func processFileList(l interface{}) ([]*File, error) {
+func (tool *Tool) processFileList(l interface{}) ([]*File, error) {
 	if reflect.TypeOf(l).Kind() != reflect.Array {
 		return nil, fmt.Errorf("not an array")
 	}
@@ -178,7 +193,7 @@ func processFileList(l interface{}) ([]*File, error) {
 		if !isFile(i) {
 			return nil, fmt.Errorf("nonFile object found in file array: %v", i)
 		}
-		if f, err = processFile(i); err != nil {
+		if f, err = tool.processFile(i); err != nil {
 			return nil, fmt.Errorf("failed to process file %v", i)
 		}
 		out = append(out, f)
@@ -300,11 +315,11 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	*/
 	switch {
 	case isFile(out):
-		if out, err = processFile(out); err != nil {
+		if out, err = tool.processFile(out); err != nil {
 			return nil, tool.Task.errorf("failed to process file: %v; error: %v", out, err)
 		}
 	case isArrayOfFile(out):
-		if out, err = processFileList(out); err != nil {
+		if out, err = tool.processFileList(out); err != nil {
 			return nil, tool.Task.errorf("failed to process file list: %v; error: %v", out, err)
 		}
 	default:
