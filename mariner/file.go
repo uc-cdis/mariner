@@ -136,6 +136,7 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 }
 
 // loads contents of file into the File.Contents field
+// #no-fuse - read from s3, not locally
 func (f *File) loadContents() (err error) {
 	r, err := os.Open(f.Location) // Location field stores full path, no need to handle prefix here
 	if err != nil {

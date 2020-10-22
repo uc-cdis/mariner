@@ -192,6 +192,8 @@ func (tool *Tool) handleCLTOutput() (err error) {
 
 // Glob collects output file(s) for a CLT output parameter after that CLT has run
 // returns an array of files
+//
+// #no-fuse - must glob s3, not locally
 func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
 	tool.Task.infof("begin glob")
 

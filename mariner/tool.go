@@ -61,6 +61,9 @@ func (tool *Tool) initWorkDir() (err error) {
 					// presently not supporting this case - will implement this feature once I find an example to work with
 					tool.Task.errorf("feature not supported: entry expression returned a file object")
 				} else {
+
+					// #no-fuse
+
 					// create tool working dir if it doesn't already exist
 					// might be unnecessary to put here if dir already created earlier in processing this tool - need to check
 					os.MkdirAll(tool.WorkingDir, os.ModePerm)

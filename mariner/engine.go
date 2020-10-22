@@ -346,6 +346,13 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	return nil
 }
 
+// #no-fuse - this has to change!
+// currently, regrettably, expressiontools run "in the engine", not in separate containers
+// need to revisit this in detail
+// figure out if expression tools should be dispatched as jobs
+// or if it's okay that they run "in the engine"
+// probably no actual computation of any kind should run "in the engine"
+// so I think the expressiontool should run as a job, just like commandlinetools
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	engine.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
 	// note: context has already been loaded
