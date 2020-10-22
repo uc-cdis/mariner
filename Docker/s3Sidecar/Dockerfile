@@ -4,10 +4,10 @@ FROM golang:1.12-alpine as build
 RUN apk update && apk add --no-cache git ca-certificates gcc musl-dev
 
 # Build static sidecar binary
-RUN mkdir -p /go/src/github.com/uc-cdis/mariner/sidecar
-WORKDIR /go/src/github.com/uc-cdis/mariner/sidecar
+RUN mkdir -p /go/src/github.com/uc-cdis/mariner
+WORKDIR /go/src/github.com/uc-cdis/mariner
 ADD . .
-RUN go build -ldflags "-linkmode external -extldflags -static" -o /sidecar
+RUN go build -ldflags "-linkmode external -extldflags -static" -o /sidecar ./sidecar/
 
 # we love small images
 FROM scratch
