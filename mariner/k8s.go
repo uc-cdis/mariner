@@ -121,7 +121,7 @@ func engineEnv(r *WorkflowRequest) (env []k8sv1.EnvVar) {
 			Value: r.JobName,
 		},
 		{
-			Name:  "USER_ID",
+			Name:  userIDEnvVar,
 			Value: r.UserID,
 		},
 		{
@@ -310,7 +310,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 			ValueFrom: envVarAWSUserCreds,
 		},
 		{
-			Name:  "USER_ID",
+			Name:  userIDEnvVar,
 			Value: engine.UserID,
 		},
 		{

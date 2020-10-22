@@ -3,13 +3,15 @@ package mariner
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -98,22 +100,30 @@ func Engine(runID string) (err error) {
 // key is "/$USER_ID/workflowRuns/$RUN_ID/request.json"
 // key format is "/%s/workflowRuns/%s/%s"
 //
-// key := fmt.Sprintf("/%s/workflowRuns/%s/%s", r.UserID, r.JobName, requestFile)
+// key := fmt.Sprintf("/%s/workflowRuns/%s/%s", engine.UserID, engine.RunID, requestFile)
 func (engine *K8sEngine) fetchRequestFromS3() (*WorkflowRequest, error) {
-	request := &WorkflowRequest{}
-	f, err := os.Open(fmt.Sprintf(pathToRequestf, engine.RunID))
-	if err != nil {
-		return request, err
+	sess := engine.S3FileManager.newS3Session()
+	downloader := s3manager.NewDownloader(sess)
+	buf := &aws.WriteAtBuffer{}
+
+	key := fmt.Sprintf("/%s/workflowRuns/%s/%s", engine.UserID, engine.RunID, requestFile)
+
+	s3Obj := &s3.GetObjectInput{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Key:    aws.String(key),
 	}
-	b, err := ioutil.ReadAll(f)
+	_, err := downloader.Download(buf, s3Obj)
 	if err != nil {
-		return request, err
+		return nil, fmt.Errorf("failed to download file, %v", err)
 	}
-	err = json.Unmarshal(b, request)
+
+	b := buf.Bytes()
+	r := &WorkflowRequest{}
+	err = json.Unmarshal(b, r)
 	if err != nil {
-		return request, err
+		return nil, fmt.Errorf("error unmarhsalling TaskS3Input: %v", err)
 	}
-	return request, nil
+	return r, nil
 }
 
 // instantiate a K8sEngine object
@@ -123,6 +133,7 @@ func engine(runID string) *K8sEngine {
 		UnfinishedProcs: make(map[string]bool),
 		CleanupProcs:    make(map[CleanupKey]bool),
 		RunID:           runID,
+		UserID:          os.Getenv(userIDEnvVar),
 		Log:             mainLog(fmt.Sprintf(pathToLogf, runID)),
 	}
 
@@ -142,7 +153,6 @@ func (engine *K8sEngine) loadRequest() error {
 		return engine.errorf("failed to load workflow request: %v", err)
 	}
 	engine.Manifest = &request.Manifest
-	engine.UserID = request.UserID
 	engine.Log.Request = request
 	engine.infof("end load workflow request")
 	return nil
