@@ -13,4 +13,4 @@ FROM alpine
 COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /go/src/github.com/uc-cdis/mariner/Docker/engine/engineDockerrun.sh /
 RUN apk update && apk add --no-cache ca-certificates
 
-ENTRYPOINT [ "/bin/sh", "/engineDockerrun.sh" ]
+ENTRYPOINT [ "/mariner", "run", "$RUN_ID" ]
