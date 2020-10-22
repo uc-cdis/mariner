@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
@@ -37,35 +35,9 @@ type MainLogJSON struct {
 	ByProcess map[string]*Log  `json:"byProcess"`
 }
 
-type awsCredentials struct {
-	ID     string `json:"id"`
-	Secret string `json:"secret"`
-}
-
-// for fetching sub-paths of a key, probably - https://docs.aws.amazon.com/sdk-for-go/api/service/s3/#S3.ListObjects
-
-func newS3Session() (*session.Session, error) {
-	secret := []byte(os.Getenv("AWSCREDS")) // probably make this a constant
-	creds := &awsCredentials{}
-	err := json.Unmarshal(secret, creds)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling aws secret: %v", err)
-	}
-	credsConfig := credentials.NewStaticCredentials(creds.ID, creds.Secret, "")
-	awsConfig := &aws.Config{
-		Region:      aws.String(Config.Storage.S3.Region),
-		Credentials: credsConfig,
-	}
-	sess := session.Must(session.NewSession(awsConfig))
-	return sess, nil
-}
-
 // TODO - sort list - latest to oldest request
-func listRuns(userID string) ([]string, error) {
-	sess, err := newS3Session()
-	if err != nil {
-		return nil, err
-	}
+func (server *Server) listRuns(userID string) ([]string, error) {
+	sess := server.S3FileManager.newS3Session()
 	svc := s3.New(sess)
 	prefix := fmt.Sprintf(pathToUserRunsf, userID)
 	query := &s3.ListObjectsV2Input{
@@ -87,11 +59,11 @@ func listRuns(userID string) ([]string, error) {
 
 // split this out into smaller, more atomic functions as soon as it's working - refactor
 // most API endpoint handlers will call this function
-func fetchMainLog(userID, runID string) (*MainLog, error) {
-	sess, err := newS3Session()
-	if err != nil {
-		return nil, err
-	}
+func (server *Server) fetchMainLog(userID, runID string) (*MainLog, error) {
+	var err error
+
+	sess := server.S3FileManager.newS3Session()
+
 	// Create a downloader with the session and default options
 	downloader := s3manager.NewDownloader(sess)
 
@@ -183,16 +155,14 @@ func (mainLog *MainLog) write() error {
 
 	j, err := json.Marshal(mainLogJSON)
 	check(err)
+	// #no-fuse
 	err = ioutil.WriteFile(mainLogJSON.Path, j, 0644)
 	check(err)
 	return nil
 }
 
-func (mainLog *MainLog) serverWrite(userID, runID string) error {
-	sess, err := newS3Session()
-	if err != nil {
-		return err
-	}
+func (server *Server) writeLog(mainLog *MainLog, userID string, runID string) error {
+	sess := server.S3FileManager.newS3Session()
 	// Create an uploader with the session and default options
 	uploader := s3manager.NewUploader(sess)
 

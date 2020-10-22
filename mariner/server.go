@@ -50,8 +50,9 @@ type JWTDecoder interface {
 }
 
 type Server struct {
-	jwtApp JWTDecoder
-	logger *LogHandler
+	jwtApp        JWTDecoder
+	logger        *LogHandler
+	S3FileManager *S3FileManager
 }
 
 // see Arborist's logging.go
@@ -128,7 +129,9 @@ func runServer() {
 	logFlags := log.Ldate | log.Ltime
 	logger := log.New(os.Stdout, "", logFlags)
 	jwtApp := authutils.NewJWTApplication(*jwkEndpoint)
-	server := server().withLogger(logger).withJWTApp(jwtApp)
+	fm := &S3FileManager{}
+	fm.setup()
+	server := server().withLogger(logger).withJWTApp(jwtApp).withS3FileManager(fm)
 	router := server.makeRouter(os.Stdout)
 	addr := fmt.Sprintf(":%d", *port)
 	httpLogger := log.New(os.Stdout, "", log.LstdFlags)
@@ -141,6 +144,11 @@ func runServer() {
 	}
 	httpLogger.Println(fmt.Sprintf("mariner serving at %s", httpServer.Addr))
 	httpLogger.Fatal(httpServer.ListenAndServe())
+}
+
+func (server *Server) withS3FileManager(fm *S3FileManager) *Server {
+	server.S3FileManager = fm
+	return server
 }
 
 func (server *Server) withJWTApp(jwtApp JWTDecoder) *Server {
@@ -191,7 +199,7 @@ func (server *Server) makeRouter(out io.Writer) http.Handler {
 // '/runs/{runID}' - GET
 func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
 	userID, runID := server.uniqueKey(r)
-	j, err := (&RunLogJSON{}).fetchLog(userID, runID)
+	j, err := server.fetchLog(userID, runID)
 	if err != nil {
 		fmt.Println("error fetching log: ", err)
 		// handle
@@ -199,8 +207,9 @@ func (server *Server) handleRunLogGET(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, j)
 }
 
-func (j *RunLogJSON) fetchLog(userID, runID string) (*RunLogJSON, error) {
-	runLog, err := fetchMainLog(userID, runID)
+func (server *Server) fetchLog(userID, runID string) (*RunLogJSON, error) {
+	j := &RunLogJSON{}
+	runLog, err := server.fetchMainLog(userID, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +220,7 @@ func (j *RunLogJSON) fetchLog(userID, runID string) (*RunLogJSON, error) {
 // '/runs/{runID}/status' - GET
 func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request) {
 	userID, runID := server.uniqueKey(r)
-	j, err := (&StatusJSON{}).fetchStatus(userID, runID)
+	j, err := server.fetchStatus(userID, runID)
 	if err != nil {
 		fmt.Println("error fetching status: ", err)
 		// handle
@@ -219,8 +228,9 @@ func (server *Server) handleRunStatusGET(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, j)
 }
 
-func (j *StatusJSON) fetchStatus(userID, runID string) (*StatusJSON, error) {
-	runLog, err := fetchMainLog(userID, runID)
+func (server *Server) fetchStatus(userID, runID string) (*StatusJSON, error) {
+	j := &StatusJSON{}
+	runLog, err := server.fetchMainLog(userID, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +241,7 @@ func (j *StatusJSON) fetchStatus(userID, runID string) (*StatusJSON, error) {
 // '/runs/{runID}/cancel' - POST
 func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request) {
 	userID, runID := server.uniqueKey(r)
-	j, err := (&CancelRunJSON{}).cancelRun(userID, runID)
+	j, err := server.cancelRun(userID, runID)
 	if err != nil {
 		fmt.Println("error cancelling run: ", err)
 	}
@@ -242,10 +252,11 @@ func (server *Server) handleCancelRunPOST(w http.ResponseWriter, r *http.Request
 // i.e., don't return at each possible error - run the whole thing (attempt everything)
 // and return errors at end
 // TODO - LOG this event
-func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) {
+func (server *Server) cancelRun(userID, runID string) (*CancelRunJSON, error) {
+	j := &CancelRunJSON{}
 	j.RunID = runID
 	j.Result = failed
-	runLog, err := fetchMainLog(userID, runID)
+	runLog, err := server.fetchMainLog(userID, runID)
 	if err != nil {
 		return j, err
 	}
@@ -278,7 +289,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 	runLog.Main.Status = cancelled
 
 	// write to logdb
-	runLog.serverWrite(userID, runID)
+	server.writeLog(runLog, userID, runID)
 
 	// then wait til engine job is killed, and kill all associated task jobs
 	go func(runLog *MainLog, jobsClient batchtypev1.JobInterface) {
@@ -323,7 +334,7 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 			fmt.Println("successfully deleted task jobs")
 		}
 		// update logdb with cancelled tasks
-		runLog.serverWrite(userID, runID)
+		server.writeLog(runLog, userID, runID)
 	}(runLog, jobsClient)
 
 	j.Result = success
@@ -333,15 +344,16 @@ func (j *CancelRunJSON) cancelRun(userID, runID string) (*CancelRunJSON, error) 
 // '/runs' - GET
 func (server *Server) handleRunsGET(w http.ResponseWriter, r *http.Request) {
 	userID := server.userID(r)
-	j, err := (&ListRunsJSON{}).fetchRuns(userID)
+	j, err := server.fetchRuns(userID)
 	if err != nil {
 		fmt.Println("error fetching runs: ", err)
 	}
 	writeJSON(w, j)
 }
 
-func (j *ListRunsJSON) fetchRuns(userID string) (*ListRunsJSON, error) {
-	runIDs, err := listRuns(userID)
+func (server *Server) fetchRuns(userID string) (*ListRunsJSON, error) {
+	j := &ListRunsJSON{}
+	runIDs, err := server.listRuns(userID)
 	if err != nil {
 		return nil, err
 	}

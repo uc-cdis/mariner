@@ -126,6 +126,10 @@ func engineEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 			Name:  "USER_ID",
 			Value: r.UserID,
 		},
+		{
+			Name:      "AWSCREDS",
+			ValueFrom: envVarAWSUserCreds,
+		},
 	}
 	return env
 }
