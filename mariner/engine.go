@@ -122,6 +122,14 @@ func engine(runID string) *K8sEngine {
 	return e
 }
 
+// #no-fuse - fetch workflow request from s3 location
+//
+// location of request:
+// s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
+// key is "/$USER_ID/workflowRuns/$RUN_ID/request.json"
+// key format is "/%s/workflowRuns/%s/%s"
+//
+// key := fmt.Sprintf("/%s/workflowRuns/%s/%s", r.UserID, r.JobName, requestFile)
 func (engine *K8sEngine) loadRequest(runID string) error {
 	engine.infof("begin load workflow request")
 	request, err := request(runID)
