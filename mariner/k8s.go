@@ -44,23 +44,14 @@ func engineVolumes() (volumes []k8sv1.Volume) {
 
 // `runID` is the jobName of the engine job
 func engineContainers(workflowRequest *WorkflowRequest, runID string) (containers []k8sv1.Container) {
-	engine := engineContainer(runID)
-	s3sidecar := s3SidecarContainer(workflowRequest, runID)
-	gen3fuse := gen3fuseContainer(&workflowRequest.Manifest, marinerEngine, runID)
-	containers = []k8sv1.Container{*engine, *s3sidecar, *gen3fuse}
+	engine := engineContainer(workflowRequest, runID)
+	containers = []k8sv1.Container{*engine}
 	return containers
 }
 
-func engineContainer(runID string) (container *k8sv1.Container) {
+func engineContainer(workflowRequest *WorkflowRequest, runID string) (container *k8sv1.Container) {
 	container = baseContainer(&Config.Containers.Engine, marinerEngine)
-	container.Env = engineEnv(runID)
-	return container
-}
-
-// for marinerEngine job
-func s3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv1.Container) {
-	container = baseContainer(&Config.Containers.S3sidecar, s3sidecar)
-	container.Env = s3SidecarEnv(request, runID) // for marinerEngine-sidecar
+	container.Env = engineEnv(workflowRequest, runID)
 	return container
 }
 
@@ -107,31 +98,25 @@ func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVa
 	return env
 }
 
-func engineEnv(runID string) (env []k8sv1.EnvVar) {
+// location of request:
+// s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
+//
+// engine needs: 1. userID 2. runID
+//
+//
+// command to run the engine: /mariner run $RUN_ID
+
+/*
+1. server writes s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
+2. launch engine job
+3. engine reads  s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
+*/
+
+func engineEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "GEN3_NAMESPACE",
 			Value: os.Getenv("GEN3_NAMESPACE"),
-		},
-		{
-			Name:  "ENGINE_WORKSPACE",
-			Value: engineWorkspaceVolumeName,
-		},
-		{
-			Name:  "RUN_ID",
-			Value: runID,
-		},
-	}
-	return env
-}
-
-// for marinerEngine job
-func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
-	workflowRequest := struct2String(r)
-	env = []k8sv1.EnvVar{
-		{
-			Name:      "AWSCREDS",
-			ValueFrom: envVarAWSUserCreds,
 		},
 		{
 			Name:  "RUN_ID",
@@ -141,46 +126,7 @@ func s3SidecarEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 			Name:  "USER_ID",
 			Value: r.UserID,
 		},
-		{
-			Name:  "MARINER_COMPONENT",
-			Value: marinerEngine,
-		},
-		{
-			Name:  "WORKFLOW_REQUEST", // body of POST http request made to api
-			Value: workflowRequest,
-		},
-		{
-			Name:  "ENGINE_WORKSPACE",
-			Value: engineWorkspaceVolumeName,
-		},
-		{
-			Name:  "CONFORMANCE_INPUT_S3_PREFIX",
-			Value: conformanceInputS3Prefix,
-		},
-		{
-			Name:  "CONFORMANCE_INPUT_DIR",
-			Value: conformanceVolumeName,
-		},
-		{
-			Name:  "S3_BUCKET_NAME",
-			Value: Config.Storage.S3.Name,
-		},
-		{
-			Name:  "S3_REGION",
-			Value: Config.Storage.S3.Region,
-		},
 	}
-
-	conformanceTestFlag := k8sv1.EnvVar{
-		Name: "CONFORMANCE_TEST",
-	}
-	if r.Tags["conformanceTest"] == "true" {
-		conformanceTestFlag.Value = "true"
-	} else {
-		conformanceTestFlag.Value = "false"
-	}
-
-	env = append(env, conformanceTestFlag)
 	return env
 }
 
