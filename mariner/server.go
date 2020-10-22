@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	batchv1 "k8s.io/api/batch/v1"
@@ -379,6 +381,13 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 	}
 
 	workflowRequest.UserID = server.userID(r)
+
+	err := server.writeWorkflowRequestToS3(workflowRequest)
+	if err != nil {
+		http.Error(w, "failed to write workflow request to s3", 500)
+		return
+	}
+
 	runID, err := dispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
@@ -386,6 +395,26 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 	}
 	j := &RunIDJSON{RunID: runID}
 	writeJSON(w, j)
+}
+
+func (server *Server) writeWorkflowRequestToS3(r *WorkflowRequest) error {
+	sess := server.S3FileManager.newS3Session()
+	uploader := s3manager.NewUploader(sess)
+	b, _ := json.Marshal(r)
+	buf := bytes.NewBuffer(b)
+
+	key := "/userID/workflowRuns/runID/request.json   REPLACEME"
+
+	result, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(server.S3FileManager.S3BucketName),
+		Key:    aws.String(key),
+		Body:   buf,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Println("write workflow request to s3 location:", result.Location)
+	return nil
 }
 
 //// middleware ////
