@@ -136,14 +136,6 @@ var envVarHostname = &k8sv1.EnvVarSource{
 	},
 }
 
-var s3PrestopHook = &k8sv1.Lifecycle{
-	PreStop: &k8sv1.Handler{
-		Exec: &k8sv1.ExecAction{
-			Command: Config.Containers.S3sidecar.Lifecycle.Prestop,
-		},
-	},
-}
-
 // could put in manifest
 var gen3fusePrestopHook = &k8sv1.Lifecycle{
 	PreStop: &k8sv1.Handler{

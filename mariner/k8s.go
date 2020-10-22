@@ -60,7 +60,6 @@ func engineContainer(runID string) (container *k8sv1.Container) {
 // for marinerEngine job
 func s3SidecarContainer(request *WorkflowRequest, runID string) (container *k8sv1.Container) {
 	container = baseContainer(&Config.Containers.S3sidecar, s3sidecar)
-	container.Lifecycle = s3PrestopHook
 	container.Env = s3SidecarEnv(request, runID) // for marinerEngine-sidecar
 	return container
 }
@@ -241,7 +240,6 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Container) {
 	engine.infof("load s3 sidecar container spec for task: %v", tool.Task.Root.ID)
 	container = baseContainer(&Config.Containers.S3sidecar, s3sidecar)
-	container.Lifecycle = s3PrestopHook
 	container.Env = engine.s3SidecarEnv(tool)
 	return container
 }
