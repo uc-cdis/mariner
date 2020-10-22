@@ -29,7 +29,7 @@ func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, error) {
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
 
-	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, workflowRequest.JobName)
+	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest)
 	return workflowJob, nil
 }
 
@@ -41,16 +41,15 @@ func engineVolumes() (volumes []k8sv1.Volume) {
 	return volumes
 }
 
-// `runID` is the jobName of the engine job
-func engineContainers(workflowRequest *WorkflowRequest, runID string) (containers []k8sv1.Container) {
-	engine := engineContainer(workflowRequest, runID)
+func engineContainers(workflowRequest *WorkflowRequest) (containers []k8sv1.Container) {
+	engine := engineContainer(workflowRequest)
 	containers = []k8sv1.Container{*engine}
 	return containers
 }
 
-func engineContainer(workflowRequest *WorkflowRequest, runID string) (container *k8sv1.Container) {
+func engineContainer(workflowRequest *WorkflowRequest) (container *k8sv1.Container) {
 	container = baseContainer(&Config.Containers.Engine, marinerEngine)
-	container.Env = engineEnv(workflowRequest, runID)
+	container.Env = engineEnv(workflowRequest)
 	return container
 }
 
@@ -111,7 +110,7 @@ func gen3fuseEnv(m *Manifest, component string, runID string) (env []k8sv1.EnvVa
 3. engine reads  s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
 */
 
-func engineEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
+func engineEnv(r *WorkflowRequest) (env []k8sv1.EnvVar) {
 	env = []k8sv1.EnvVar{
 		{
 			Name:  "GEN3_NAMESPACE",
@@ -119,7 +118,7 @@ func engineEnv(r *WorkflowRequest, runID string) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "RUN_ID",
-			Value: runID,
+			Value: r.JobName,
 		},
 		{
 			Name:  "USER_ID",
