@@ -1,19 +1,17 @@
 FROM golang:1.12-alpine as build
 
-RUN apk update && apk add --no-cache git 
+# Install SSL certificates
+RUN apk update && apk add --no-cache git ca-certificates gcc musl-dev
 
-# install goofys
-RUN go get github.com/kahing/goofys
-
-# get bash script from mariner repo
-RUN mkdir -p /go/src/github.com/uc-cdis/mariner
-WORKDIR /go/src/github.com/uc-cdis/mariner
+# Build static sidecar binary
+RUN mkdir -p /go/src/github.com/uc-cdis/mariner/sidecar
+WORKDIR /go/src/github.com/uc-cdis/mariner/sidecar
 ADD . .
+RUN go build -ldflags "-linkmode external -extldflags -static" -o /sidecar
 
-# work from small python:alpine image
-FROM python:alpine
-COPY --from=build /go/src/github.com/uc-cdis/mariner/Docker/s3Sidecar/s3sidecarDockerrun.sh /go/bin/goofys /
-RUN apk update && apk add --no-cache fuse jq ca-certificates
-RUN pip install awscli
+# we love small images
+FROM scratch
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=build /sidecar /
 
-ENTRYPOINT [ "/bin/sh", "/s3sidecarDockerrun.sh" ]
+ENTRYPOINT ["/sidecar"]
