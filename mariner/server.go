@@ -381,6 +381,7 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 	}
 
 	workflowRequest.UserID = server.userID(r)
+	workflowRequest.JobName = createJobName()
 
 	err := server.writeWorkflowRequestToS3(workflowRequest)
 	if err != nil {
@@ -388,12 +389,12 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	runID, err := dispatchWorkflowJob(workflowRequest)
+	err = dispatchWorkflowJob(workflowRequest)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	j := &RunIDJSON{RunID: runID}
+	j := &RunIDJSON{RunID: workflowRequest.JobName}
 	writeJSON(w, j)
 }
 
@@ -403,7 +404,12 @@ func (server *Server) writeWorkflowRequestToS3(r *WorkflowRequest) error {
 	b, _ := json.Marshal(r)
 	buf := bytes.NewBuffer(b)
 
-	key := "/userID/workflowRuns/runID/request.json   REPLACEME"
+	// location of request:
+	// s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
+	// key is "/$USER_ID/workflowRuns/$RUN_ID/request.json"
+	// key format is "/%s/workflowRuns/%s/%s"
+
+	key := fmt.Sprintf("/%s/workflowRuns/%s/%s", r.UserID, r.JobName, requestFile)
 
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(server.S3FileManager.S3BucketName),

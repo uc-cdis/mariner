@@ -21,17 +21,16 @@ import (
 ////// marinerEngine -> //////
 
 // returns fully populated job spec for the workflow job (i.e, an instance of mariner-engine)
-func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, string, error) {
+func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, error) {
 
 	// get job spec all populated except for pod volumes and containers
-	workflowJob := jobSpec(marinerEngine, workflowRequest.UserID)
-	workflowRequest.JobName = workflowJob.GetName()
+	workflowJob := jobSpec(marinerEngine, workflowRequest.UserID, workflowRequest.JobName)
 
 	// fill in the rest of the spec
 	workflowJob.Spec.Template.Spec.Volumes = engineVolumes()
 
 	workflowJob.Spec.Template.Spec.Containers = engineContainers(workflowRequest, workflowRequest.JobName)
-	return workflowJob, workflowRequest.JobName, nil
+	return workflowJob, nil
 }
 
 // returns volumes field for workflow/engine job spec
@@ -150,9 +149,8 @@ type TokenUser struct {
 
 func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
 	engine.infof("begin load job spec for task: %v", tool.Task.Root.ID)
-	jobName := tool.jobName()
-	tool.JobName = jobName
-	job = jobSpec(marinerTask, engine.UserID)
+	tool.JobName = createJobName()
+	job = jobSpec(marinerTask, engine.UserID, tool.JobName)
 
 	if engine.Log.Request.ServiceAccountName != "" {
 		job.Spec.Template.Spec.ServiceAccountName = engine.Log.Request.ServiceAccountName
@@ -517,13 +515,12 @@ func workflowVolumes() []k8sv1.Volume {
 }
 
 // returns marinerEngine/marinerTask job spec with all fields populated EXCEPT volumes and containers
-func jobSpec(component string, userID string) (job *batchv1.Job) {
+func jobSpec(component string, userID string, jobName string) (job *batchv1.Job) {
 
 	jobConfig := Config.jobConfig(component)
 	job = new(batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
-	jobName := createJobName()
 	job.Name, job.Labels = jobName, jobConfig.Labels
 	job.Spec.Template.Name, job.Spec.Template.Labels = jobName, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()

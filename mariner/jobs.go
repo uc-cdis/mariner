@@ -31,31 +31,31 @@ type JobInfo struct {
 
 // DispatchWorkflowJob runs a workflow provided in mariner api request
 // TODO - decide on an approach to error handling, and apply it uniformly
-func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err error) {
+func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (err error) {
 	// get connection to cluster in order to dispatch jobs
 	jobsClient, _, _, err := k8sClient(k8sJobAPI)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// create the workflow job spec (i.e., mariner-engine job spec)
 	// `runID` is the jobName of the engine job
-	jobSpec, runID, err := workflowJob(workflowRequest)
+	jobSpec, err := workflowJob(workflowRequest)
 	if err != nil {
-		return "", fmt.Errorf("failed to create workflow job spec: %v", err)
+		return fmt.Errorf("failed to create workflow job spec: %v", err)
 	}
 
 	// tell k8s to run this job
 	workflowJob, err := jobsClient.Create(jobSpec)
 	if err != nil {
-		return "", fmt.Errorf("failed to create workflow job: %v", err)
+		return fmt.Errorf("failed to create workflow job: %v", err)
 	}
 
 	// #logs
 	fmt.Println("\tSuccessfully created workflow job.")
 	fmt.Printf("\tNew job name: %v\n", workflowJob.Name)
 	fmt.Printf("\tNew job UID: %v\n", workflowJob.GetUID())
-	return runID, nil
+	return nil
 }
 
 func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label string) error {
@@ -176,7 +176,6 @@ func (engine *K8sEngine) dispatchTaskJob(tool *Tool) error {
 
 	// probably can make this nicer to look at
 	tool.JobID = string(newJob.GetUID())
-	tool.JobName = newJob.Name
 
 	tool.Task.Log.JobID = tool.JobID
 	tool.Task.Log.JobName = tool.JobName
