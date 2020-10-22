@@ -24,6 +24,7 @@ import (
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
 	sync.RWMutex    `json:"-"`
+	S3FileManager   *S3FileManager
 	TaskSequence    []string            // for testing purposes
 	UnfinishedProcs map[string]bool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   map[string]bool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
@@ -117,8 +118,12 @@ func engine(runID string) *K8sEngine {
 		Log:             mainLog(fmt.Sprintf(pathToLogf, runID)),
 	}
 
-	// note: check if log already exists - if yes, then this is a 'restart'
-
+	fm := &S3FileManager{}
+	if err := fm.setup(); err != nil {
+		// debug
+		fmt.Println("FAILED TO SETUP S3FILEMANAGER")
+	}
+	e.S3FileManager = fm
 	return e
 }
 
