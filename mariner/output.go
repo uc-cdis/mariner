@@ -52,7 +52,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 			tool.Task.infof("begin load file contents")
 			for _, fileObj := range results {
 				tool.Task.infof("begin load contents for file :%v", fileObj.Path)
-				err = fileObj.loadContents()
+				err = engine.loadContents(fileObj)
 				if err != nil {
 					return tool.Task.errorf("%v", err)
 				}

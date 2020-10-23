@@ -1,12 +1,14 @@
 package mariner
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 // this file contains code for handling/processing file objects
@@ -37,6 +39,7 @@ type File struct {
 	DirName        string  `json:"dirname"`        // name of directory containing the file
 	Contents       string  `json:"contents"`       // first 64 KiB of file as a string, if loadContents is true
 	SecondaryFiles []*File `json:"secondaryFiles"` // array of secondaryFiles
+	// S3Key          string  `json:"-"`
 }
 
 // instantiates a new file object given a filepath
@@ -135,26 +138,43 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 	return nil
 }
 
+func (engine *K8sEngine) localPathToS3Key(path string) string {
+	return strings.Replace(path, engineWorkspaceVolumeName, engine.UserID, 1)
+}
+
 // loads contents of file into the File.Contents field
 // #no-fuse - read from s3, not locally
-func (f *File) loadContents() (err error) {
-	r, err := os.Open(f.Location) // Location field stores full path, no need to handle prefix here
-	if err != nil {
-		return err
-	}
+func (engine *K8sEngine) loadContents(f *File) (err error) {
+
+	sess := engine.S3FileManager.newS3Session()
+	downloader := s3manager.NewDownloader(sess)
+
+	// Location field stores full path, no need to handle prefix here
+	s3Key := engine.localPathToS3Key(f.Location)
+
+	// Create a buffer to write the S3 Object contents to.
+	// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
+	buf := &aws.WriteAtBuffer{}
+
 	// read up to 64 KiB from file, as specified in CWL docs
 	// 1 KiB is 1024 bytes -> 64 KiB is 65536 bytes
-	contents := make([]byte, 65536, 65536)
-	_, err = r.Read(contents)
-	if err != nil && err != io.EOF {
-		fmt.Printf("error reading file contents: %v", err)
-		return err
+	//
+	// S3 sdk supports specifying byte ranges
+	// in this way: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
+
+	// Write the contents of S3 Object to the buffer
+	s3Obj := &s3.GetObjectInput{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Key:    aws.String(s3Key),
+		Range:  aws.String(fmt.Sprintf("bytes=%v-%v", 0, 65536)),
 	}
-	// trim trailing null bytes if less than 65536 bytes were read
-	contents = bytes.TrimRight(contents, "\u0000")
+	_, err = downloader.Download(buf, s3Obj)
+	if err != nil {
+		return fmt.Errorf("failed to download file, %v", err)
+	}
 
 	// populate File.Contents field with contents
-	f.Contents = string(contents)
+	f.Contents = string(buf.Bytes())
 	return nil
 }
 
