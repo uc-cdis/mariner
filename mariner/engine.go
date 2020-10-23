@@ -201,7 +201,7 @@ func (engine *K8sEngine) finishTask(task *Task) {
 
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
-	engine.Log.finish(task)
+	engine.finishTaskLog(task)
 
 	// task.Lock()
 	task.Done = &trueVal // #race #ok
@@ -215,7 +215,7 @@ func (engine *K8sEngine) startTask(task *Task) {
 	engine.UnfinishedProcs[task.Root.ID] = true // #race #ok
 	engine.Unlock()
 
-	engine.Log.start(task)
+	engine.startTaskLog(task)
 }
 
 func (engine *K8sEngine) collectOutput(tool *Tool) error {

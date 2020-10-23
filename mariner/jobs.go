@@ -143,7 +143,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 		}
 
 		// update logdb
-		engine.Log.write()
+		engine.writeLogToS3()
 
 		// wait out sampling period duration to next sample
 		time.Sleep(metricsSamplingPeriod * time.Second)

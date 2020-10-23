@@ -124,7 +124,7 @@ func check(err error) {
 	}
 }
 
-func (mainLog *MainLog) write() error {
+func (engine *K8sEngine) writeLogToS3() error {
 	// apply/update timestamps on the main log
 	// not sure if I should collect timestamps of all writes
 	// or just the times of first write and latest writes
@@ -144,20 +144,32 @@ func (mainLog *MainLog) write() error {
 		log.Engine.LastUpdated = t
 	*/
 
-	mainLog.RLock()
-	defer mainLog.RUnlock()
-	mainLogJSON := MainLogJSON{
-		Path:      mainLog.Path,
-		Request:   mainLog.Request,
-		Main:      mainLog.Main,
-		ByProcess: mainLog.ByProcess,
-	}
+	engine.Log.RLock()
+	defer engine.Log.RUnlock()
 
+	sess := engine.S3FileManager.newS3Session()
+	uploader := s3manager.NewUploader(sess)
+
+	mainLogJSON := MainLogJSON{
+		Path:      engine.Log.Path,
+		Request:   engine.Log.Request,
+		Main:      engine.Log.Main,
+		ByProcess: engine.Log.ByProcess,
+	}
 	j, err := json.Marshal(mainLogJSON)
 	check(err)
-	// #no-fuse
-	err = ioutil.WriteFile(mainLogJSON.Path, j, 0644)
-	check(err)
+
+	objKey := fmt.Sprintf(pathToUserRunLogf, engine.UserID, engine.RunID)
+
+	_, err = uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(Config.Storage.S3.Name),
+		Key:    aws.String(objKey),
+		Body:   bytes.NewReader(j),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file, %v", err)
+	}
+
 	return nil
 }
 
@@ -173,7 +185,6 @@ func (server *Server) writeLog(mainLog *MainLog, userID string, runID string) er
 		ByProcess: mainLog.ByProcess,
 	}
 	j, err := json.Marshal(mainLogJSON)
-
 	check(err)
 
 	objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
@@ -201,18 +212,18 @@ func (server *Server) writeLog(mainLog *MainLog, userID string, runID string) er
 // ----- should be fine
 // ----- for now: log container image pulled for task
 type Log struct {
-	Created        string                 `json:"created,omitempty"`     // okay - timezone???
-	CreatedObj     time.Time              `json:"-"`                     // okay
-	LastUpdated    string                 `json:"lastUpdated,omitempty"` // okay - timezone???
-	LastUpdatedObj time.Time              `json:"-"`                     // okay
-	JobID          string                 `json:"jobID,omitempty"`       // okay
-	JobName        string                 `json:"jobName,omitempty"`     // keeping for now, but might be redundant w jobID
+	Created        string                 `json:"created,omitempty"` // timezone???
+	CreatedObj     time.Time              `json:"-"`
+	LastUpdated    string                 `json:"lastUpdated,omitempty"` // timezone???
+	LastUpdatedObj time.Time              `json:"-"`
+	JobID          string                 `json:"jobID,omitempty"`
+	JobName        string                 `json:"jobName,omitempty"`
 	ContainerImage string                 `json:"containerImage,omitempty"`
-	Status         string                 `json:"status"`             // okay
-	Stats          *Stats                 `json:"stats"`              // TODO
-	Event          *EventLog              `json:"eventLog,omitempty"` // TODO
-	Input          map[string]interface{} `json:"input"`              // TODO for workflow; okay for task
-	Output         map[string]interface{} `json:"output"`             // okay
+	Status         string                 `json:"status"`
+	Stats          *Stats                 `json:"stats"`
+	Event          *EventLog              `json:"eventLog,omitempty"`
+	Input          map[string]interface{} `json:"input"`
+	Output         map[string]interface{} `json:"output"`
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
 }
 
@@ -226,15 +237,15 @@ func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
 }
 
 // called when a task is run
-func (mainLog *MainLog) start(task *Task) {
+func (engine *K8sEngine) startTaskLog(task *Task) {
 	task.Log.start()
-	mainLog.write()
+	engine.writeLogToS3()
 }
 
 // called when a task finishes running
-func (mainLog *MainLog) finish(task *Task) {
+func (engine *K8sEngine) finishTaskLog(task *Task) {
 	task.Log.finish()
-	mainLog.write()
+	engine.writeLogToS3()
 }
 
 // called when a task finishes running
@@ -311,18 +322,18 @@ type EventLog struct {
 // update log (i.e., write to log file) each time there's an error, to capture point of failure
 func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
 	err := engine.Log.Main.Event.errorf(f, v...)
-	engine.Log.write()
+	engine.writeLogToS3()
 	return err
 }
 
 func (engine *K8sEngine) warnf(f string, v ...interface{}) {
 	engine.Log.Main.Event.warnf(f, v...)
-	engine.Log.write()
+	engine.writeLogToS3()
 }
 
 func (engine *K8sEngine) infof(f string, v ...interface{}) {
 	engine.Log.Main.Event.infof(f, v...)
-	engine.Log.write()
+	engine.writeLogToS3()
 }
 
 func (task *Task) errorf(f string, v ...interface{}) error {

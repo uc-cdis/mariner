@@ -224,7 +224,7 @@ func (engine *K8sEngine) runWorkflow() error {
 	}
 
 	engine.infof("end run workflow")
-	engine.Log.write()
+	engine.writeLogToS3()
 	return nil
 }
 
