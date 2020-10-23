@@ -93,7 +93,6 @@ func Engine(runID string) (err error) {
 }
 
 // get WorkflowRequestJSON from the run working directory in S3
-// #no-fuse - fetch workflow request from s3 location
 //
 // location of request:
 // s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
@@ -218,11 +217,37 @@ func (engine *K8sEngine) startTask(task *Task) {
 	engine.startTaskLog(task)
 }
 
-func (engine *K8sEngine) collectOutput(tool *Tool) error {
+// collectOutput collects the output for a tool after the tool has run
+// output parameter values get set, and the outputs parameter object gets stored in tool.Task.Outputs
+// if the outputs of this process are the inputs of another process,
+// then the output parameter object of this process (the Task.Outputs field)
+// gets assigned as the input parameter object of that other process (the Task.Parameters field)
+// ---
+// may be a good idea to make different types for CLT and ExpressionTool
+// and use Tool as an interface, so we wouldn't have to split cases like this
+//  -> could just call one method in one line on a tool interface
+// i.e., CollectOutput() should be a method on type CommandLineTool and on type ExpressionTool
+// would bypass all this case-handling
+// TODO: implement CommandLineTool and ExpressionTool types and their methods, as well as the Tool interface
+// ---
+// NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
+// ----- no binding provided -> output won't be collected
+func (engine *K8sEngine) collectOutput(tool *Tool) (err error) {
 	engine.infof("begin collect output for task: %v", tool.Task.Root.ID)
-	if err := tool.collectOutput(); err != nil {
-		return engine.errorf("failed to collect output for tool: %v; error: %v", tool.Task.Root.ID, err)
+	tool.Task.infof("begin collect output")
+	switch class := tool.Task.Root.Class; class {
+	case CWLCommandLineTool:
+		if err = tool.handleCLTOutput(); err != nil {
+			return tool.Task.errorf("%v", err)
+		}
+	case CWLExpressionTool:
+		if err = tool.handleETOutput(); err != nil {
+			return tool.Task.errorf("%v", err)
+		}
+	default:
+		return tool.Task.errorf("unexpected class: %v", class)
 	}
+	tool.Task.infof("end collect output")
 	engine.infof("end collect output for task: %v", tool.Task.Root.ID)
 	return nil
 }
