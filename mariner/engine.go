@@ -237,11 +237,11 @@ func (engine *K8sEngine) collectOutput(tool *Tool) (err error) {
 	tool.Task.infof("begin collect output")
 	switch class := tool.Task.Root.Class; class {
 	case CWLCommandLineTool:
-		if err = tool.handleCLTOutput(); err != nil {
+		if err = engine.handleCLTOutput(tool); err != nil {
 			return tool.Task.errorf("%v", err)
 		}
 	case CWLExpressionTool:
-		if err = tool.handleETOutput(); err != nil {
+		if err = engine.handleETOutput(tool); err != nil {
 			return tool.Task.errorf("%v", err)
 		}
 	default:

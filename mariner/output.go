@@ -17,7 +17,7 @@ import (
 // for now, no binding -> output won't be collected
 //
 // fixme: refactor, break into smaller pieces/functions
-func (tool *Tool) handleCLTOutput() (err error) {
+func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 	tool.Task.infof("begin handle CommandLineTool output")
 	for _, output := range tool.Task.Root.Outputs {
 		tool.Task.infof("begin handle output param: %v", output.ID)
@@ -217,7 +217,7 @@ func (tool *Tool) pattern(glob string) (pattern string, err error) {
 // where the keys are the IDs of the expressionTool output params
 // see `expression` field description here:
 // https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
-func (tool *Tool) handleETOutput() error {
+func (engine *K8sEngine) handleETOutput(tool *Tool) error {
 	tool.Task.infof("begin handle ExpressionTool output")
 	for _, output := range tool.Task.Root.Outputs {
 		// get "output" from "#expressiontool_test.cwl/output"
