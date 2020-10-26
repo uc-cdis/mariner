@@ -107,8 +107,8 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		go func(path string) {
 			defer wg.Done()
 
-			// open file for writing
-			f, err = os.Open(path)
+			// create/open file for writing
+			f, err = os.Create(path)
 			if err != nil {
 				fmt.Println("failed to open file:", err)
 			}
