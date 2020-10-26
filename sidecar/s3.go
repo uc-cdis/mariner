@@ -56,7 +56,7 @@ func (fm *S3FileManager) setup() (err error) {
 	fm.UserID = os.Getenv(userIDEnvVar)
 
 	// "/engine-workspace"
-	fm.SharedVolumeMountPath = fmt.Sprintf("/%v", sharedVolumeNameEnvVar)
+	fm.SharedVolumeMountPath = fmt.Sprintf("/%v", os.Getenv(sharedVolumeNameEnvVar))
 
 	fm.TaskWorkingDir = os.Getenv(taskWorkingDirEnvVar)
 
