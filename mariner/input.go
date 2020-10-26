@@ -113,12 +113,14 @@ func (tool *Tool) processFile(f interface{}) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	tool.S3Input.Paths = append(tool.S3Input.Paths, obj.Path)
-	for _, sf := range obj.SecondaryFiles {
-		tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Path)
+	if !strings.HasPrefix(obj.Path, pathToCommonsData) {
+		tool.S3Input.Paths = append(tool.S3Input.Paths, obj.Path)
 	}
-
+	for _, sf := range obj.SecondaryFiles {
+		if !strings.HasPrefix(sf.Path, pathToCommonsData) {
+			tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Path)
+		}
+	}
 	return obj, nil
 }
 
