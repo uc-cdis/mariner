@@ -401,8 +401,10 @@ func (server *Server) handleRunsPOST(w http.ResponseWriter, r *http.Request) {
 func (server *Server) writeWorkflowRequestToS3(r *WorkflowRequest) error {
 	sess := server.S3FileManager.newS3Session()
 	uploader := s3manager.NewUploader(sess)
-	b, _ := json.Marshal(r)
-	buf := bytes.NewBuffer(b)
+	b, err := json.Marshal(r)
+	if err != nil {
+		return fmt.Errorf("failed to marshal workflow request to json: %v", err)
+	}
 
 	// location of request:
 	// s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
@@ -414,12 +416,12 @@ func (server *Server) writeWorkflowRequestToS3(r *WorkflowRequest) error {
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(server.S3FileManager.S3BucketName),
 		Key:    aws.String(key),
-		Body:   buf,
+		Body:   bytes.NewReader(b),
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("upload workflow request to s3 failed: %v", err)
 	}
-	fmt.Println("write workflow request to s3 location:", result.Location)
+	fmt.Println("wrote workflow request to s3 location:", result.Location)
 	return nil
 }
 

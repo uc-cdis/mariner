@@ -1,10 +1,12 @@
 package mariner
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -174,7 +176,7 @@ func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 	tool := task.tool(engine.RunID) // #race #ok
 	engine.Unlock()
 
-	err = tool.setupTool()
+	err = engine.setupTool(tool)
 	if err != nil {
 		return engine.errorf("failed to setup tool: %v; error: %v", task.Root.ID, err)
 	}
@@ -295,26 +297,43 @@ func (task *Task) workingDir(runID string) string {
 	return dir
 }
 
-// create working directory for this Tool
-func (tool *Tool) makeWorkingDir() error {
-	tool.Task.infof("begin make tool working dir")
-	if err := os.MkdirAll(tool.WorkingDir, 0777); err != nil {
-		return tool.Task.errorf("%v", err)
+func (engine *K8sEngine) writeFileInputListToS3(tool *Tool) error {
+	tool.Task.infof("being write file input list to s3")
+	sess := engine.S3FileManager.newS3Session()
+	uploader := s3manager.NewUploader(sess)
+
+	key := filepath.Join(engine.S3FileManager.s3Key(tool.WorkingDir, engine.UserID), inputFileListName)
+
+	b, err := json.Marshal(tool.S3Input)
+	if err != nil {
+		return fmt.Errorf("failed to marshal json: %v", err)
 	}
-	tool.Task.infof("end make tool working dir")
+
+	result, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(b),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file list to s3")
+	}
+	fmt.Println("wrote input file list to s3 location:", result.Location)
+	tool.Task.infof("end write file input list to s3")
 	return nil
 }
 
 // performs some setup for a Tool to prepare for the engine to run the Tool
-func (tool *Tool) setupTool() (err error) {
+func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 	tool.Task.infof("begin setup tool")
-	if err = tool.makeWorkingDir(); err != nil {
-		return tool.Task.errorf("failed to make working dir: %v", err)
-	}
 
 	// pass parameter values to input.Provided for each input
 	if err = tool.loadInputs(); err != nil {
 		return tool.Task.errorf("failed to load inputs: %v", err)
+	}
+
+	// write list of input files to tool "working directory" in S3
+	if err = engine.writeFileInputListToS3(tool); err != nil {
+		return tool.Task.errorf("failed to write file input list to s3: %v", err)
 	}
 
 	// loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
