@@ -150,7 +150,7 @@ func (fm *S3FileManager) signalTaskToRun() error {
 	cmd := os.Getenv("TOOL_COMMAND")
 	pathToTaskCommand := filepath.Join(fm.TaskWorkingDir, "run.sh")
 
-	f, err := os.Open(pathToTaskCommand)
+	f, err := os.Create(pathToTaskCommand)
 	defer f.Close()
 	if err != nil {
 		return err
