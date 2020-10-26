@@ -100,7 +100,7 @@ func loadAWSConfig() (*aws.Config, error) {
 	}
 	credsConfig := credentials.NewStaticCredentials(creds.ID, creds.Secret, "")
 	awsConfig := &aws.Config{
-		Region:      aws.String(s3RegionEnvVar),
+		Region:      aws.String(os.Getenv(s3RegionEnvVar)),
 		Credentials: credsConfig,
 	}
 	return awsConfig, nil
