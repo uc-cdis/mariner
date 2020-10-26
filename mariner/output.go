@@ -1,10 +1,12 @@
 package mariner
 
 import (
-	"os"
+	"fmt"
 	"path/filepath"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -39,7 +41,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 
 		// 1. Glob - prefixissue
 		if len(output.Binding.Glob) > 0 {
-			results, err = tool.glob(&output)
+			results, err = engine.glob(tool, &output)
 			if err != nil {
 				return tool.Task.errorf("%v", err)
 			}
@@ -117,6 +119,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 						}
 
 						// TODO: check if resulting secondaryFile actually exists (should encapsulate this to a function)
+						// UPDATE: you can do that with this: engine.fileExists(sFilePath)
 
 						// get file object for secondaryFile and append it to the output file's SecondaryFiles field
 						sFileObj := fileObject(sFilePath)
@@ -127,7 +130,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 					// follow those two steps indicated at the bottom of the secondaryFiles field description
 					suffix, carats := trimLeading(val, "^")
 					for _, fileObj := range results {
-						tool.loadSFilesFromPattern(fileObj, suffix, carats)
+						engine.loadSFilesFromPattern(tool, fileObj, suffix, carats)
 					}
 				}
 			}
@@ -161,11 +164,8 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 // returns an array of files
 //
 // #no-fuse - must glob s3, not locally
-func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
+func (engine *K8sEngine) glob(tool *Tool, output *cwl.Output) (results []*File, err error) {
 	tool.Task.infof("begin glob")
-
-	os.Chdir("/") // always glob from root (?)
-
 	var pattern string
 	for _, glob := range output.Binding.Glob {
 
@@ -174,18 +174,65 @@ func (tool *Tool) glob(output *cwl.Output) (results []*File, err error) {
 			return results, tool.Task.errorf("%v", err)
 		}
 
-		paths, err := filepath.Glob(tool.WorkingDir + pattern)
+		/*
+			paths, err := filepath.Glob(tool.WorkingDir + pattern)
+			if err != nil {
+				return results, tool.Task.errorf("%v", err)
+			}
+		*/
+
+		paths, err := engine.globS3(tool, pattern)
 		if err != nil {
 			return results, tool.Task.errorf("%v", err)
 		}
+
 		for _, path := range paths {
 			fileObj := fileObject(path) // these are full paths, so no need to add working dir to path
 			results = append(results, fileObj)
 		}
 	}
-	os.Chdir(tool.WorkingDir)
 	tool.Task.infof("end glob")
 	return results, nil
+}
+
+/*
+	(get list of all files in the tool's working dir)
+	s3 ls --recursive <tool_working_dir>
+
+	then filter that list by the glob pattern
+	your resulting path list
+	consists of all the paths in the working dir which match the pattern
+
+	use this:
+	https://golang.org/pkg/path/filepath/#Match
+*/
+func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
+	svc := s3.New(engine.S3FileManager.newS3Session())
+	objectList, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Prefix: aws.String(engine.localPathToS3Key(tool.WorkingDir)),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list keys from tool working dir in s3: %v", err)
+	}
+
+	fullPattern := filepath.Join(engine.localPathToS3Key(tool.WorkingDir), pattern)
+
+	var key string
+	var match bool
+	globResults := []string{}
+	for _, obj := range objectList.Contents {
+		// match key against pattern
+		key = *obj.Key
+		match, err = filepath.Match(fullPattern, key)
+		if err != nil {
+			return nil, fmt.Errorf("glob pattern matching failed: %v", err)
+		}
+		if match {
+			globResults = append(globResults, key)
+		}
+	}
+	return globResults, nil
 }
 
 func (tool *Tool) pattern(glob string) (pattern string, err error) {

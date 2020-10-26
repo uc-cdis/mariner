@@ -100,7 +100,7 @@ func trimLeading(s string, char string) (suffix string, count int) {
 
 // creates File object for secondaryFile and loads into fileObj.SecondaryFiles field
 // unsure of where/what to check here to potentially return an error
-func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int) (err error) {
+func (engine *K8sEngine) loadSFilesFromPattern(tool *Tool, fileObj *File, suffix string, carats int) (err error) {
 	tool.Task.infof("begin load secondaryFiles from pattern for file: %v", fileObj.Path)
 
 	path := fileObj.Location // full path -> no need to handle prefix issue here
@@ -116,7 +116,8 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 	// check whether file exists
 	// fixme: decide how to handle case of secondaryFiles that don't exist - warning or error? still append file obj to list or not?
 	// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
-	fileExists, err := exists(path)
+	// #no-fuse
+	fileExists, err := engine.fileExists(path)
 	switch {
 	case fileExists:
 		// the secondaryFile exists
@@ -138,8 +139,24 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 	return nil
 }
 
+// check if this path exists in S3
+func (engine *K8sEngine) fileExists(path string) (bool, error) {
+	svc := s3.New(engine.S3FileManager.newS3Session())
+	objectList, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Prefix: aws.String(engine.localPathToS3Key(path)),
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to list s3 objects: %v", err)
+	}
+	if len(objectList.Contents) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (engine *K8sEngine) localPathToS3Key(path string) string {
-	return strings.Replace(path, engineWorkspaceVolumeName, engine.UserID, 1)
+	return engine.S3FileManager.s3Key(path, engine.UserID)
 }
 
 // loads contents of file into the File.Contents field

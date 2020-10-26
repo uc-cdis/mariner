@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -100,30 +98,6 @@ func mainLog(path string) *MainLog {
 	return log
 }
 
-func showLog(path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		fmt.Printf("error opening log: %v\n", err)
-	}
-	b, err := ioutil.ReadAll(f)
-	if err != nil {
-		fmt.Printf("error reading log: %v\n", err)
-	}
-	j := &MainLog{}
-	err = json.Unmarshal(b, j)
-	if err != nil {
-		fmt.Printf("error unmarshalling log: %v\n", err)
-	}
-	printJSON(j)
-}
-
-// tmp, for debugging mostly, though could/should adapt for complete error handling interface
-func check(err error) {
-	if err != nil {
-		fmt.Printf("error: %v\n", err)
-	}
-}
-
 func (engine *K8sEngine) writeLogToS3() error {
 	// apply/update timestamps on the main log
 	// not sure if I should collect timestamps of all writes
@@ -157,7 +131,9 @@ func (engine *K8sEngine) writeLogToS3() error {
 		ByProcess: engine.Log.ByProcess,
 	}
 	j, err := json.Marshal(mainLogJSON)
-	check(err)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log to json: %v", err)
+	}
 
 	objKey := fmt.Sprintf(pathToUserRunLogf, engine.UserID, engine.RunID)
 
@@ -185,7 +161,9 @@ func (server *Server) writeLog(mainLog *MainLog, userID string, runID string) er
 		ByProcess: mainLog.ByProcess,
 	}
 	j, err := json.Marshal(mainLogJSON)
-	check(err)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log to json: %v", err)
+	}
 
 	objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
 

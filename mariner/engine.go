@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -88,9 +87,6 @@ func Engine(runID string) (err error) {
 	// turning off file cleanup because it's busted and must be fixed
 	// engine.basicCleanup()
 
-	if err = done(runID); err != nil {
-		return engine.errorf("failed to signal engine completion to sidecar containers: %v", err)
-	}
 	return err
 }
 
@@ -156,15 +152,6 @@ func (engine *K8sEngine) loadRequest() error {
 	engine.Manifest = &request.Manifest
 	engine.Log.Request = request
 	engine.infof("end load workflow request")
-	return nil
-}
-
-// tell sidecar containers the workflow is done running so the engine job can finish
-func done(runID string) error {
-	if _, err := os.Create(fmt.Sprintf(pathToDonef, runID)); err != nil {
-		return err
-	}
-	time.Sleep(15 * time.Second)
 	return nil
 }
 
