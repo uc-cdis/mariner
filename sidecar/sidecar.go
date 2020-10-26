@@ -153,6 +153,14 @@ func (fm *S3FileManager) signalTaskToRun() error {
 
 	// fixme - make these strings constants
 	cmd := os.Getenv("TOOL_COMMAND")
+
+	// context: https://stackoverflow.com/questions/24112727/relative-paths-based-on-file-location-instead-of-current-working-directory
+	taskBash := fmt.Sprintf(`#!/bin/bash
+	parent_path=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
+	cd "$parent_path"
+	%v
+	`, cmd)
+
 	pathToTaskCommand := filepath.Join(fm.TaskWorkingDir, "run.sh")
 
 	// create necessary dirs
@@ -165,7 +173,7 @@ func (fm *S3FileManager) signalTaskToRun() error {
 	if err != nil {
 		return err
 	}
-	f.WriteString(cmd)
+	f.WriteString(taskBash)
 
 	return nil
 }
