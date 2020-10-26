@@ -341,7 +341,7 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 		return tool.Task.errorf("failed to load inputs to js vm: %v", err)
 	}
 
-	if err = tool.initWorkDir(); err != nil {
+	if err = engine.initWorkDirReq(tool); err != nil {
 		return tool.Task.errorf("failed to handle initWorkDir requirement: %v", err)
 	}
 	tool.Task.infof("end setup tool")
