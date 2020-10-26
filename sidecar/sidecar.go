@@ -107,6 +107,11 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		go func(path string) {
 			defer wg.Done()
 
+			// create necessary dirs
+			if err = os.MkdirAll(filepath.Dir(path), os.ModeDir); err != nil {
+				fmt.Printf("failed to make dirs: %v\n", err)
+			}
+
 			// create/open file for writing
 			f, err = os.Create(path)
 			if err != nil {
@@ -149,6 +154,11 @@ func (fm *S3FileManager) signalTaskToRun() error {
 	// fixme - make these strings constants
 	cmd := os.Getenv("TOOL_COMMAND")
 	pathToTaskCommand := filepath.Join(fm.TaskWorkingDir, "run.sh")
+
+	// create necessary dirs
+	if err := os.MkdirAll(filepath.Dir(pathToTaskCommand), os.ModeDir); err != nil {
+		fmt.Printf("failed to make dirs: %v\n", err)
+	}
 
 	f, err := os.Create(pathToTaskCommand)
 	defer f.Close()
