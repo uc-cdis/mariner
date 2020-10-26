@@ -113,6 +113,8 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 				fmt.Println("failed to open file:", err)
 			}
 
+			fmt.Println("trying to download obj with key:", fm.s3Key(path))
+
 			// write s3 object content into file
 			n, err = downloader.Download(f, &s3.GetObjectInput{
 				Bucket: aws.String(fm.S3BucketName),
