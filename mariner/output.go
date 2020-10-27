@@ -224,6 +224,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 		the way to do this in the CWL is, for example:
 		glob: $(runtime.outdir + 'my_glob_pattern*')
 
+
 		see also: https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
 	*/
 	s3Pattern := engine.localPathToS3Key(pattern)
