@@ -365,11 +365,6 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 		return tool.Task.errorf("failed to load inputs: %v", err)
 	}
 
-	// write list of input files to tool "working directory" in S3
-	if err = engine.writeFileInputListToS3(tool); err != nil {
-		return tool.Task.errorf("failed to write file input list to s3: %v", err)
-	}
-
 	// loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
 	if err = tool.inputsToVM(); err != nil {
 		return tool.Task.errorf("failed to load inputs to js vm: %v", err)
@@ -378,6 +373,12 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 	if err = engine.initWorkDirReq(tool); err != nil {
 		return tool.Task.errorf("failed to handle initWorkDir requirement: %v", err)
 	}
+
+	// write list of input files to tool "working directory" in S3
+	if err = engine.writeFileInputListToS3(tool); err != nil {
+		return tool.Task.errorf("failed to write file input list to s3: %v", err)
+	}
+
 	tool.Task.infof("end setup tool")
 	return nil
 }
