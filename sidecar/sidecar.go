@@ -126,13 +126,15 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 				Key:    aws.String(fm.s3Key(path)),
 			})
 			if err != nil {
-				fmt.Println("failed to download file:", err)
+				fmt.Println("failed to download file:", path, err)
 			}
 
-			// close file - very important
-			if err = f.Close(); err != nil {
-				fmt.Println("failed to close file:", err)
-			}
+			/*
+				// close file - very important
+				if err = f.Close(); err != nil {
+					fmt.Println("failed to close file:", err)
+				}
+			*/
 
 			fmt.Printf("file downloaded, %d bytes\n", n)
 
@@ -236,7 +238,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			// open file for reading
 			f, err = os.Open(path)
 			if err != nil {
-				fmt.Println("failed to open file:", err)
+				fmt.Println("failed to open file:", path, err)
 				return
 			}
 
@@ -247,16 +249,19 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 				Body:   f,
 			})
 			if err != nil {
-				fmt.Println("failed to upload file:", err)
+				fmt.Println("failed to upload file:", path, err)
 				return
 			}
 			fmt.Println("file uploaded to location:", result.Location)
 
-			// close the file - very important
-			if err = f.Close(); err != nil {
-				fmt.Println("failed to close file:", err)
-				// return
-			}
+			/*
+				// seems that files are already closed by this point
+				// close the file - very important
+				if err = f.Close(); err != nil {
+					fmt.Println("failed to close file:", err)
+					// return
+				}
+			*/
 
 			// release this spot in the guard channel
 			// so the next goroutine can run

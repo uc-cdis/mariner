@@ -226,6 +226,9 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 	s3Pattern := engine.localPathToS3Key(pattern)
 	fmt.Println("s3Pattern:", s3Pattern)
 
+	fmt.Println("length of s3 ls wkdir results:", len(objectList.Contents))
+	fmt.Println("from key:", engine.localPathToS3Key(tool.WorkingDir))
+
 	var key string
 	var match bool
 	globResults := []string{}
@@ -237,6 +240,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 
 		match, err = filepath.Match(s3Pattern, key)
 		if err != nil {
+			fmt.Println("filepath match error:", err)
 			return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 		}
 		if match {
