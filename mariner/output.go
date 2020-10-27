@@ -216,7 +216,17 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 		return nil, fmt.Errorf("failed to list keys from tool working dir in s3: %v", err)
 	}
 
-	fullPattern := filepath.Join(engine.localPathToS3Key(tool.WorkingDir), pattern)
+	/*
+		note:
+		glob patterns in the CWL must be specified relative
+		to that tasks runtime environment
+		that is, all glob patterns must resolve to absolute paths
+		the way to do this in the CWL is, for example:
+		glob: $(runtime.outdir + 'my_glob_pattern*')
+
+		see also: https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
+	*/
+	s3Pattern := engine.localPathToS3Key(pattern)
 
 	var key string
 	var match bool
@@ -224,7 +234,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 	for _, obj := range objectList.Contents {
 		// match key against pattern
 		key = *obj.Key
-		match, err = filepath.Match(fullPattern, key)
+		match, err = filepath.Match(s3Pattern, key)
 		if err != nil {
 			return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 		}

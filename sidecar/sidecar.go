@@ -154,10 +154,6 @@ func (fm *S3FileManager) signalTaskToRun() error {
 	// fixme - make these strings constants
 	cmd := os.Getenv("TOOL_COMMAND")
 
-	// CWL runtime environment note
-	// https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
-	taskBash := fmt.Sprintf("cd %s\n%s", fm.TaskWorkingDir, cmd)
-
 	pathToTaskCommand := filepath.Join(fm.TaskWorkingDir, "run.sh")
 
 	// create necessary dirs
@@ -170,7 +166,7 @@ func (fm *S3FileManager) signalTaskToRun() error {
 	if err != nil {
 		return err
 	}
-	f.WriteString(taskBash)
+	f.WriteString(cmd)
 
 	return nil
 }

@@ -288,12 +288,15 @@ func (task *Task) tool(runID string) *Tool {
 func (tool *Tool) newJSVM() *otto.Otto {
 	vm := otto.New()
 	runtime := &TaskRuntimeJSContext{Outdir: tool.WorkingDir}
-	ctx := struct {
-		Runtime TaskRuntimeJSContext `json:"runtime"`
-	}{
-		*runtime,
-	}
-	runtimeJSVal, err := preProcessContext(ctx)
+	/*
+		ctx := struct {
+			Runtime TaskRuntimeJSContext `json:"runtime"`
+		}{
+			*runtime,
+		}
+	*/
+	// runtimeJSVal, err := preProcessContext(ctx)
+	runtimeJSVal, err := preProcessContext(runtime)
 	if err != nil {
 		panic(fmt.Errorf("failed to preprocess runtime js context: %v", err))
 	}
