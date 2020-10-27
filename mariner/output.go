@@ -203,7 +203,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 	svc := s3.New(engine.S3FileManager.newS3Session())
 	objectList, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
 		Bucket: aws.String(engine.S3FileManager.S3BucketName),
-		Prefix: aws.String(engine.localPathToS3Key(tool.WorkingDir)),
+		Prefix: aws.String(strings.TrimPrefix(engine.localPathToS3Key(tool.WorkingDir), "/")),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list keys from tool working dir in s3: %v", err)
