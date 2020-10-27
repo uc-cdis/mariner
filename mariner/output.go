@@ -220,7 +220,11 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 
 		see also: https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
 	*/
+
+	fmt.Println("globbing s3")
+	fmt.Println("pattern:", pattern)
 	s3Pattern := engine.localPathToS3Key(pattern)
+	fmt.Println("s3Pattern:", s3Pattern)
 
 	var key string
 	var match bool
@@ -228,12 +232,18 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 	for _, obj := range objectList.Contents {
 		// match key against pattern
 		key = *obj.Key
+
+		fmt.Println("checking match against key:", key)
+
 		match, err = filepath.Match(s3Pattern, key)
 		if err != nil {
 			return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 		}
 		if match {
+			fmt.Println("\tmatch!")
 			globResults = append(globResults, key)
+		} else {
+			fmt.Println("\tno match!")
 		}
 	}
 	return globResults, nil

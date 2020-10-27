@@ -229,6 +229,10 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
+
+			// debug
+			fmt.Println("trying to upload file:", path)
+
 			// open file for reading
 			f, err = os.Open(path)
 			if err != nil {
@@ -246,14 +250,13 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 				fmt.Println("failed to upload file:", err)
 				return
 			}
+			fmt.Println("file uploaded to location:", result.Location)
 
 			// close the file - very important
 			if err = f.Close(); err != nil {
 				fmt.Println("failed to close file:", err)
-				return
+				// return
 			}
-
-			fmt.Println("file uploaded to location:", result.Location)
 
 			// release this spot in the guard channel
 			// so the next goroutine can run
