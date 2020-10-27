@@ -231,6 +231,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 
 	var key string
 	var match bool
+	var path string
 	globResults := []string{}
 	for _, obj := range objectList.Contents {
 		// match key against pattern
@@ -245,7 +246,11 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 		}
 		if match {
 			fmt.Println("\tmatch!")
-			globResults = append(globResults, key)
+
+			// this needs to be represented as a filepath, not a "key"
+			// I mean, it needs a slash at the beginning - I *think* - testing
+			path = fmt.Sprintf("/%s", key)
+			globResults = append(globResults, path)
 		} else {
 			fmt.Println("\tno match!")
 		}
