@@ -249,7 +249,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 
 			// this needs to be represented as a filepath, not a "key"
 			// I mean, it needs a slash at the beginning - I *think* - testing
-			path = fmt.Sprintf("/%s", key)
+			path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", key))
 			globResults = append(globResults, path)
 		} else {
 			fmt.Println("\tno match!")
