@@ -223,7 +223,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 
 	fmt.Println("globbing s3")
 	fmt.Println("pattern:", pattern)
-	s3Pattern := engine.localPathToS3Key(pattern)
+	s3Pattern := strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
 	fmt.Println("s3Pattern:", s3Pattern)
 
 	fmt.Println("length of s3 ls wkdir results:", len(objectList.Contents))
