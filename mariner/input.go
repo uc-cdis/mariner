@@ -6,8 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/robertkrimen/otto"
-
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -234,7 +232,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				// valueFrom is an expression that needs to be eval'd
 
 				// get a js vm
-				vm := otto.New()
+				vm := tool.JSVM.Copy() // #js-runtime
 
 				// preprocess struct/array so that fields can be accessed in vm
 				// Question: how to handle non-array/struct data types?
@@ -334,7 +332,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	if input.Binding != nil && input.Binding.ValueFrom != nil {
 		valueFrom := input.Binding.ValueFrom.String
 		if strings.HasPrefix(valueFrom, "$") {
-			vm := otto.New()
+			vm := tool.JSVM.Copy() // #js-runtime
 			var context interface{}
 			// fixme: handle array of files
 			switch out.(type) {
@@ -410,8 +408,8 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
 	tool.Task.infof("begin load inputs to js vm")
-	prefix := tool.Task.Root.ID + "/" // need to trim this from all the input.ID's
-	tool.Task.Root.InputsVM = otto.New()
+	prefix := tool.Task.Root.ID + "/"          // need to trim this from all the input.ID's
+	tool.Task.Root.InputsVM = tool.JSVM.Copy() // #js-runtime
 	context := make(map[string]interface{})
 	var f interface{}
 	for _, input := range tool.Task.Root.Inputs {

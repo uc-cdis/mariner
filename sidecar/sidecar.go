@@ -154,7 +154,8 @@ func (fm *S3FileManager) signalTaskToRun() error {
 	// fixme - make these strings constants
 	cmd := os.Getenv("TOOL_COMMAND")
 
-	// context: https://stackoverflow.com/questions/24112727/relative-paths-based-on-file-location-instead-of-current-working-directory
+	// CWL runtime environment note
+	// https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
 	taskBash := fmt.Sprintf("cd %s\n%s", fm.TaskWorkingDir, cmd)
 
 	pathToTaskCommand := filepath.Join(fm.TaskWorkingDir, "run.sh")

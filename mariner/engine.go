@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/robertkrimen/otto"
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -56,9 +57,22 @@ type Tool struct {
 	StepInputMap     map[string]*cwl.StepInput
 	ExpressionResult map[string]interface{}
 	Task             *Task
+	S3Input          *ToolS3Input
 
 	// dev'ing
-	S3Input *ToolS3Input
+	// need to load this with runtime context as per CWL spec
+	// https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
+	// for now, only populating 'runtime.outdir'
+	JSVM *otto.Otto
+}
+
+// TaskRuntimeJSContext gets loaded into the js vm
+// to allow in-line js expressions and parameter references in the CWL to be resolved
+// see: https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
+//
+// NOTE: not currently supported: tmpdir, cores, ram, outdirSize, tmpdirSize
+type TaskRuntimeJSContext struct {
+	Outdir string `json:"outdir"`
 }
 
 // ToolS3Input ..
@@ -263,8 +277,28 @@ func (task *Task) tool(runID string) *Tool {
 			Paths: []string{},
 		},
 	}
+	tool.JSVM = tool.newJSVM()
 	task.infof("end make tool object")
 	return tool
+}
+
+// should be called exactly once - when a tool is created in the first place
+// all other vm's created should be copied from this one
+// dev'ing
+func (tool *Tool) newJSVM() *otto.Otto {
+	vm := otto.New()
+	runtime := &TaskRuntimeJSContext{Outdir: tool.WorkingDir}
+	ctx := struct {
+		Runtime TaskRuntimeJSContext `json:"runtime"`
+	}{
+		*runtime,
+	}
+	runtimeJSVal, err := preProcessContext(ctx)
+	if err != nil {
+		panic(fmt.Errorf("failed to preprocess runtime js context: %v", err))
+	}
+	vm.Set("runtime", runtimeJSVal)
+	return vm
 }
 
 // see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html

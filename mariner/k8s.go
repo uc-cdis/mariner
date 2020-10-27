@@ -277,6 +277,9 @@ func (tool *Tool) cltArgs() []string {
 // see: https://godoc.org/k8s.io/api/core/v1#Container
 // and: https://godoc.org/k8s.io/api/core/v1#EnvVar
 // and: https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/
+//
+// todo: load in these required runtime envvars, per CWL spec
+// https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
 func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 	tool.Task.infof("begin load environment variables")
 	env = []k8sv1.EnvVar{}
