@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -123,7 +124,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 			// write s3 object content into file
 			n, err = downloader.Download(f, &s3.GetObjectInput{
 				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(fm.s3Key(path)),
+				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
 			})
 			if err != nil {
 				fmt.Println("failed to download file:", path, err)
