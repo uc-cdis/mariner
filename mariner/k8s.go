@@ -174,7 +174,7 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	gen3fuse := gen3fuseContainer(engine.Manifest, marinerTask, engine.RunID)
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
-		Value: tool.WorkingDir,
+		Value: tool.WorkingDir, // #runtime - per CWL spec, this envVar in task should be "HOME"
 	}
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
 	task.Env = append(task.Env, workingDir)

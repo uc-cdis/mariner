@@ -174,13 +174,6 @@ func (engine *K8sEngine) glob(tool *Tool, output *cwl.Output) (results []*File, 
 			return results, tool.Task.errorf("%v", err)
 		}
 
-		/*
-			paths, err := filepath.Glob(tool.WorkingDir + pattern)
-			if err != nil {
-				return results, tool.Task.errorf("%v", err)
-			}
-		*/
-
 		paths, err := engine.globS3(tool, pattern)
 		if err != nil {
 			return results, tool.Task.errorf("%v", err)
