@@ -55,6 +55,7 @@ const (
 	k8sJobAPI     = "k8sJobAPI"
 	k8sPodAPI     = "k8sPodAPI"
 	k8sMetricsAPI = "k8sMetricsAPI"
+	k8sCoreAPI    = "k8sCoreAPI"
 
 	// top-level workflow ID
 	mainProcessID = "#main"

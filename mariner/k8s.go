@@ -9,6 +9,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // this file contains code for creating job spec for mariner-engine and mariner-task jobs
@@ -513,11 +514,17 @@ func (engine *K8sEngine) taskVolumes(tool *Tool) []k8sv1.Volume {
 	vols := []k8sv1.Volume{}
 	var claimName string
 	var v *k8sv1.Volume
+	var err error
 	for _, volName := range workflowVolumeList {
 		v = new(k8sv1.Volume)
 		v.Name = volName
 		if volName == engineWorkspaceVolumeName {
 			claimName = fmt.Sprintf("%s-claim", tool.JobName)
+			if err = engine.createPVC(claimName); err != nil {
+				// only for debugging / dev'ing
+				// don't actually handle the err like this
+				panic(fmt.Sprintf("failed to create PVC: %v", err))
+			}
 			v.PersistentVolumeClaim = &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}
@@ -527,6 +534,35 @@ func (engine *K8sEngine) taskVolumes(tool *Tool) []k8sv1.Volume {
 		vols = append(vols, *v)
 	}
 	return vols
+}
+
+func (engine *K8sEngine) createPVC(claimName string) error {
+	pvc := &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: claimName, // todo: add annotations, labels
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					// todo - don't hardcode here - put in manifest config
+					k8sv1.ResourceStorage: k8sResource.MustParse("2Gi"),
+				},
+			},
+		},
+	}
+	coreClient, _, _, _, err := k8sClient(k8sCoreAPI)
+	if err != nil {
+		// todo: actually handle this err
+		fmt.Println("failed to fetch podsClient:", err)
+	}
+	_, err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Create(pvc)
+	if err != nil {
+		// and this one
+		fmt.Println("FAILED TO CREATE PVC:", err)
+		return err
+	}
+	return nil
 }
 
 // returns marinerEngine/marinerTask job spec with all fields populated EXCEPT volumes and containers
