@@ -256,14 +256,12 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			}
 			fmt.Println("file uploaded to location:", result.Location)
 
-			/*
-				// seems that files are already closed by this point
-				// close the file - very important
-				if err = f.Close(); err != nil {
-					fmt.Println("failed to close file:", err)
-					// return
-				}
-			*/
+			// seems that files are already closed by this point
+			// close the file - very important
+			if err = f.Close(); err != nil {
+				fmt.Println("failed to close file:", err)
+				// return
+			}
 
 			// release this spot in the guard channel
 			// so the next goroutine can run
