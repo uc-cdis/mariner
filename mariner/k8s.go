@@ -500,9 +500,16 @@ func baseContainer(conf *Container, component string) (container *k8sv1.Containe
 		Command:         conf.Command,
 		ImagePullPolicy: conf.pullPolicy(),
 		SecurityContext: conf.securityContext(),
-		VolumeMounts:    volumeMounts(component),
 		Resources:       conf.resourceRequirements(),
 	}
+
+	if component == marinerEngine {
+		configVol := volumeMount(configVolumeName, component)
+		container.VolumeMounts = []k8sv1.VolumeMount{*configVol}
+	} else {
+		container.VolumeMounts = volumeMounts(component)
+	}
+
 	return container
 }
 

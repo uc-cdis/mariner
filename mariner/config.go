@@ -297,7 +297,7 @@ func (conf *Container) securityContext() (context *k8sv1.SecurityContext) {
 
 func volumeMounts(component string) (v []k8sv1.VolumeMount) {
 	switch component {
-	case marinerEngine, marinerTask:
+	case marinerTask:
 		v = mainVolumeMounts(component)
 	case s3sidecar, gen3fuse:
 		v = sidecarVolumeMounts(component)
@@ -320,10 +320,6 @@ func mainVolumeMounts(component string) (volumeMounts []k8sv1.VolumeMount) {
 	for _, v := range workflowVolumeList {
 		volumeMount := volumeMount(v, component)
 		volumeMounts = append(volumeMounts, *volumeMount)
-	}
-	if component == marinerEngine {
-		configVol := volumeMount(configVolumeName, component)
-		volumeMounts = append(volumeMounts, *configVol)
 	}
 	return volumeMounts
 }
