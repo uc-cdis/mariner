@@ -205,6 +205,9 @@ func (tool *Tool) processFileList(l interface{}) ([]*File, error) {
 func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin transform input: %v", input.ID)
 
+	fmt.Println("transforming input:")
+	printJSON(input)
+
 	/*
 		NOTE: presently only context loaded into js vm's here is `self`
 		Will certainly need to add more context to handle all cases
