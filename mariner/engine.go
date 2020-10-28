@@ -15,6 +15,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/robertkrimen/otto"
 	cwl "github.com/uc-cdis/cwl.go"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // this file contains the top level functions for the task engine
@@ -196,8 +198,23 @@ func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 	if err = engine.collectOutput(tool); err != nil {
 		return engine.errorf("failed to collect output for tool: %v; error: %v", task.Root.ID, err)
 	}
-	// engine.updateStack(task) // tools AND workflows need to be updated in the stack
+	if err = engine.deletePVC(tool); err != nil {
+		engine.warnf("failed to delete pvc for tool: %v", task.Root.ID)
+	}
 	engine.infof("end dispatch task: %v", task.Root.ID)
+	return nil
+}
+
+func (engine *K8sEngine) deletePVC(tool *Tool) error {
+	claimName := fmt.Sprintf("%s-claim", tool.JobName)
+	coreClient, _, _, _, err := k8sClient(k8sCoreAPI)
+	if err != nil {
+		return err
+	}
+	err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Delete(claimName, &metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
