@@ -316,6 +316,11 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		note: check types in the param type list?
 		vs. checking types of actual values
 	*/
+
+	fmt.Println("out, before file switch:")
+	fmt.Printf("%T", out)
+	printJSON(out)
+
 	switch {
 	case isFile(out):
 		if out, err = tool.processFile(out); err != nil {
