@@ -554,7 +554,7 @@ func (engine *K8sEngine) createPVC(claimName string) error {
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			StorageClassName: &storageClassName,
-			AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 			Resources: k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					// todo - don't hardcode here - put in manifest config
