@@ -187,14 +187,9 @@ func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 	tool := task.tool(engine.RunID) // #race #ok
 	engine.Unlock()
 
-	err = engine.setupTool(tool)
-	if err != nil {
+	if err = engine.setupTool(tool); err != nil {
 		return engine.errorf("failed to setup tool: %v; error: %v", task.Root.ID, err)
 	}
-
-	// {Q: when should the process get pushed onto the stack?}
-
-	// engine.UnfinishedProcs[tool.Task.Root.ID] = nil
 	if err = engine.runTool(tool); err != nil {
 		return engine.errorf("failed to run tool: %v; error: %v", task.Root.ID, err)
 	}
