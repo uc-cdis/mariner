@@ -95,7 +95,6 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 	sess := fm.newS3Session()
 	downloader := s3manager.NewDownloader(sess)
 
-	var f *os.File
 	var n int64
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
@@ -114,7 +113,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 			}
 
 			// create/open file for writing
-			f, err = os.Create(path)
+			f, err := os.Create(path)
 			if err != nil {
 				fmt.Println("failed to open file:", err)
 			}
@@ -130,12 +129,10 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 				fmt.Println("failed to download file:", path, err)
 			}
 
-			/*
-				// close file - very important
-				if err = f.Close(); err != nil {
-					fmt.Println("failed to close file:", err)
-				}
-			*/
+			// close file - very important
+			if err = f.Close(); err != nil {
+				fmt.Println("failed to close file:", err)
+			}
 
 			fmt.Printf("file downloaded, %d bytes\n", n)
 
