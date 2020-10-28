@@ -212,7 +212,9 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	// collect paths of all files in the task working directory
 	paths := []string{}
 	_ = filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
-		paths = append(paths, path)
+		if !info.IsDir() {
+			paths = append(paths, path)
+		}
 		return nil
 	})
 
