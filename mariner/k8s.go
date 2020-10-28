@@ -9,7 +9,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // this file contains code for creating job spec for mariner-engine and mariner-task jobs
@@ -36,6 +35,7 @@ func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, error) {
 
 // returns volumes field for workflow/engine job spec
 func engineVolumes() (volumes []k8sv1.Volume) {
+	volumes = workflowVolumes()
 	configMap := configVolume()
 	volumes = append(volumes, *configMap)
 	return volumes
@@ -155,9 +155,7 @@ func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
 		job.Spec.Template.Spec.ServiceAccountName = engine.Log.Request.ServiceAccountName
 	}
 
-	// #ebs
-	job.Spec.Template.Spec.Volumes = engine.taskVolumes(tool)
-
+	job.Spec.Template.Spec.Volumes = workflowVolumes()
 	job.Spec.Template.Spec.Containers, err = engine.taskContainers(tool)
 	if err != nil {
 		return nil, engine.errorf("failed to load container spec for task: %v; error: %v", tool.Task.Root.ID, err)
@@ -500,81 +498,22 @@ func baseContainer(conf *Container, component string) (container *k8sv1.Containe
 		Command:         conf.Command,
 		ImagePullPolicy: conf.pullPolicy(),
 		SecurityContext: conf.securityContext(),
+		VolumeMounts:    volumeMounts(component),
 		Resources:       conf.resourceRequirements(),
 	}
-
-	if component == marinerEngine {
-		configVol := volumeMount(configVolumeName, component)
-		container.VolumeMounts = []k8sv1.VolumeMount{*configVol}
-	} else {
-		container.VolumeMounts = volumeMounts(component)
-	}
-
 	return container
 }
 
 // two volumes:
 // 1. engine workspace
 // 2. commons data
-// #ebs
-func (engine *K8sEngine) taskVolumes(tool *Tool) []k8sv1.Volume {
+func workflowVolumes() []k8sv1.Volume {
 	vols := []k8sv1.Volume{}
-	var claimName string
-	var v *k8sv1.Volume
-	var err error
 	for _, volName := range workflowVolumeList {
-		v = new(k8sv1.Volume)
-		v.Name = volName
-		if volName == engineWorkspaceVolumeName {
-			claimName = fmt.Sprintf("%s-claim", tool.JobName)
-			if err = engine.createPVC(claimName); err != nil {
-				// only for debugging / dev'ing
-				// don't actually handle the err like this
-				panic(fmt.Sprintf("failed to create PVC: %v", err))
-			}
-			v.PersistentVolumeClaim = &k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			}
-		} else {
-			v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
-		}
-		vols = append(vols, *v)
+		vol := namedVolume(volName)
+		vols = append(vols, *vol)
 	}
 	return vols
-}
-
-func (engine *K8sEngine) createPVC(claimName string) error {
-
-	// todo - add to config or at least don't hardcode here
-	storageClassName := "mariner-storage"
-
-	pvc := &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: claimName, // todo: add annotations, labels
-		},
-		Spec: k8sv1.PersistentVolumeClaimSpec{
-			StorageClassName: &storageClassName,
-			AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			Resources: k8sv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					// todo - don't hardcode here - put in manifest config
-					k8sv1.ResourceStorage: k8sResource.MustParse("2Gi"),
-				},
-			},
-		},
-	}
-	coreClient, _, _, _, err := k8sClient(k8sCoreAPI)
-	if err != nil {
-		// todo: actually handle this err
-		fmt.Println("failed to fetch podsClient:", err)
-	}
-	_, err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Create(pvc)
-	if err != nil {
-		// and this one
-		fmt.Println("FAILED TO CREATE PVC:", err)
-		return err
-	}
-	return nil
 }
 
 // returns marinerEngine/marinerTask job spec with all fields populated EXCEPT volumes and containers
@@ -598,4 +537,16 @@ func jobSpec(component string, userID string, jobName string) (job *batchv1.Job)
 	job.Spec.Template.Annotations["gen3username"] = userID
 
 	return job
+}
+
+func namedVolume(name string) (v *k8sv1.Volume) {
+	v = emptyVolume()
+	v.Name = name
+	return v
+}
+
+func emptyVolume() (v *k8sv1.Volume) {
+	v = new(k8sv1.Volume)
+	v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
+	return v
 }

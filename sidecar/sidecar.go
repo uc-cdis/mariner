@@ -212,9 +212,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	// collect paths of all files in the task working directory
 	paths := []string{}
 	_ = filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			paths = append(paths, path)
-		}
+		paths = append(paths, path)
 		return nil
 	})
 
@@ -248,7 +246,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			// upload the file contents
 			result, err = uploader.Upload(&s3manager.UploadInput{
 				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
+				Key:    aws.String(fm.s3Key(path)), // HERE! - probably will fail, gotta take away the leading slash
 				Body:   f,
 			})
 			if err != nil {
