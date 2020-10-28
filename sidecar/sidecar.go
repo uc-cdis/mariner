@@ -151,6 +151,9 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 // ------> early design decision, probably doesn't make sense any more, should fix it
 func (fm *S3FileManager) signalTaskToRun() error {
 
+	// cushion to ensure gen3fuse finishes setting up..
+	time.Sleep(7 * time.Second)
+
 	// fixme - make these strings constants
 	cmd := os.Getenv("TOOL_COMMAND")
 
