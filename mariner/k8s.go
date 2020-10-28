@@ -35,7 +35,6 @@ func workflowJob(workflowRequest *WorkflowRequest) (*batchv1.Job, error) {
 
 // returns volumes field for workflow/engine job spec
 func engineVolumes() (volumes []k8sv1.Volume) {
-	volumes = workflowVolumes()
 	configMap := configVolume()
 	volumes = append(volumes, *configMap)
 	return volumes
@@ -155,7 +154,9 @@ func (engine *K8sEngine) taskJob(tool *Tool) (job *batchv1.Job, err error) {
 		job.Spec.Template.Spec.ServiceAccountName = engine.Log.Request.ServiceAccountName
 	}
 
-	job.Spec.Template.Spec.Volumes = workflowVolumes()
+	// #ebs
+	job.Spec.Template.Spec.Volumes = engine.taskVolumes(tool)
+
 	job.Spec.Template.Spec.Containers, err = engine.taskContainers(tool)
 	if err != nil {
 		return nil, engine.errorf("failed to load container spec for task: %v; error: %v", tool.Task.Root.ID, err)
@@ -507,11 +508,23 @@ func baseContainer(conf *Container, component string) (container *k8sv1.Containe
 // two volumes:
 // 1. engine workspace
 // 2. commons data
-func workflowVolumes() []k8sv1.Volume {
+// #ebs
+func (engine *K8sEngine) taskVolumes(tool *Tool) []k8sv1.Volume {
 	vols := []k8sv1.Volume{}
+	var claimName string
+	var v *k8sv1.Volume
 	for _, volName := range workflowVolumeList {
-		vol := namedVolume(volName)
-		vols = append(vols, *vol)
+		v = new(k8sv1.Volume)
+		v.Name = volName
+		if volName == engineWorkspaceVolumeName {
+			claimName = fmt.Sprintf("%s-claim", tool.JobName)
+			v.PersistentVolumeClaim = &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
+			}
+		} else {
+			v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
+		}
+		vols = append(vols, *v)
 	}
 	return vols
 }
@@ -537,16 +550,4 @@ func jobSpec(component string, userID string, jobName string) (job *batchv1.Job)
 	job.Spec.Template.Annotations["gen3username"] = userID
 
 	return job
-}
-
-func namedVolume(name string) (v *k8sv1.Volume) {
-	v = emptyVolume()
-	v.Name = name
-	return v
-}
-
-func emptyVolume() (v *k8sv1.Volume) {
-	v = new(k8sv1.Volume)
-	v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
-	return v
 }
