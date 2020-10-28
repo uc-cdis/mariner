@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -71,7 +72,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 
 					// Q: what about the case of creating directories?
 					// guess: this is probably not currently supported
-					key := engine.localPathToS3Key(entryName)
+					key := strings.TrimPrefix(engine.localPathToS3Key(entryName), "/")
 					tool.S3Input.Paths = append(tool.S3Input.Paths, entryName)
 
 					var b []byte

@@ -183,8 +183,6 @@ func (engine *K8sEngine) loadContents(f *File) (err error) {
 	// S3 sdk supports specifying byte ranges
 	// in this way: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
 
-	fmt.Println("s3 key:", s3Key)
-
 	// Write the contents of S3 Object to the buffer
 	s3Obj := &s3.GetObjectInput{
 		Bucket: aws.String(engine.S3FileManager.S3BucketName),

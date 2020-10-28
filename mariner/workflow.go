@@ -207,7 +207,7 @@ func (engine *K8sEngine) runWorkflow() error {
 	engine.Log.Main = mainTask.Log
 
 	mainTask.Log.JobName = engine.Log.Request.JobName
-	jobsClient, _, _, err := k8sClient(k8sJobAPI)
+	_, jobsClient, _, _, err := k8sClient(k8sJobAPI)
 	if err != nil {
 		return engine.errorf("%v", err)
 	}
