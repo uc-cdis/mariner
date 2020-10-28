@@ -537,12 +537,17 @@ func (engine *K8sEngine) taskVolumes(tool *Tool) []k8sv1.Volume {
 }
 
 func (engine *K8sEngine) createPVC(claimName string) error {
+
+	// todo - add to config or at least don't hardcode here
+	storageClassName := "mariner-storage"
+
 	pvc := &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: claimName, // todo: add annotations, labels
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			StorageClassName: &storageClassName,
+			AccessModes:      []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
 			Resources: k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					// todo - don't hardcode here - put in manifest config
