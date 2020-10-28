@@ -222,7 +222,6 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	sess := fm.newS3Session()
 	uploader := s3manager.NewUploader(sess)
 
-	var f *os.File
 	var result *s3manager.UploadOutput
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
@@ -239,7 +238,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			fmt.Println("trying to upload file:", path)
 
 			// open file for reading
-			f, err = os.Open(path)
+			f, err := os.Open(path)
 			if err != nil {
 				fmt.Println("failed to open file:", path, err)
 				return
