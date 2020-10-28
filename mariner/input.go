@@ -125,6 +125,15 @@ func (tool *Tool) processFile(f interface{}) (*File, error) {
 // called in transformInput() routine
 // handles path prefix issue
 func processFile(f interface{}) (*File, error) {
+
+	// if it's already of type File or *File, it requires no processing
+	if obj, ok := f.(File); ok {
+		return &obj, nil
+	}
+	if p, ok := f.(*File); ok {
+		return p, nil
+	}
+
 	path, err := filePath(f)
 	if err != nil {
 		return nil, err

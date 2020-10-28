@@ -205,19 +205,22 @@ func (f *File) delete() error {
 }
 
 // determines whether a map i represents a CWL file object
-// NOTE: since objects of type File are not maps, they return false -> unfortunate, but not a critical problem
-// ----- maybe do some renaming to clear this up
-// fixme - see conformancelib
+// fixme - see conformancelib (?)
 func isFile(i interface{}) (f bool) {
-	iType := reflect.TypeOf(i)
-	iKind := iType.Kind()
-	if iKind == reflect.Map {
-		iMap := reflect.ValueOf(i)
-		for _, key := range iMap.MapKeys() {
-			if key.Type() == reflect.TypeOf("") {
-				if key.String() == "class" {
-					if iMap.MapIndex(key).Interface() == CWLFileType {
-						f = true
+	switch i.(type) {
+	case File, *File:
+		f = true
+	default:
+		iType := reflect.TypeOf(i)
+		iKind := iType.Kind()
+		if iKind == reflect.Map {
+			iMap := reflect.ValueOf(i)
+			for _, key := range iMap.MapKeys() {
+				if key.Type() == reflect.TypeOf("") {
+					if key.String() == "class" {
+						if iMap.MapIndex(key).Interface() == CWLFileType {
+							f = true
+						}
 					}
 				}
 			}
