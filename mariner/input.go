@@ -356,21 +356,20 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		fmt.Println("processing input secondary files:")
 		printJSON(input.SecondaryFiles)
 
+		var fileArray []*File
+		switch {
+		case isFile(out):
+			fileArray = []*File{out.(*File)}
+		case isArrayOfFile(out):
+			fileArray = out.([]*File)
+		default:
+			// this is a fatal error - engine should fail out here
+			// but don't panic - actually handle this err and fail out gracefully
+			panic("invalid input: secondary files specified for a non-file input")
+		}
+
 		for _, entry := range input.SecondaryFiles {
 			val := entry.Entry
-
-			var fileArray []*File
-			switch {
-			case isFile(out):
-				fileArray = []*File{out.(*File)}
-			case isArrayOfFile(out):
-				fileArray = out.([]*File)
-			default:
-				// this is a fatal error - engine should fail out here
-				// but don't panic - actually handle this err and fail out gracefully
-				panic("invalid input: secondary files specified for a non-file input")
-			}
-
 			if strings.HasPrefix(val, "$") {
 				vm := tool.JSVM.Copy()
 				for _, fileObj := range fileArray {
@@ -403,11 +402,6 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 					// get file object for secondaryFile and append it to the input file's SecondaryFiles field
 					sFileObj := fileObject(sFilePath)
 					fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
-
-					// collect path to s3 input file list
-					if !strings.HasPrefix(sFileObj.Location, pathToCommonsData) {
-						tool.S3Input.Paths = append(tool.S3Input.Paths, sFileObj.Location)
-					}
 				}
 			} else {
 				fmt.Println("processing this pattern:", val)
@@ -415,11 +409,13 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 				suffix, carats := trimLeading(val, "^")
 				for _, fileObj := range fileArray {
 					engine.loadSFilesFromPattern(tool, fileObj, suffix, carats)
-					for _, sf := range fileObj.SecondaryFiles {
-						if !strings.HasPrefix(sf.Location, pathToCommonsData) {
-							tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Location)
-						}
-					}
+				}
+			}
+		}
+		for _, fileObj := range fileArray {
+			for _, sf := range fileObj.SecondaryFiles {
+				if !strings.HasPrefix(sf.Location, pathToCommonsData) {
+					tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Location)
 				}
 			}
 		}
