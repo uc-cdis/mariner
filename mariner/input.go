@@ -352,6 +352,10 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	// ######### since it's basically the same process both times
 
 	if len(input.SecondaryFiles) > 0 {
+
+		fmt.Println("processing input secondary files:")
+		printJSON(input.SecondaryFiles)
+
 		for _, entry := range input.SecondaryFiles {
 			val := entry.Entry
 
@@ -419,6 +423,9 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 			}
 		}
 	}
+
+	fmt.Println("files (?) after secondary files processing:")
+	printJSON(out)
 
 	// ###########################################
 
