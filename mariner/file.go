@@ -120,6 +120,9 @@ func (engine *K8sEngine) loadSFilesFromPattern(tool *Tool, fileObj *File, suffix
 	fileExists, err := engine.fileExists(path)
 	switch {
 	case fileExists:
+
+		fmt.Println("secondary file exists!!")
+
 		// the secondaryFile exists
 		tool.Task.infof("found secondaryFile: %v", path)
 
@@ -130,6 +133,8 @@ func (engine *K8sEngine) loadSFilesFromPattern(tool *Tool, fileObj *File, suffix
 		fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFile)
 
 	case !fileExists:
+
+		fmt.Println("secondary file doesn't exist!!")
 		// the secondaryFile does not exist
 		// if anything, this should be a warning - not an error
 		// presently in this case, the secondaryFile object does NOT get appended to fileObj.SecondaryFiles
@@ -144,7 +149,7 @@ func (engine *K8sEngine) fileExists(path string) (bool, error) {
 	svc := s3.New(engine.S3FileManager.newS3Session())
 	objectList, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
 		Bucket: aws.String(engine.S3FileManager.S3BucketName),
-		Prefix: aws.String(engine.localPathToS3Key(path)),
+		Prefix: aws.String(strings.TrimPrefix(engine.localPathToS3Key(path), "/")),
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to list s3 objects: %v", err)

@@ -410,6 +410,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 					}
 				}
 			} else {
+				fmt.Println("processing this pattern:", val)
 				// follow those two steps indicated at the bottom of the secondaryFiles field description
 				suffix, carats := trimLeading(val, "^")
 				for _, fileObj := range fileArray {
