@@ -65,7 +65,8 @@ type Tool struct {
 	// need to load this with runtime context as per CWL spec
 	// https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
 	// for now, only populating 'runtime.outdir'
-	JSVM *otto.Otto
+	JSVM     *otto.Otto
+	InputsVM *otto.Otto
 }
 
 // TaskRuntimeJSContext gets loaded into the js vm
@@ -377,7 +378,7 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 		return tool.Task.errorf("failed to load inputs: %v", err)
 	}
 
-	// loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
+	// loads inputs context to js vm tool.InputsVM (NOTE: Ready to test, but needs to be extended)
 	if err = tool.inputsToVM(); err != nil {
 		return tool.Task.errorf("failed to load inputs to js vm: %v", err)
 	}
@@ -473,7 +474,7 @@ func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	if err = os.Chdir(tool.WorkingDir); err != nil {
 		return engine.errorf("failed to move to tool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	result, err := evalExpression(tool.Task.Root.Expression, tool.Task.Root.InputsVM)
+	result, err := evalExpression(tool.Task.Root.Expression, tool.InputsVM)
 	if err != nil {
 		return engine.errorf("failed to eval expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 	}

@@ -507,12 +507,24 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 	return out, nil
 }
 
-// inputsToVM loads tool.Task.Root.InputsVM with inputs context - using Input.Provided for each input
+// general (very important) note
+// the Task.Root object - that "Root" object
+// is shared among all instances of a run of that root object
+// for example, say two steps of a workflow run the same tool
+// -> there's one "root" object which represents the tool
+// the tool gets run twice, let's say concurrently
+// so there are TWO TASKS WHICH POINT TO THE SAME ROOT
+// that is to say
+// it's SAFE TO READ from the root
+// but it's NOT SAFE TO WRITE to the root, under any circumstances
+// lest ye enjoy endless pointer / recursion / concurrency debugging
+
+// inputsToVM loads tool.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
 	tool.Task.infof("begin load inputs to js vm")
-	prefix := tool.Task.Root.ID + "/"          // need to trim this from all the input.ID's
-	tool.Task.Root.InputsVM = tool.JSVM.Copy() // #js-runtime
+	prefix := tool.Task.Root.ID + "/" // need to trim this from all the input.ID's
+	tool.InputsVM = tool.JSVM.Copy()
 	context := make(map[string]interface{})
 	var f interface{}
 	for _, input := range tool.Task.Root.Inputs {
@@ -550,7 +562,7 @@ func (tool *Tool) inputsToVM() (err error) {
 			context[inputID] = input.Provided.Raw // not sure if this will work in general - so far, so good though - need to test further
 		}
 	}
-	if err = tool.Task.Root.InputsVM.Set("inputs", context); err != nil {
+	if err = tool.InputsVM.Set("inputs", context); err != nil {
 		return tool.Task.errorf("failed to set inputs context in js vm: %v", err)
 	}
 	tool.Task.infof("end load inputs to js vm")

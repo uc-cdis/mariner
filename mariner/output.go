@@ -84,7 +84,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 				if strings.HasPrefix(val, "$") {
 
 					// get inputs context
-					vm := tool.Task.Root.InputsVM.Copy()
+					vm := tool.InputsVM.Copy()
 
 					// iterate through output files
 					var self interface{}
@@ -279,7 +279,7 @@ func (tool *Tool) pattern(glob string) (pattern string, err error) {
 		// eval'ing in the InputsVM with no additional context
 		// not sure if additional context will be needed in other cases
 
-		expResult, err := evalExpression(glob, tool.Task.Root.InputsVM)
+		expResult, err := evalExpression(glob, tool.InputsVM)
 		if err != nil {
 			return "", tool.Task.errorf("failed to eval glob expression")
 		}
@@ -323,7 +323,7 @@ func (engine *K8sEngine) handleETOutput(tool *Tool) error {
 func (tool *Tool) outputEval(output *cwl.Output, fileArray []*File) (err error) {
 	tool.Task.infof("begin output eval for output param %v", output.ID)
 	// copy InputsVM to get inputs context
-	vm := tool.Task.Root.InputsVM.Copy()
+	vm := tool.InputsVM.Copy()
 
 	// here `self` is the file or array of files returned by glob (with contents loaded if so specified)
 	var self interface{}
