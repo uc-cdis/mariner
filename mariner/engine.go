@@ -373,7 +373,7 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 	tool.Task.infof("begin setup tool")
 
 	// pass parameter values to input.Provided for each input
-	if err = tool.loadInputs(); err != nil {
+	if err = engine.loadInputs(tool); err != nil {
 		return tool.Task.errorf("failed to load inputs: %v", err)
 	}
 
