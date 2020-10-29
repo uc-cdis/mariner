@@ -211,12 +211,11 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 
 	/*
 		note:
-		glob patterns in the CWL must be specified relative
+		glob patterns in the CWL should (?) be specified relative
 		to that tasks runtime environment
-		that is, all glob patterns must resolve to absolute paths
+		that is, all glob patterns should (?) resolve to absolute paths
 		the way to do this in the CWL is, for example:
 		glob: $(runtime.outdir + 'my_glob_pattern*')
-
 
 		see also: https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
 	*/
@@ -224,6 +223,14 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 	fmt.Println("globbing s3")
 	fmt.Println("pattern:", pattern)
 	s3Pattern := strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
+
+	// handle case of glob pattern not resolving to absolute path
+	// fixme: this is really, really ugly
+	if !strings.HasPrefix(s3Pattern, engine.UserID) {
+		s3wkdir := strings.TrimPrefix(engine.localPathToS3Key(tool.WorkingDir), "/")
+		s3Pattern = fmt.Sprintf("%s/%s", strings.TrimSuffix(s3wkdir, "/"), strings.TrimPrefix(s3Pattern, "/"))
+	}
+
 	fmt.Println("s3Pattern:", s3Pattern)
 
 	fmt.Println("length of s3 ls wkdir results:", len(objectList.Contents))
