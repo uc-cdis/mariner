@@ -428,6 +428,9 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	fmt.Println("files (?) after secondary files processing:")
 	printJSON(out)
 
+	fmt.Println("s3 file list:")
+	printJSON(tool.S3Input.Paths)
+
 	// ###########################################
 
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
