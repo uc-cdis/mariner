@@ -166,6 +166,12 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 // #no-fuse - must glob s3, not locally
 func (engine *K8sEngine) glob(tool *Tool, output *cwl.Output) (results []*File, err error) {
 	tool.Task.infof("begin glob")
+
+	fmt.Println("globbing for tool:", tool.Task.Root.ID)
+	fmt.Println(tool.WorkingDir)
+	fmt.Println("globbing for this output:")
+	printJSON(output)
+
 	var pattern string
 	for _, glob := range output.Binding.Glob {
 
