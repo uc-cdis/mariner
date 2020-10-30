@@ -602,7 +602,6 @@ func jobSpec(component string, userID string, jobName string) (job *batchv1.Job)
 	// only one pod running for this job at a time
 	job.Spec.Parallelism = &one
 
-	// debug
 	fmt.Println("restart policy for component:", component)
 	fmt.Println(job.Spec.Template.Spec.RestartPolicy)
 
