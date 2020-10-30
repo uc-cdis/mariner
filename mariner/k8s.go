@@ -594,9 +594,10 @@ func jobSpec(component string, userID string, jobName string) (job *batchv1.Job)
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
 
-	// so it never restarts
+	// so it never restarts / retries
 	one := int32(1)
-	job.Spec.BackoffLimit = &one
+	zero := int32(0)
+	job.Spec.BackoffLimit = &zero
 	job.Spec.Completions = &one
 
 	// only one pod running for this job at a time
