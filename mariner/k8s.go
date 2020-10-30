@@ -373,6 +373,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 // for marinerTask job
 // replace disallowed job name characters
 // Q: is there a better job-naming scheme?
+// fixme - #shared-root
 func (tool *Tool) jobName() string {
 	tool.Task.infof("begin resolve k8s job name")
 	taskID := tool.Task.Root.ID
@@ -592,6 +593,17 @@ func jobSpec(component string, userID string, jobName string) (job *batchv1.Job)
 	if component == marinerEngine {
 		job.Spec.Template.Spec.ServiceAccountName = jobConfig.ServiceAccount
 	}
+
+	// so it never restarts
+	one := int32(1)
+	job.Spec.BackoffLimit = &one
+	job.Spec.Completions = &one
+
+	// only one pod running for this job at a time
+	job.Spec.Parallelism = &one
+
+	fmt.Println("restart policy for component:", component)
+	fmt.Println(job.Spec.Template.Spec.RestartPolicy)
 
 	// wts depends on this particular annotation
 	job.Spec.Template.Annotations = make(map[string]string)
