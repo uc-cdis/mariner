@@ -1,7 +1,6 @@
 package mariner
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 
@@ -37,13 +36,6 @@ func (engine *K8sEngine) runScatter(task *Task) (err error) {
 // assign input value to each scattered input parameter
 func (task *Task) scatterParams() (scatterParams map[string][]interface{}, err error) {
 	task.infof("begin load scatter params")
-
-	fmt.Println("in scatterParams() - task parameters:")
-	printJSON(task.Parameters)
-
-	fmt.Println("task.Scatter:")
-	printJSON(task.Scatter)
-
 	scatterParams = make(map[string][]interface{})
 	for _, scatterKey := range task.Scatter {
 		task.infof("begin handle scatter param: %v", scatterKey)
@@ -96,7 +88,6 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 			defer wg.Done()
 			for !*scatterTask.Done {
 				// wait for scattered task to finish
-				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
 			for _, param := range task.Root.Outputs {
 				mtx.Lock()

@@ -85,9 +85,7 @@ type ToolS3Input struct {
 
 // Engine runs an instance of the mariner engine job
 func Engine(runID string) (err error) {
-	fmt.Println(1)
 	engine := engine(runID)
-	fmt.Println(2)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -118,7 +116,6 @@ func Engine(runID string) (err error) {
 //
 // key := fmt.Sprintf("/%s/workflowRuns/%s/%s", engine.UserID, engine.RunID, requestFile)
 func (engine *K8sEngine) fetchRequestFromS3() (*WorkflowRequest, error) {
-	fmt.Println(6)
 	sess := engine.S3FileManager.newS3Session()
 	downloader := s3manager.NewDownloader(sess)
 	buf := &aws.WriteAtBuffer{}
@@ -130,13 +127,10 @@ func (engine *K8sEngine) fetchRequestFromS3() (*WorkflowRequest, error) {
 		Key:    aws.String(key),
 	}
 
-	fmt.Println(7)
 	_, err := downloader.Download(buf, s3Obj)
 	if err != nil {
-		fmt.Println(8)
 		return nil, fmt.Errorf("failed to download file, %v", err)
 	}
-	fmt.Println(9)
 
 	b := buf.Bytes()
 	r := &WorkflowRequest{}
@@ -160,7 +154,7 @@ func engine(runID string) *K8sEngine {
 
 	fm := &S3FileManager{}
 	if err := fm.setup(); err != nil {
-		// debug
+		// fixme: log
 		fmt.Println("FAILED TO SETUP S3FILEMANAGER")
 	}
 	e.S3FileManager = fm
@@ -168,14 +162,11 @@ func engine(runID string) *K8sEngine {
 }
 
 func (engine *K8sEngine) loadRequest() error {
-	fmt.Println(3)
 	engine.infof("begin load workflow request")
 	request, err := engine.fetchRequestFromS3()
 	if err != nil {
-		fmt.Println(4)
 		return engine.errorf("failed to load workflow request: %v", err)
 	}
-	fmt.Println(5)
 	engine.Manifest = &request.Manifest
 	engine.Log.Request = request
 	engine.infof("end load workflow request")

@@ -166,12 +166,6 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 // #no-fuse - must glob s3, not locally
 func (engine *K8sEngine) glob(tool *Tool, output *cwl.Output) (results []*File, err error) {
 	tool.Task.infof("begin glob")
-
-	fmt.Println("globbing for tool:", tool.Task.Root.ID)
-	fmt.Println(tool.WorkingDir)
-	fmt.Println("globbing for this output:")
-	printJSON(output)
-
 	var pattern string
 	for _, glob := range output.Binding.Glob {
 
@@ -218,7 +212,7 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 	/*
 		note:
 		glob patterns in the CWL should (?) be specified relative
-		to that tasks runtime environment
+		to that task's runtime environment
 		that is, all glob patterns should (?) resolve to absolute paths
 		the way to do this in the CWL is, for example:
 		glob: $(runtime.outdir + 'my_glob_pattern*')
@@ -226,21 +220,14 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 		see also: https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
 	*/
 
-	fmt.Println("globbing s3")
-	fmt.Println("pattern:", pattern)
 	s3Pattern := strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
 
 	// handle case of glob pattern not resolving to absolute path
-	// fixme: this is really, really ugly
+	// fixme: this is not pretty
 	if !strings.HasPrefix(s3Pattern, engine.UserID) {
 		s3wkdir := strings.TrimPrefix(engine.localPathToS3Key(tool.WorkingDir), "/")
 		s3Pattern = fmt.Sprintf("%s/%s", strings.TrimSuffix(s3wkdir, "/"), strings.TrimPrefix(s3Pattern, "/"))
 	}
-
-	fmt.Println("s3Pattern:", s3Pattern)
-
-	fmt.Println("length of s3 ls wkdir results:", len(objectList.Contents))
-	fmt.Println("from key:", engine.localPathToS3Key(tool.WorkingDir))
 
 	var key string
 	var match bool
@@ -249,23 +236,18 @@ func (engine *K8sEngine) globS3(tool *Tool, pattern string) ([]string, error) {
 	for _, obj := range objectList.Contents {
 		// match key against pattern
 		key = *obj.Key
-
-		fmt.Println("checking match against key:", key)
-
 		match, err = filepath.Match(s3Pattern, key)
 		if err != nil {
-			fmt.Println("filepath match error:", err)
 			return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 		}
 		if match {
-			fmt.Println("\tmatch!")
 
 			// this needs to be represented as a filepath, not a "key"
-			// I mean, it needs a slash at the beginning - I *think* - testing
+			// i.e., it needs a slash at the beginning
 			path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", key))
 			globResults = append(globResults, path)
 		} else {
-			fmt.Println("\tno match!")
+			// fmt.Println("\tno match!")
 		}
 	}
 	return globResults, nil
