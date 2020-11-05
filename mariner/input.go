@@ -131,10 +131,16 @@ func processFile(f interface{}) (*File, error) {
 
 	// if it's already of type File or *File, it requires no processing
 	if obj, ok := f.(File); ok {
+		// "reset" secondaryFiles field to nil
+		obj.SecondaryFiles = nil
 		return &obj, nil
 	}
 	if p, ok := f.(*File); ok {
-		return p, nil
+		// process a copy of the original file
+		// reset secondaryFiles field to nil
+		fileObj := *p
+		fileObj.SecondaryFiles = nil
+		return &fileObj, nil
 	}
 
 	path, err := filePath(f)
