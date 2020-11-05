@@ -603,10 +603,6 @@ func jobSpec(component string, userID string, jobName string) (job *batchv1.Job)
 	// only one pod running for this job at a time
 	job.Spec.Parallelism = &one
 
-	// !
-	fmt.Println("restart policy for component:", component)
-	fmt.Println(job.Spec.Template.Spec.RestartPolicy)
-
 	// wts depends on this particular annotation
 	job.Spec.Template.Annotations = make(map[string]string)
 	job.Spec.Template.Annotations["gen3username"] = userID

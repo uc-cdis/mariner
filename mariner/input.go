@@ -131,10 +131,16 @@ func processFile(f interface{}) (*File, error) {
 
 	// if it's already of type File or *File, it requires no processing
 	if obj, ok := f.(File); ok {
+		// "reset" secondaryFiles field to nil
+		obj.SecondaryFiles = nil
 		return &obj, nil
 	}
 	if p, ok := f.(*File); ok {
-		return p, nil
+		// process a copy of the original file
+		// reset secondaryFiles field to nil
+		fileObj := *p
+		fileObj.SecondaryFiles = nil
+		return &fileObj, nil
 	}
 
 	path, err := filePath(f)
@@ -216,9 +222,6 @@ func (tool *Tool) processFileList(l interface{}) ([]*File, error) {
 // if err and input is not optional, it is a fatal error and the run should fail out
 func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin transform input: %v", input.ID)
-
-	fmt.Println("transforming input:")
-	printJSON(input)
 
 	/*
 		NOTE: presently only context loaded into js vm's here is `self`
@@ -329,10 +332,6 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		vs. checking types of actual values
 	*/
 
-	fmt.Println("out, before file switch:")
-	fmt.Printf("%T", out)
-	printJSON(out)
-
 	switch {
 	case isFile(out):
 		if out, err = tool.processFile(out); err != nil {
@@ -352,10 +351,6 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	// ######### since it's basically the same process both times
 
 	if len(input.SecondaryFiles) > 0 {
-
-		fmt.Println("processing input secondary files:")
-		printJSON(input.SecondaryFiles)
-
 		var fileArray []*File
 		switch {
 		case isFile(out):
@@ -404,7 +399,6 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 					fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
 				}
 			} else {
-				fmt.Println("processing this pattern:", val)
 				// follow those two steps indicated at the bottom of the secondaryFiles field description
 				suffix, carats := trimLeading(val, "^")
 				for _, fileObj := range fileArray {
@@ -420,14 +414,6 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 			}
 		}
 	}
-
-	fmt.Println("files (?) after secondary files processing:")
-	printJSON(out)
-
-	fmt.Println("s3 file list:")
-	printJSON(tool.S3Input.Paths)
-
-	// ###########################################
 
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
 	// so `out` will be what we work with in this next block as an initial value
