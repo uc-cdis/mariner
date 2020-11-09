@@ -1,16 +1,22 @@
 package mariner
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/robertkrimen/otto"
 	cwl "github.com/uc-cdis/cwl.go"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // this file contains the top level functions for the task engine
@@ -24,6 +30,7 @@ import (
 // ----- create some field, define a sensible data structure to easily collect/store/retreive logs
 type K8sEngine struct {
 	sync.RWMutex    `json:"-"`
+	S3FileManager   *S3FileManager
 	TaskSequence    []string            // for testing purposes
 	UnfinishedProcs map[string]bool     // engine's stack of CLT's that are running; (task.Root.ID, Process) pairs
 	FinishedProcs   map[string]bool     // engine's stack of completed processes; (task.Root.ID, Process) pairs
@@ -52,6 +59,28 @@ type Tool struct {
 	StepInputMap     map[string]*cwl.StepInput
 	ExpressionResult map[string]interface{}
 	Task             *Task
+	S3Input          *ToolS3Input
+
+	// dev'ing
+	// need to load this with runtime context as per CWL spec
+	// https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
+	// for now, only populating 'runtime.outdir'
+	JSVM     *otto.Otto
+	InputsVM *otto.Otto
+}
+
+// TaskRuntimeJSContext gets loaded into the js vm
+// to allow in-line js expressions and parameter references in the CWL to be resolved
+// see: https://www.commonwl.org/v1.0/CommandLineTool.html#Runtime_environment
+//
+// NOTE: not currently supported: tmpdir, cores, ram, outdirSize, tmpdirSize
+type TaskRuntimeJSContext struct {
+	Outdir string `json:"outdir"`
+}
+
+// ToolS3Input ..
+type ToolS3Input struct {
+	Paths []string `json:"paths"`
 }
 
 // Engine runs an instance of the mariner engine job
@@ -65,7 +94,7 @@ func Engine(runID string) (err error) {
 		}
 	}()
 
-	if err = engine.loadRequest(runID); err != nil {
+	if err = engine.loadRequest(); err != nil {
 		return engine.errorf("failed to load workflow request: %v", err)
 	}
 	if err = engine.runWorkflow(); err != nil {
@@ -75,28 +104,41 @@ func Engine(runID string) (err error) {
 	// turning off file cleanup because it's busted and must be fixed
 	// engine.basicCleanup()
 
-	if err = done(runID); err != nil {
-		return engine.errorf("failed to signal engine completion to sidecar containers: %v", err)
-	}
 	return err
 }
 
-// get WorkflowRequest object
-func request(runID string) (*WorkflowRequest, error) {
-	request := &WorkflowRequest{}
-	f, err := os.Open(fmt.Sprintf(pathToRequestf, runID))
-	if err != nil {
-		return request, err
+// get WorkflowRequestJSON from the run working directory in S3
+//
+// location of request:
+// s3://workflow-engine-garvin/$USER_ID/workflowRuns/$RUN_ID/request.json
+// key is "/$USER_ID/workflowRuns/$RUN_ID/request.json"
+// key format is "/%s/workflowRuns/%s/%s"
+//
+// key := fmt.Sprintf("/%s/workflowRuns/%s/%s", engine.UserID, engine.RunID, requestFile)
+func (engine *K8sEngine) fetchRequestFromS3() (*WorkflowRequest, error) {
+	sess := engine.S3FileManager.newS3Session()
+	downloader := s3manager.NewDownloader(sess)
+	buf := &aws.WriteAtBuffer{}
+
+	key := fmt.Sprintf("/%s/workflowRuns/%s/%s", engine.UserID, engine.RunID, requestFile)
+
+	s3Obj := &s3.GetObjectInput{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Key:    aws.String(key),
 	}
-	b, err := ioutil.ReadAll(f)
+
+	_, err := downloader.Download(buf, s3Obj)
 	if err != nil {
-		return request, err
+		return nil, fmt.Errorf("failed to download file, %v", err)
 	}
-	err = json.Unmarshal(b, request)
+
+	b := buf.Bytes()
+	r := &WorkflowRequest{}
+	err = json.Unmarshal(b, r)
 	if err != nil {
-		return request, err
+		return nil, fmt.Errorf("error unmarhsalling TaskS3Input: %v", err)
 	}
-	return request, nil
+	return r, nil
 }
 
 // instantiate a K8sEngine object
@@ -106,33 +148,28 @@ func engine(runID string) *K8sEngine {
 		UnfinishedProcs: make(map[string]bool),
 		CleanupProcs:    make(map[CleanupKey]bool),
 		RunID:           runID,
+		UserID:          os.Getenv(userIDEnvVar),
 		Log:             mainLog(fmt.Sprintf(pathToLogf, runID)),
 	}
 
-	// note: check if log already exists - if yes, then this is a 'restart'
-
+	fm := &S3FileManager{}
+	if err := fm.setup(); err != nil {
+		// fixme: log
+		fmt.Println("FAILED TO SETUP S3FILEMANAGER")
+	}
+	e.S3FileManager = fm
 	return e
 }
 
-func (engine *K8sEngine) loadRequest(runID string) error {
+func (engine *K8sEngine) loadRequest() error {
 	engine.infof("begin load workflow request")
-	request, err := request(runID)
+	request, err := engine.fetchRequestFromS3()
 	if err != nil {
 		return engine.errorf("failed to load workflow request: %v", err)
 	}
 	engine.Manifest = &request.Manifest
-	engine.UserID = request.UserID
 	engine.Log.Request = request
 	engine.infof("end load workflow request")
-	return nil
-}
-
-// tell sidecar containers the workflow is done running so the engine job can finish
-func done(runID string) error {
-	if _, err := os.Create(fmt.Sprintf(pathToDonef, runID)); err != nil {
-		return err
-	}
-	time.Sleep(15 * time.Second)
 	return nil
 }
 
@@ -144,22 +181,32 @@ func (engine *K8sEngine) dispatchTask(task *Task) (err error) {
 	tool := task.tool(engine.RunID) // #race #ok
 	engine.Unlock()
 
-	err = tool.setupTool()
-	if err != nil {
+	if err = engine.setupTool(tool); err != nil {
 		return engine.errorf("failed to setup tool: %v; error: %v", task.Root.ID, err)
 	}
-
-	// {Q: when should the process get pushed onto the stack?}
-
-	// engine.UnfinishedProcs[tool.Task.Root.ID] = nil
 	if err = engine.runTool(tool); err != nil {
 		return engine.errorf("failed to run tool: %v; error: %v", task.Root.ID, err)
 	}
 	if err = engine.collectOutput(tool); err != nil {
 		return engine.errorf("failed to collect output for tool: %v; error: %v", task.Root.ID, err)
 	}
-	// engine.updateStack(task) // tools AND workflows need to be updated in the stack
+	if err = engine.deletePVC(tool); err != nil {
+		engine.warnf("failed to delete pvc for tool: %v", task.Root.ID)
+	}
 	engine.infof("end dispatch task: %v", task.Root.ID)
+	return nil
+}
+
+func (engine *K8sEngine) deletePVC(tool *Tool) error {
+	claimName := fmt.Sprintf("%s-claim", tool.JobName)
+	coreClient, _, _, _, err := k8sClient(k8sCoreAPI)
+	if err != nil {
+		return err
+	}
+	err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Delete(claimName, &metav1.DeleteOptions{})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -170,7 +217,7 @@ func (engine *K8sEngine) finishTask(task *Task) {
 
 	delete(engine.UnfinishedProcs, task.Root.ID)
 	engine.FinishedProcs[task.Root.ID] = true
-	engine.Log.finish(task)
+	engine.finishTaskLog(task)
 
 	// task.Lock()
 	task.Done = &trueVal // #race #ok
@@ -184,14 +231,40 @@ func (engine *K8sEngine) startTask(task *Task) {
 	engine.UnfinishedProcs[task.Root.ID] = true // #race #ok
 	engine.Unlock()
 
-	engine.Log.start(task)
+	engine.startTaskLog(task)
 }
 
-func (engine *K8sEngine) collectOutput(tool *Tool) error {
+// collectOutput collects the output for a tool after the tool has run
+// output parameter values get set, and the outputs parameter object gets stored in tool.Task.Outputs
+// if the outputs of this process are the inputs of another process,
+// then the output parameter object of this process (the Task.Outputs field)
+// gets assigned as the input parameter object of that other process (the Task.Parameters field)
+// ---
+// may be a good idea to make different types for CLT and ExpressionTool
+// and use Tool as an interface, so we wouldn't have to split cases like this
+//  -> could just call one method in one line on a tool interface
+// i.e., CollectOutput() should be a method on type CommandLineTool and on type ExpressionTool
+// would bypass all this case-handling
+// TODO: implement CommandLineTool and ExpressionTool types and their methods, as well as the Tool interface
+// ---
+// NOTE: the outputBinding for a given output parameter specifies how to assign a value to this parameter
+// ----- no binding provided -> output won't be collected
+func (engine *K8sEngine) collectOutput(tool *Tool) (err error) {
 	engine.infof("begin collect output for task: %v", tool.Task.Root.ID)
-	if err := tool.collectOutput(); err != nil {
-		return engine.errorf("failed to collect output for tool: %v; error: %v", tool.Task.Root.ID, err)
+	tool.Task.infof("begin collect output")
+	switch class := tool.Task.Root.Class; class {
+	case CWLCommandLineTool:
+		if err = engine.handleCLTOutput(tool); err != nil {
+			return tool.Task.errorf("%v", err)
+		}
+	case CWLExpressionTool:
+		if err = engine.handleETOutput(tool); err != nil {
+			return tool.Task.errorf("%v", err)
+		}
+	default:
+		return tool.Task.errorf("unexpected class: %v", class)
 	}
+	tool.Task.infof("end collect output")
 	engine.infof("end collect output for task: %v", tool.Task.Root.ID)
 	return nil
 }
@@ -204,9 +277,35 @@ func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
+		S3Input: &ToolS3Input{
+			Paths: []string{},
+		},
 	}
+	tool.JSVM = tool.newJSVM()
 	task.infof("end make tool object")
 	return tool
+}
+
+// should be called exactly once - when a tool is created in the first place
+// all other vm's created should be copied from this one
+// dev'ing
+func (tool *Tool) newJSVM() *otto.Otto {
+	vm := otto.New()
+	runtime := &TaskRuntimeJSContext{Outdir: tool.WorkingDir}
+	/*
+		ctx := struct {
+			Runtime TaskRuntimeJSContext `json:"runtime"`
+		}{
+			*runtime,
+		}
+	*/
+	// runtimeJSVal, err := preProcessContext(ctx)
+	runtimeJSVal, err := preProcessContext(runtime)
+	if err != nil {
+		panic(fmt.Errorf("failed to preprocess runtime js context: %v", err))
+	}
+	vm.Set("runtime", runtimeJSVal)
+	return vm
 }
 
 // see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
@@ -236,36 +335,54 @@ func (task *Task) workingDir(runID string) string {
 	return dir
 }
 
-// create working directory for this Tool
-func (tool *Tool) makeWorkingDir() error {
-	tool.Task.infof("begin make tool working dir")
-	if err := os.MkdirAll(tool.WorkingDir, 0777); err != nil {
-		return tool.Task.errorf("%v", err)
+func (engine *K8sEngine) writeFileInputListToS3(tool *Tool) error {
+	tool.Task.infof("being write file input list to s3")
+	sess := engine.S3FileManager.newS3Session()
+	uploader := s3manager.NewUploader(sess)
+
+	key := filepath.Join(engine.S3FileManager.s3Key(tool.WorkingDir, engine.UserID), inputFileListName)
+
+	b, err := json.Marshal(tool.S3Input)
+	if err != nil {
+		return fmt.Errorf("failed to marshal json: %v", err)
 	}
-	tool.Task.infof("end make tool working dir")
+
+	result, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(b),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file list to s3")
+	}
+	fmt.Println("wrote input file list to s3 location:", result.Location)
+	tool.Task.infof("end write file input list to s3")
 	return nil
 }
 
 // performs some setup for a Tool to prepare for the engine to run the Tool
-func (tool *Tool) setupTool() (err error) {
+func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 	tool.Task.infof("begin setup tool")
-	if err = tool.makeWorkingDir(); err != nil {
-		return tool.Task.errorf("failed to make working dir: %v", err)
-	}
 
 	// pass parameter values to input.Provided for each input
-	if err = tool.loadInputs(); err != nil {
+	if err = engine.loadInputs(tool); err != nil {
 		return tool.Task.errorf("failed to load inputs: %v", err)
 	}
 
-	// loads inputs context to js vm tool.Task.Root.InputsVM (NOTE: Ready to test, but needs to be extended)
+	// loads inputs context to js vm tool.InputsVM (NOTE: Ready to test, but needs to be extended)
 	if err = tool.inputsToVM(); err != nil {
 		return tool.Task.errorf("failed to load inputs to js vm: %v", err)
 	}
 
-	if err = tool.initWorkDir(); err != nil {
+	if err = engine.initWorkDirReq(tool); err != nil {
 		return tool.Task.errorf("failed to handle initWorkDir requirement: %v", err)
 	}
+
+	// write list of input files to tool "working directory" in S3
+	if err = engine.writeFileInputListToS3(tool); err != nil {
+		return tool.Task.errorf("failed to write file input list to s3: %v", err)
+	}
+
 	tool.Task.infof("end setup tool")
 	return nil
 }
@@ -335,13 +452,20 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	return nil
 }
 
+// #no-fuse - this has to change!
+// currently, regrettably, expressiontools run "in the engine", not in separate containers
+// need to revisit this in detail
+// figure out if expression tools should be dispatched as jobs
+// or if it's okay that they run "in the engine"
+// probably no actual computation of any kind should run "in the engine"
+// so I think the expressiontool should run as a job, just like commandlinetools
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	engine.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
 	// note: context has already been loaded
 	if err = os.Chdir(tool.WorkingDir); err != nil {
 		return engine.errorf("failed to move to tool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	result, err := evalExpression(tool.Task.Root.Expression, tool.Task.Root.InputsVM)
+	result, err := evalExpression(tool.Task.Root.Expression, tool.InputsVM)
 	if err != nil {
 		return engine.errorf("failed to eval expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 	}

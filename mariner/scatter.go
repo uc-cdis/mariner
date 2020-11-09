@@ -88,7 +88,6 @@ func (engine *K8sEngine) gatherScatterOutputs(task *Task) (err error) {
 			defer wg.Done()
 			for !*scatterTask.Done {
 				// wait for scattered task to finish
-				// fmt.Printf("waiting for scattered task %v to finish..\n", scatterTask.ScatterIndex)
 			}
 			for _, param := range task.Root.Outputs {
 				mtx.Lock()

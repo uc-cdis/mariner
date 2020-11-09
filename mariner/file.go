@@ -1,12 +1,14 @@
 package mariner
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"reflect"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 // this file contains code for handling/processing file objects
@@ -37,6 +39,7 @@ type File struct {
 	DirName        string  `json:"dirname"`        // name of directory containing the file
 	Contents       string  `json:"contents"`       // first 64 KiB of file as a string, if loadContents is true
 	SecondaryFiles []*File `json:"secondaryFiles"` // array of secondaryFiles
+	// S3Key          string  `json:"-"`
 }
 
 // instantiates a new file object given a filepath
@@ -97,7 +100,7 @@ func trimLeading(s string, char string) (suffix string, count int) {
 
 // creates File object for secondaryFile and loads into fileObj.SecondaryFiles field
 // unsure of where/what to check here to potentially return an error
-func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int) (err error) {
+func (engine *K8sEngine) loadSFilesFromPattern(tool *Tool, fileObj *File, suffix string, carats int) (err error) {
 	tool.Task.infof("begin load secondaryFiles from pattern for file: %v", fileObj.Path)
 
 	path := fileObj.Location // full path -> no need to handle prefix issue here
@@ -113,9 +116,13 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 	// check whether file exists
 	// fixme: decide how to handle case of secondaryFiles that don't exist - warning or error? still append file obj to list or not?
 	// see: https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
-	fileExists, err := exists(path)
+	// #no-fuse
+	fileExists, err := engine.fileExists(path)
 	switch {
 	case fileExists:
+
+		fmt.Println("secondary file exists!!")
+
 		// the secondaryFile exists
 		tool.Task.infof("found secondaryFile: %v", path)
 
@@ -126,6 +133,8 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 		fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFile)
 
 	case !fileExists:
+
+		fmt.Println("secondary file doesn't exist!!")
 		// the secondaryFile does not exist
 		// if anything, this should be a warning - not an error
 		// presently in this case, the secondaryFile object does NOT get appended to fileObj.SecondaryFiles
@@ -135,25 +144,63 @@ func (tool *Tool) loadSFilesFromPattern(fileObj *File, suffix string, carats int
 	return nil
 }
 
-// loads contents of file into the File.Contents field
-func (f *File) loadContents() (err error) {
-	r, err := os.Open(f.Location) // Location field stores full path, no need to handle prefix here
+// check if this path exists in S3
+func (engine *K8sEngine) fileExists(path string) (bool, error) {
+	svc := s3.New(engine.S3FileManager.newS3Session())
+	objectList, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Prefix: aws.String(strings.TrimPrefix(engine.localPathToS3Key(path), "/")),
+	})
 	if err != nil {
-		return err
+		return false, fmt.Errorf("failed to list s3 objects: %v", err)
 	}
+	if len(objectList.Contents) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (engine *K8sEngine) localPathToS3Key(path string) string {
+	return engine.S3FileManager.s3Key(path, engine.UserID)
+}
+
+func (engine *K8sEngine) s3KeyToLocalPath(key string) string {
+	return strings.Replace(key, engine.UserID, engineWorkspaceVolumeName, 1)
+}
+
+// loads contents of file into the File.Contents field
+// #no-fuse - read from s3, not locally
+func (engine *K8sEngine) loadContents(f *File) (err error) {
+
+	sess := engine.S3FileManager.newS3Session()
+	downloader := s3manager.NewDownloader(sess)
+
+	// Location field stores full path, no need to handle prefix here
+	s3Key := strings.TrimPrefix(engine.localPathToS3Key(f.Location), "/")
+
+	// Create a buffer to write the S3 Object contents to.
+	// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
+	buf := &aws.WriteAtBuffer{}
+
 	// read up to 64 KiB from file, as specified in CWL docs
 	// 1 KiB is 1024 bytes -> 64 KiB is 65536 bytes
-	contents := make([]byte, 65536, 65536)
-	_, err = r.Read(contents)
-	if err != nil && err != io.EOF {
-		fmt.Printf("error reading file contents: %v", err)
-		return err
+	//
+	// S3 sdk supports specifying byte ranges
+	// in this way: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
+
+	// Write the contents of S3 Object to the buffer
+	s3Obj := &s3.GetObjectInput{
+		Bucket: aws.String(engine.S3FileManager.S3BucketName),
+		Key:    aws.String(s3Key),
+		Range:  aws.String(fmt.Sprintf("bytes=%v-%v", 0, 65536)),
 	}
-	// trim trailing null bytes if less than 65536 bytes were read
-	contents = bytes.TrimRight(contents, "\u0000")
+	_, err = downloader.Download(buf, s3Obj)
+	if err != nil {
+		return fmt.Errorf("failed to download file, %v", err)
+	}
 
 	// populate File.Contents field with contents
-	f.Contents = string(contents)
+	f.Contents = string(buf.Bytes())
 	return nil
 }
 
@@ -163,19 +210,22 @@ func (f *File) delete() error {
 }
 
 // determines whether a map i represents a CWL file object
-// NOTE: since objects of type File are not maps, they return false -> unfortunate, but not a critical problem
-// ----- maybe do some renaming to clear this up
-// fixme - see conformancelib
+// fixme - see conformancelib (?)
 func isFile(i interface{}) (f bool) {
-	iType := reflect.TypeOf(i)
-	iKind := iType.Kind()
-	if iKind == reflect.Map {
-		iMap := reflect.ValueOf(i)
-		for _, key := range iMap.MapKeys() {
-			if key.Type() == reflect.TypeOf("") {
-				if key.String() == "class" {
-					if iMap.MapIndex(key).Interface() == CWLFileType {
-						f = true
+	switch i.(type) {
+	case File, *File:
+		f = true
+	default:
+		iType := reflect.TypeOf(i)
+		iKind := iType.Kind()
+		if iKind == reflect.Map {
+			iMap := reflect.ValueOf(i)
+			for _, key := range iMap.MapKeys() {
+				if key.Type() == reflect.TypeOf("") {
+					if key.String() == "class" {
+						if iMap.MapIndex(key).Interface() == CWLFileType {
+							f = true
+						}
 					}
 				}
 			}

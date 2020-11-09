@@ -31,31 +31,31 @@ type JobInfo struct {
 
 // DispatchWorkflowJob runs a workflow provided in mariner api request
 // TODO - decide on an approach to error handling, and apply it uniformly
-func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (runID string, err error) {
+func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (err error) {
 	// get connection to cluster in order to dispatch jobs
-	jobsClient, _, _, err := k8sClient(k8sJobAPI)
+	_, jobsClient, _, _, err := k8sClient(k8sJobAPI)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// create the workflow job spec (i.e., mariner-engine job spec)
 	// `runID` is the jobName of the engine job
-	jobSpec, runID, err := workflowJob(workflowRequest)
+	jobSpec, err := workflowJob(workflowRequest)
 	if err != nil {
-		return "", fmt.Errorf("failed to create workflow job spec: %v", err)
+		return fmt.Errorf("failed to create workflow job spec: %v", err)
 	}
 
 	// tell k8s to run this job
 	workflowJob, err := jobsClient.Create(jobSpec)
 	if err != nil {
-		return "", fmt.Errorf("failed to create workflow job: %v", err)
+		return fmt.Errorf("failed to create workflow job: %v", err)
 	}
 
 	// #logs
 	fmt.Println("\tSuccessfully created workflow job.")
 	fmt.Printf("\tNew job name: %v\n", workflowJob.Name)
 	fmt.Printf("\tNew job UID: %v\n", workflowJob.GetUID())
-	return runID, nil
+	return nil
 }
 
 func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label string) error {
@@ -124,7 +124,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 	// I believe so
 
 	// keep sampling resource usage until task finishes
-	_, podsClient, _, err := k8sClient(k8sPodAPI)
+	_, _, podsClient, _, err := k8sClient(k8sPodAPI)
 	if err != nil {
 		tool.Task.Log.Event.warnf("%v", err)
 		return err
@@ -143,7 +143,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 		}
 
 		// update logdb
-		engine.Log.write()
+		engine.writeLogToS3()
 
 		// wait out sampling period duration to next sample
 		time.Sleep(metricsSamplingPeriod * time.Second)
@@ -164,7 +164,7 @@ func (engine *K8sEngine) dispatchTaskJob(tool *Tool) error {
 	if err != nil {
 		return engine.errorf("failed to load job spec for task: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	jobsClient, _, _, err := k8sClient(k8sJobAPI)
+	_, jobsClient, _, _, err := k8sClient(k8sJobAPI)
 	if err != nil {
 		return engine.errorf("%v", err)
 	}
@@ -176,7 +176,6 @@ func (engine *K8sEngine) dispatchTaskJob(tool *Tool) error {
 
 	// probably can make this nicer to look at
 	tool.JobID = string(newJob.GetUID())
-	tool.JobName = newJob.Name
 
 	tool.Task.Log.JobID = tool.JobID
 	tool.Task.Log.JobName = tool.JobName
@@ -185,7 +184,7 @@ func (engine *K8sEngine) dispatchTaskJob(tool *Tool) error {
 }
 
 func metricsByPod() (*metricsBeta1.PodMetricsList, error) {
-	_, _, podMetrics, err := k8sClient(k8sMetricsAPI)
+	_, _, _, podMetrics, err := k8sClient(k8sMetricsAPI)
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
@@ -252,32 +251,35 @@ func containerResourceUsage(targetPod k8sCore.Pod, targetContainer string) (int6
 	return cpu, mem
 }
 
-func k8sClient(k8sAPI string) (jobsClient batchtypev1.JobInterface, podsClient corev1.PodInterface, podMetricsClient metricsTyped.PodMetricsInterface, err error) {
+func k8sClient(k8sAPI string) (coreClient corev1.CoreV1Interface, jobsClient batchtypev1.JobInterface, podsClient corev1.PodInterface, podMetricsClient metricsTyped.PodMetricsInterface, err error) {
 	namespace := os.Getenv("GEN3_NAMESPACE")
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get k8s in-cluster config: %v", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get k8s in-cluster config: %v", err)
 	}
 	if k8sAPI == k8sMetricsAPI {
 		clientSet, err := metricsClient.NewForConfig(config)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get k8s metrics client: %v", err)
+			return nil, nil, nil, nil, fmt.Errorf("failed to get k8s metrics client: %v", err)
 		}
 		// podMetricsClient = clientSet.MetricsV1alpha1().PodMetricses(namespace)
 		podMetricsClient = clientSet.MetricsV1beta1().PodMetricses(namespace)
-		return nil, nil, podMetricsClient, nil
+		return nil, nil, nil, podMetricsClient, nil
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get k8s clientset: %v", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to get k8s clientset: %v", err)
 	}
 	switch k8sAPI {
 	case k8sJobAPI:
 		jobsClient = clientset.BatchV1().Jobs(namespace)
-		return jobsClient, nil, nil, nil
+		return nil, jobsClient, nil, nil, nil
 	case k8sPodAPI:
 		podsClient = clientset.CoreV1().Pods(namespace)
-		return nil, podsClient, nil, nil
+		return nil, nil, podsClient, nil, nil
+	case k8sCoreAPI:
+		coreClient = clientset.CoreV1()
+		return coreClient, nil, nil, nil, nil
 	}
 	return
 }
@@ -314,7 +316,7 @@ func engineJobID(jc batchtypev1.JobInterface, jobName string) string {
 }
 
 func jobStatusByID(jobID string) (*JobInfo, error) {
-	jobsClient, _, _, err := k8sClient(k8sJobAPI)
+	_, jobsClient, _, _, err := k8sClient(k8sJobAPI)
 	if err != nil {
 		return nil, fmt.Errorf("%v", err)
 	}
@@ -352,7 +354,7 @@ func jobStatusToString(status *batchv1.JobStatus) string {
 // fixme #log - needs to be some logging mechanism for the server
 // track events, errors, warnings
 func deleteCompletedJobs() error {
-	jobsClient, _, _, err := k8sClient(k8sJobAPI)
+	_, jobsClient, _, _, err := k8sClient(k8sJobAPI)
 	if err != nil {
 		// #log
 		return err

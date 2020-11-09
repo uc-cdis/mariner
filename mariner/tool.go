@@ -1,9 +1,13 @@
 package mariner
 
 import (
+	"bytes"
 	"encoding/json"
-	"os"
-	"path/filepath"
+	"fmt"
+	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
 // this file contains some methods/functions for setting up and working with Tools (i.e., commandlinetools and expressiontools)
@@ -11,10 +15,9 @@ import (
 // initDirReq handles the InitialWorkDirRequirement if specified for this tool
 // TODO: support cases where File or dirent is returned from `entry`
 // NOTE: this function really needs to be cleaned up/revised
-func (tool *Tool) initWorkDir() (err error) {
+func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 	tool.Task.infof("begin handle InitialWorkDirRequirement")
 	var resFile interface{}
-	var path string
 	for _, requirement := range tool.Task.Root.Requirements {
 		if requirement.Class == CWLInitialWorkDirRequirement {
 			for _, listing := range requirement.Listing {
@@ -61,19 +64,17 @@ func (tool *Tool) initWorkDir() (err error) {
 					// presently not supporting this case - will implement this feature once I find an example to work with
 					tool.Task.errorf("feature not supported: entry expression returned a file object")
 				} else {
-					// create tool working dir if it doesn't already exist
-					// might be unnecessary to put here if dir already created earlier in processing this tool - need to check
-					os.MkdirAll(tool.WorkingDir, os.ModePerm)
-					path = filepath.Join(tool.WorkingDir, entryName)
 
-					tool.Task.infof("begin create path: %v", path)
-					f, err := os.Create(path)
-					if err != nil {
-						return tool.Task.errorf("failed to create file: %v; error: %v", path, err)
-					}
-					tool.Task.infof("end create path: %v", path)
+					// #no-fuse
 
-					tool.Task.infof("begin write bytes to file")
+					sess := engine.S3FileManager.newS3Session()
+					uploader := s3manager.NewUploader(sess)
+
+					// Q: what about the case of creating directories?
+					// guess: this is probably not currently supported
+					key := strings.TrimPrefix(engine.localPathToS3Key(entryName), "/")
+					tool.S3Input.Paths = append(tool.S3Input.Paths, entryName)
+
 					var b []byte
 					switch contents.(type) {
 					case string:
@@ -84,12 +85,17 @@ func (tool *Tool) initWorkDir() (err error) {
 							return tool.Task.errorf("error marshalling contents to file: %v", err)
 						}
 					}
-					if _, err = f.Write(b); err != nil {
-						return tool.Task.errorf("failed to write bytes to file")
-					}
-					tool.Task.infof("end write bytes to file")
 
-					f.Close()
+					result, err := uploader.Upload(&s3manager.UploadInput{
+						Bucket: aws.String(engine.S3FileManager.S3BucketName),
+						Key:    aws.String(key),
+						Body:   bytes.NewReader(b),
+					})
+					if err != nil {
+						return fmt.Errorf("upload to s3 failed: %v", err)
+					}
+					fmt.Println("wrote initdir bytes to s3 object:", result.Location)
+					// log
 				}
 			}
 		}

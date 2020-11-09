@@ -4,15 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
@@ -37,35 +33,9 @@ type MainLogJSON struct {
 	ByProcess map[string]*Log  `json:"byProcess"`
 }
 
-type awsCredentials struct {
-	ID     string `json:"id"`
-	Secret string `json:"secret"`
-}
-
-// for fetching sub-paths of a key, probably - https://docs.aws.amazon.com/sdk-for-go/api/service/s3/#S3.ListObjects
-
-func newS3Session() (*session.Session, error) {
-	secret := []byte(os.Getenv("AWSCREDS")) // probably make this a constant
-	creds := &awsCredentials{}
-	err := json.Unmarshal(secret, creds)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling aws secret: %v", err)
-	}
-	credsConfig := credentials.NewStaticCredentials(creds.ID, creds.Secret, "")
-	awsConfig := &aws.Config{
-		Region:      aws.String(Config.Storage.S3.Region),
-		Credentials: credsConfig,
-	}
-	sess := session.Must(session.NewSession(awsConfig))
-	return sess, nil
-}
-
 // TODO - sort list - latest to oldest request
-func listRuns(userID string) ([]string, error) {
-	sess, err := newS3Session()
-	if err != nil {
-		return nil, err
-	}
+func (server *Server) listRuns(userID string) ([]string, error) {
+	sess := server.S3FileManager.newS3Session()
 	svc := s3.New(sess)
 	prefix := fmt.Sprintf(pathToUserRunsf, userID)
 	query := &s3.ListObjectsV2Input{
@@ -87,11 +57,11 @@ func listRuns(userID string) ([]string, error) {
 
 // split this out into smaller, more atomic functions as soon as it's working - refactor
 // most API endpoint handlers will call this function
-func fetchMainLog(userID, runID string) (*MainLog, error) {
-	sess, err := newS3Session()
-	if err != nil {
-		return nil, err
-	}
+func (server *Server) fetchMainLog(userID, runID string) (*MainLog, error) {
+	var err error
+
+	sess := server.S3FileManager.newS3Session()
+
 	// Create a downloader with the session and default options
 	downloader := s3manager.NewDownloader(sess)
 
@@ -128,31 +98,7 @@ func mainLog(path string) *MainLog {
 	return log
 }
 
-func showLog(path string) {
-	f, err := os.Open(path)
-	if err != nil {
-		fmt.Printf("error opening log: %v\n", err)
-	}
-	b, err := ioutil.ReadAll(f)
-	if err != nil {
-		fmt.Printf("error reading log: %v\n", err)
-	}
-	j := &MainLog{}
-	err = json.Unmarshal(b, j)
-	if err != nil {
-		fmt.Printf("error unmarshalling log: %v\n", err)
-	}
-	printJSON(j)
-}
-
-// tmp, for debugging mostly, though could/should adapt for complete error handling interface
-func check(err error) {
-	if err != nil {
-		fmt.Printf("error: %v\n", err)
-	}
-}
-
-func (mainLog *MainLog) write() error {
+func (engine *K8sEngine) writeLogToS3() error {
 	// apply/update timestamps on the main log
 	// not sure if I should collect timestamps of all writes
 	// or just the times of first write and latest writes
@@ -172,27 +118,39 @@ func (mainLog *MainLog) write() error {
 		log.Engine.LastUpdated = t
 	*/
 
-	mainLog.RLock()
-	defer mainLog.RUnlock()
+	engine.Log.RLock()
+	defer engine.Log.RUnlock()
+
+	sess := engine.S3FileManager.newS3Session()
+	uploader := s3manager.NewUploader(sess)
+
 	mainLogJSON := MainLogJSON{
-		Path:      mainLog.Path,
-		Request:   mainLog.Request,
-		Main:      mainLog.Main,
-		ByProcess: mainLog.ByProcess,
+		Path:      engine.Log.Path,
+		Request:   engine.Log.Request,
+		Main:      engine.Log.Main,
+		ByProcess: engine.Log.ByProcess,
+	}
+	j, err := json.Marshal(mainLogJSON)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log to json: %v", err)
 	}
 
-	j, err := json.Marshal(mainLogJSON)
-	check(err)
-	err = ioutil.WriteFile(mainLogJSON.Path, j, 0644)
-	check(err)
+	objKey := fmt.Sprintf(pathToUserRunLogf, engine.UserID, engine.RunID)
+
+	_, err = uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(Config.Storage.S3.Name),
+		Key:    aws.String(objKey),
+		Body:   bytes.NewReader(j),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file, %v", err)
+	}
+
 	return nil
 }
 
-func (mainLog *MainLog) serverWrite(userID, runID string) error {
-	sess, err := newS3Session()
-	if err != nil {
-		return err
-	}
+func (server *Server) writeLog(mainLog *MainLog, userID string, runID string) error {
+	sess := server.S3FileManager.newS3Session()
 	// Create an uploader with the session and default options
 	uploader := s3manager.NewUploader(sess)
 
@@ -203,8 +161,9 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 		ByProcess: mainLog.ByProcess,
 	}
 	j, err := json.Marshal(mainLogJSON)
-
-	check(err)
+	if err != nil {
+		return fmt.Errorf("failed to marshal log to json: %v", err)
+	}
 
 	objKey := fmt.Sprintf(pathToUserRunLogf, userID, runID)
 
@@ -231,18 +190,18 @@ func (mainLog *MainLog) serverWrite(userID, runID string) error {
 // ----- should be fine
 // ----- for now: log container image pulled for task
 type Log struct {
-	Created        string                 `json:"created,omitempty"`     // okay - timezone???
-	CreatedObj     time.Time              `json:"-"`                     // okay
-	LastUpdated    string                 `json:"lastUpdated,omitempty"` // okay - timezone???
-	LastUpdatedObj time.Time              `json:"-"`                     // okay
-	JobID          string                 `json:"jobID,omitempty"`       // okay
-	JobName        string                 `json:"jobName,omitempty"`     // keeping for now, but might be redundant w jobID
+	Created        string                 `json:"created,omitempty"` // timezone???
+	CreatedObj     time.Time              `json:"-"`
+	LastUpdated    string                 `json:"lastUpdated,omitempty"` // timezone???
+	LastUpdatedObj time.Time              `json:"-"`
+	JobID          string                 `json:"jobID,omitempty"`
+	JobName        string                 `json:"jobName,omitempty"`
 	ContainerImage string                 `json:"containerImage,omitempty"`
-	Status         string                 `json:"status"`             // okay
-	Stats          *Stats                 `json:"stats"`              // TODO
-	Event          *EventLog              `json:"eventLog,omitempty"` // TODO
-	Input          map[string]interface{} `json:"input"`              // TODO for workflow; okay for task
-	Output         map[string]interface{} `json:"output"`             // okay
+	Status         string                 `json:"status"`
+	Stats          *Stats                 `json:"stats"`
+	Event          *EventLog              `json:"eventLog,omitempty"`
+	Input          map[string]interface{} `json:"input"`
+	Output         map[string]interface{} `json:"output"`
 	Scatter        map[int]*Log           `json:"scatter,omitempty"`
 }
 
@@ -256,15 +215,15 @@ func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
 }
 
 // called when a task is run
-func (mainLog *MainLog) start(task *Task) {
+func (engine *K8sEngine) startTaskLog(task *Task) {
 	task.Log.start()
-	mainLog.write()
+	engine.writeLogToS3()
 }
 
 // called when a task finishes running
-func (mainLog *MainLog) finish(task *Task) {
+func (engine *K8sEngine) finishTaskLog(task *Task) {
 	task.Log.finish()
-	mainLog.write()
+	engine.writeLogToS3()
 }
 
 // called when a task finishes running
@@ -341,18 +300,18 @@ type EventLog struct {
 // update log (i.e., write to log file) each time there's an error, to capture point of failure
 func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
 	err := engine.Log.Main.Event.errorf(f, v...)
-	engine.Log.write()
+	engine.writeLogToS3()
 	return err
 }
 
 func (engine *K8sEngine) warnf(f string, v ...interface{}) {
 	engine.Log.Main.Event.warnf(f, v...)
-	engine.Log.write()
+	engine.writeLogToS3()
 }
 
 func (engine *K8sEngine) infof(f string, v ...interface{}) {
 	engine.Log.Main.Event.infof(f, v...)
-	engine.Log.write()
+	engine.writeLogToS3()
 }
 
 func (task *Task) errorf(f string, v ...interface{}) error {

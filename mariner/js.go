@@ -67,7 +67,7 @@ func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 
 func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
 	tool.Task.infof("begin eval expression: %v", exp)
-	val, err := evalExpression(exp, tool.Task.Root.InputsVM)
+	val, err := evalExpression(exp, tool.InputsVM)
 	if err != nil {
 		return nil, tool.Task.errorf("%v", err)
 	}
@@ -113,7 +113,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			expression = c1 + c2 + expression
 
 			// eval that thing
-			result, err := evalExpression(expression, tool.Task.Root.InputsVM)
+			result, err := evalExpression(expression, tool.InputsVM)
 			if err != nil {
 				return "", outFile, tool.Task.errorf("%v", err)
 			}

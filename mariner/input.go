@@ -6,8 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/robertkrimen/otto"
-
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -20,12 +18,12 @@ import (
 //  - tool.OriginalStep.In[i].ValueFrom
 // need to handle both cases - first eval at the workflowStepInput level, then eval at the tool input level
 // if err and input is not optional, it is a fatal error and the run should fail out
-func (tool *Tool) loadInputs() (err error) {
+func (engine *K8sEngine) loadInputs(tool *Tool) (err error) {
 	tool.Task.infof("begin load inputs")
 	sort.Sort(tool.Task.Root.Inputs)
 	tool.buildStepInputMap()
 	for _, in := range tool.Task.Root.Inputs {
-		if err = tool.loadInput(in); err != nil {
+		if err = engine.loadInput(tool, in); err != nil {
 			return tool.Task.errorf("failed to load input: %v", err)
 		}
 		// map parameter to value for log
@@ -66,7 +64,7 @@ func (tool *Tool) buildStepInputMap() {
 }
 
 // loadInput passes input parameter value to input.Provided
-func (tool *Tool) loadInput(input *cwl.Input) (err error) {
+func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
 	tool.Task.infof("begin load input: %v", input.ID)
 
 	// transformInput() handles any valueFrom statements at the workflowStepInput level and the tool input level
@@ -75,7 +73,7 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	// and the "tool input level" refers to the tool and its inputs as they appear in a standalone tool specification
 	// so that information would be specified in a cwl tool file like CommandLineTool.cwl or ExpressionTool.cwl
 	required := true
-	if provided, err := tool.transformInput(input); err == nil {
+	if provided, err := engine.transformInput(tool, input); err == nil {
 		if provided == nil {
 			// optional input with no value or default provided
 			// this is an unused input parameter
@@ -107,9 +105,44 @@ func (tool *Tool) loadInput(input *cwl.Input) (err error) {
 	return nil
 }
 
+// wrapper around processFile() - collects path of input file and all secondary files
+func (tool *Tool) processFile(f interface{}) (*File, error) {
+	obj, err := processFile(f)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.HasPrefix(obj.Path, pathToCommonsData) {
+		tool.S3Input.Paths = append(tool.S3Input.Paths, obj.Path)
+	}
+
+	// note: I don't think any input to this process will have secondary files loaded
+	// into this field at this point in the process
+	for _, sf := range obj.SecondaryFiles {
+		if !strings.HasPrefix(sf.Path, pathToCommonsData) {
+			tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Path)
+		}
+	}
+	return obj, nil
+}
+
 // called in transformInput() routine
 // handles path prefix issue
 func processFile(f interface{}) (*File, error) {
+
+	// if it's already of type File or *File, it requires no processing
+	if obj, ok := f.(File); ok {
+		// "reset" secondaryFiles field to nil
+		obj.SecondaryFiles = nil
+		return &obj, nil
+	}
+	if p, ok := f.(*File); ok {
+		// process a copy of the original file
+		// reset secondaryFiles field to nil
+		fileObj := *p
+		fileObj.SecondaryFiles = nil
+		return &fileObj, nil
+	}
+
 	path, err := filePath(f)
 	if err != nil {
 		return nil, err
@@ -163,7 +196,7 @@ func processFile(f interface{}) (*File, error) {
 }
 
 // called in transformInput() routine
-func processFileList(l interface{}) ([]*File, error) {
+func (tool *Tool) processFileList(l interface{}) ([]*File, error) {
 	if reflect.TypeOf(l).Kind() != reflect.Array {
 		return nil, fmt.Errorf("not an array")
 	}
@@ -178,7 +211,7 @@ func processFileList(l interface{}) ([]*File, error) {
 		if !isFile(i) {
 			return nil, fmt.Errorf("nonFile object found in file array: %v", i)
 		}
-		if f, err = processFile(i); err != nil {
+		if f, err = tool.processFile(i); err != nil {
 			return nil, fmt.Errorf("failed to process file %v", i)
 		}
 		out = append(out, f)
@@ -187,7 +220,7 @@ func processFileList(l interface{}) ([]*File, error) {
 }
 
 // if err and input is not optional, it is a fatal error and the run should fail out
-func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) {
+func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin transform input: %v", input.ID)
 
 	/*
@@ -217,7 +250,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 				// valueFrom is an expression that needs to be eval'd
 
 				// get a js vm
-				vm := otto.New()
+				vm := tool.JSVM.Copy() // #js-runtime
 
 				// preprocess struct/array so that fields can be accessed in vm
 				// Question: how to handle non-array/struct data types?
@@ -298,17 +331,88 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 		note: check types in the param type list?
 		vs. checking types of actual values
 	*/
+
 	switch {
 	case isFile(out):
-		if out, err = processFile(out); err != nil {
+		if out, err = tool.processFile(out); err != nil {
 			return nil, tool.Task.errorf("failed to process file: %v; error: %v", out, err)
 		}
 	case isArrayOfFile(out):
-		if out, err = processFileList(out); err != nil {
+		if out, err = tool.processFileList(out); err != nil {
 			return nil, tool.Task.errorf("failed to process file list: %v; error: %v", out, err)
 		}
 	default:
 		// fmt.Println("is not a file object")
+	}
+
+	// ######### Load Secondary Files ############
+	// ######### ought to encapsulate this to a function
+	// ######### and call it for inputs and outputs
+	// ######### since it's basically the same process both times
+
+	if len(input.SecondaryFiles) > 0 {
+		var fileArray []*File
+		switch {
+		case isFile(out):
+			fileArray = []*File{out.(*File)}
+		case isArrayOfFile(out):
+			fileArray = out.([]*File)
+		default:
+			// this is a fatal error - engine should fail out here
+			// but don't panic - actually handle this err and fail out gracefully
+			panic("invalid input: secondary files specified for a non-file input")
+		}
+
+		for _, entry := range input.SecondaryFiles {
+			val := entry.Entry
+			if strings.HasPrefix(val, "$") {
+				vm := tool.JSVM.Copy()
+				for _, fileObj := range fileArray {
+					// preprocess output file object
+					self, err := preProcessContext(fileObj)
+					if err != nil {
+						return nil, tool.Task.errorf("%v", err)
+					}
+					// set `self` variable name
+					// assuming it is okay to use one vm for all evaluations and just reset the `self` variable before each eval
+					vm.Set("self", self)
+
+					// eval js
+					jsResult, err := evalExpression(val, vm)
+					if err != nil {
+						return nil, tool.Task.errorf("%v", err)
+					}
+
+					// retrieve secondaryFile's path (type interface{} with underlying type string)
+					sFilePath, ok := jsResult.(string)
+					if !ok {
+						return nil, tool.Task.errorf("secondaryFile expression did not return string")
+					}
+
+					if exist, _ := engine.fileExists(sFilePath); !exist {
+						// fatal error
+						panic("secondary file doesn't exist")
+					}
+
+					// get file object for secondaryFile and append it to the input file's SecondaryFiles field
+					sFileObj := fileObject(sFilePath)
+					fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
+				}
+			} else {
+				// follow those two steps indicated at the bottom of the secondaryFiles field description
+				suffix, carats := trimLeading(val, "^")
+				for _, fileObj := range fileArray {
+					engine.loadSFilesFromPattern(tool, fileObj, suffix, carats)
+				}
+			}
+		}
+		for _, fileObj := range fileArray {
+			for _, sf := range fileObj.SecondaryFiles {
+				if !strings.HasPrefix(sf.Location, pathToCommonsData) {
+					tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Location)
+				}
+			}
+		}
 	}
 
 	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
@@ -317,7 +421,7 @@ func (tool *Tool) transformInput(input *cwl.Input) (out interface{}, err error) 
 	if input.Binding != nil && input.Binding.ValueFrom != nil {
 		valueFrom := input.Binding.ValueFrom.String
 		if strings.HasPrefix(valueFrom, "$") {
-			vm := otto.New()
+			vm := tool.JSVM.Copy() // #js-runtime
 			var context interface{}
 			// fixme: handle array of files
 			switch out.(type) {
@@ -389,12 +493,24 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 	return out, nil
 }
 
-// inputsToVM loads tool.Task.Root.InputsVM with inputs context - using Input.Provided for each input
+// general (very important) note
+// the Task.Root object - that "Root" object
+// is shared among all instances of a run of that root object
+// for example, say two steps of a workflow run the same tool
+// -> there's one "root" object which represents the tool
+// the tool gets run twice, let's say concurrently
+// so there are TWO TASKS WHICH POINT TO THE SAME ROOT
+// that is to say
+// it's SAFE TO READ from the root
+// but it's NOT SAFE TO WRITE to the root, under any circumstances
+// lest ye enjoy endless pointer / recursion / concurrency debugging
+
+// inputsToVM loads tool.InputsVM with inputs context - using Input.Provided for each input
 // to allow js expressions to be evaluated
 func (tool *Tool) inputsToVM() (err error) {
 	tool.Task.infof("begin load inputs to js vm")
 	prefix := tool.Task.Root.ID + "/" // need to trim this from all the input.ID's
-	tool.Task.Root.InputsVM = otto.New()
+	tool.InputsVM = tool.JSVM.Copy()
 	context := make(map[string]interface{})
 	var f interface{}
 	for _, input := range tool.Task.Root.Inputs {
@@ -432,7 +548,7 @@ func (tool *Tool) inputsToVM() (err error) {
 			context[inputID] = input.Provided.Raw // not sure if this will work in general - so far, so good though - need to test further
 		}
 	}
-	if err = tool.Task.Root.InputsVM.Set("inputs", context); err != nil {
+	if err = tool.InputsVM.Set("inputs", context); err != nil {
 		return tool.Task.errorf("failed to set inputs context in js vm: %v", err)
 	}
 	tool.Task.infof("end load inputs to js vm")

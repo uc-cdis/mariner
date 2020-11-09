@@ -434,7 +434,7 @@ func (tool *Tool) argVal(arg cwl.Argument) (val []string, err error) {
 		// NOTE: *might* need to check "$(" or "${" instead of just "$"
 		if strings.HasPrefix(arg.Value, "$") {
 			// expression to eval - here `self` is null - no additional context to load - just need to eval in inputsVM
-			result, err := evalExpression(arg.Value, tool.Task.Root.InputsVM)
+			result, err := evalExpression(arg.Value, tool.InputsVM)
 			if err != nil {
 				return nil, tool.Task.errorf("failed to evaluate expression: %v; err: %v", arg.Value, err)
 			}
