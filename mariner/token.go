@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type TokenInfo struct {
@@ -11,7 +12,13 @@ type TokenInfo struct {
 }
 
 func (server *Server) userID(r *http.Request) (userID string) {
-	info, err := server.decodeToken(r.Header.Get(authHeader))
+	authHeader := r.Header.Get(authHeader)
+	if authHeader == "" {
+		fmt.Println("no token in Authorization header")
+	}
+	userJWT := strings.TrimPrefix(authHeader, "Bearer ")
+	userJWT = strings.TrimPrefix(userJWT, "bearer ")
+	info, err := server.decodeToken(userJWT)
 	if err != nil {
 		// log error
 		fmt.Println("error decoding token: ", err)
