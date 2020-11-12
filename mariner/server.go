@@ -452,12 +452,14 @@ func (server *Server) handleAuth(next http.Handler) http.Handler {
 
 // polish this
 func authHTTPRequest(r *http.Request) (*AuthHTTPRequest, error) {
-	token := r.Header.Get(authHeader)
-	if token == "" {
+	authHeader := r.Header.Get(authHeader)
+	if authHeader == "" {
 		return nil, fmt.Errorf("no token in Authorization header")
 	}
+	userJWT := strings.TrimPrefix(authHeader, "Bearer ")
+	userJWT = strings.TrimPrefix(userJWT, "bearer ")
 	user := &UserJSON{
-		Token: token,
+		Token: userJWT,
 	}
 	authRequest := &AuthRequest{
 		Resource: "/mariner",
