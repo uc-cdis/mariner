@@ -9,8 +9,9 @@ WORKDIR /go/src/github.com/uc-cdis/mariner
 ADD . .
 RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
 
-FROM alpine
-COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /
+# avoid max pull rate limit errors
+# FROM alpine
+# COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /
 RUN apk update && apk add --no-cache ca-certificates
 
 ENTRYPOINT [ "/mariner", "run", "$RUN_ID" ]
