@@ -115,7 +115,7 @@ type ArboristResponse struct {
 
 // RunServer inits the mariner server
 func RunServer() {
-	//go deleteCompletedJobs()
+	go deleteCompletedJobs()
 	runServer()
 }
 
