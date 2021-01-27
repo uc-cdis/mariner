@@ -256,6 +256,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 				// Question: how to handle non-array/struct data types?
 				// --------- no preprocessing should have to happen in this case.
 				self, err := tool.loadInputValue(input)
+				tool.Task.warnf("!!! fails here 259: %v", input)
 				if err != nil {
 					return nil, tool.Task.errorf("failed to load value: %v", err)
 				}
@@ -306,6 +307,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	// if this tool is a step of a parent workflow but the valueFrom is empty
 	if out == nil {
 		out, err = tool.loadInputValue(input)
+		tool.Task.warnf("!!! or fails here: 309, %v", input)
 		if err != nil {
 			return nil, tool.Task.errorf("failed to load input value: %v", err)
 		}
@@ -475,6 +477,7 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 			required = true
 			for _, t := range input.Types {
 				if t.Type == CWLNullType {
+					tool.Task.warnf("!!! debug, value of type: %v", t.Type)
 					required = false
 				}
 			}
