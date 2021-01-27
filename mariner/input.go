@@ -476,8 +476,8 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 			// determine if this param is required or optional
 			required = true
 			for _, t := range input.Types {
+				tool.Task.warnf("!!! debug, value of type: %v", t.Type)
 				if t.Type == CWLNullType {
-					tool.Task.warnf("!!! debug, value of type: %v", t.Type)
 					required = false
 				}
 			}
