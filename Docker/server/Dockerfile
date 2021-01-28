@@ -1,16 +1,12 @@
-FROM quay.io/cdis/golang:1.12-alpine as build
+FROM quay.io/cdis/golang:1.15-buster as build
 
-# Install SSL certificates
-RUN apk update && apk add --no-cache git ca-certificates gcc musl-dev
+COPY . $GOPATH/src/github.com/uc-cdis/mariner/
+WORKDIR $GOPATH/src/github.com/uc-cdis/mariner/
 
-# Build static mariner binary
-RUN mkdir -p /go/src/github.com/uc-cdis/mariner
-WORKDIR /go/src/github.com/uc-cdis/mariner
-ADD . .
+RUN go get -d -v
 RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
 
 FROM scratch
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /mariner /
 
 ENTRYPOINT ["/mariner", "listen"]

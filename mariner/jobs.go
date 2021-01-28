@@ -1,6 +1,7 @@
 package mariner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -46,7 +47,7 @@ func dispatchWorkflowJob(workflowRequest *WorkflowRequest) (err error) {
 	}
 
 	// tell k8s to run this job
-	workflowJob, err := jobsClient.Create(jobSpec)
+	workflowJob, err := jobsClient.Create(context.TODO(), jobSpec, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create workflow job: %v", err)
 	}
@@ -75,7 +76,7 @@ func (tool *Tool) sampleResourceUsage(podsClient corev1.PodInterface, label stri
 
 func (tool *Tool) resourceUsage(podsClient corev1.PodInterface, label string) (cpu int64, mem int64, err error) {
 	tool.Task.infof("begin get metrics from pod")
-	podList, err := podsClient.List(metav1.ListOptions{LabelSelector: label})
+	podList, err := podsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: label})
 	if err != nil {
 		return 0, 0, tool.Task.errorf("failed to fetch pod list: %v", err)
 	}
@@ -168,7 +169,7 @@ func (engine *K8sEngine) dispatchTaskJob(tool *Tool) error {
 	if err != nil {
 		return engine.errorf("%v", err)
 	}
-	newJob, err := jobsClient.Create(batchJob)
+	newJob, err := jobsClient.Create(context.TODO(), batchJob, metav1.CreateOptions{})
 	if err != nil {
 		return engine.errorf("failed to create job for task: %v; error: %v", tool.Task.Root.ID, err)
 	}
@@ -189,7 +190,7 @@ func metricsByPod() (*metricsBeta1.PodMetricsList, error) {
 		return nil, fmt.Errorf("%v", err)
 	}
 
-	podMetricsList, err := podMetrics.List(metav1.ListOptions{})
+	podMetricsList, err := podMetrics.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +301,7 @@ func jobByID(jc batchtypev1.JobInterface, jobID string) (*batchv1.Job, error) {
 // trade engine jobName for engine jobID
 func engineJobID(jc batchtypev1.JobInterface, jobName string) string {
 	// FIXME: don't hardcode ListOptions here like this
-	engines, err := jc.List(metav1.ListOptions{LabelSelector: "app=mariner-engine"})
+	engines, err := jc.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-engine"})
 	if err != nil {
 		// log
 		fmt.Println("error fetching engine job list: ", err)
@@ -388,7 +389,7 @@ func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.Job
 		} else {
 			if k8sJob.Status == condition {
 				fmt.Printf("Deleting job %v under condition %v\n", job.Name, condition)
-				err = jobsClient.Delete(job.Name, deleteOption)
+				err = jobsClient.Delete(context.TODO(), job.Name, *deleteOption)
 				if err != nil {
 					fmt.Println("Error deleting job : ", job.Name, err)
 					return err
@@ -401,11 +402,11 @@ func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.Job
 
 func listMarinerJobs(jobsClient batchtypev1.JobInterface) ([]batchv1.Job, error) {
 	jobs := []batchv1.Job{}
-	tasks, err := jobsClient.List(metav1.ListOptions{LabelSelector: "app=mariner-task"})
+	tasks, err := jobsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-task"})
 	if err != nil {
 		return nil, err
 	}
-	engines, err := jobsClient.List(metav1.ListOptions{LabelSelector: "app=mariner-engine"})
+	engines, err := jobsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-engine"})
 	if err != nil {
 		return nil, err
 	}

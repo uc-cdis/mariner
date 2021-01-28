@@ -1,6 +1,7 @@
 package mariner
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -569,7 +570,7 @@ func (engine *K8sEngine) createPVC(claimName string) error {
 		// todo: actually handle this err
 		fmt.Println("failed to fetch podsClient:", err)
 	}
-	_, err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Create(pvc)
+	_, err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Create(context.TODO(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		// and this one
 		fmt.Println("FAILED TO CREATE PVC:", err)

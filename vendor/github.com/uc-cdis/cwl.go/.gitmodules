@@ -1,3 +1,0 @@
-[submodule "cwl"]
-	path = cwl
-	url = https://github.com/common-workflow-language/common-workflow-language.git
