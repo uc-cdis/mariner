@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -203,7 +204,7 @@ func (engine *K8sEngine) deletePVC(tool *Tool) error {
 	if err != nil {
 		return err
 	}
-	err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Delete(claimName, &metav1.DeleteOptions{})
+	err = coreClient.PersistentVolumeClaims(os.Getenv("GEN3_NAMESPACE")).Delete(context.TODO(), claimName, metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}

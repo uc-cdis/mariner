@@ -1,19 +1,14 @@
-FROM quay.io/cdis/golang:1.12-alpine as build
+FROM quay.io/cdis/golang:1.15-buster as builder
 
-# Install SSL certificates
-RUN apk update && apk add --no-cache git gcc musl-dev
+COPY . $GOPATH/src/github.com/uc-cdis/mariner/
+WORKDIR $GOPATH/src/github.com/uc-cdis/mariner/
 
-# Build static mariner binary
-RUN mkdir -p /go/src/github.com/uc-cdis/mariner
-WORKDIR /go/src/github.com/uc-cdis/mariner
-ADD . .
-RUN go build -ldflags "-linkmode external -extldflags -static" -o bin/mariner
+RUN go get -d -v
+RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
 
-# avoid max pull rate limit errors
-# FROM alpine
-# COPY --from=build /go/src/github.com/uc-cdis/mariner/bin/mariner /
-RUN mv /go/src/github.com/uc-cdis/mariner/bin/mariner /
+FROM scratch
+COPY --from=builder /mariner /
+# Copy CA certificates to prevent x509: certificate signed by unknown authority errors
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
-RUN apk update && apk add --no-cache ca-certificates
-
-ENTRYPOINT [ "/mariner", "run", "$RUN_ID" ]
+ENTRYPOINT ["/mariner", "run", "$RUN_ID"]
