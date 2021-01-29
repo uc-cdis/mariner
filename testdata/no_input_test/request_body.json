@@ -85,13 +85,15 @@
       {
         "inputs": [
           {
-            "type": {
-              "items": [
-                "null",
-                "File"
-              ],
-              "type": "array"
-            },
+            "type": [
+              {
+                "items": "File",
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "id": "#expressiontool_test.cwl/file_array"
           }
         ],

@@ -270,26 +270,22 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 					return nil, tool.Task.errorf("failed to set 'self' value in js vm: %v", err)
 				}
 
-				/*
-					// Troubleshooting js
-					// note: when accessing object fields using keys must use otto.Run("obj.key"), NOT otto.Get("obj.key")
+				// Troubleshooting js
+				// note: when accessing object fields using keys must use otto.Run("obj.key"), NOT otto.Get("obj.key")
 
-					fmt.Println("self in js:")
-					jsSelf, err := vm.Get("self")
-					jsSelfVal, err := jsSelf.Export()
-					PrintJSON(jsSelfVal)
+				fmt.Println("self in js:")
+				jsSelf, err := vm.Get("self")
+				jsSelfVal, err := jsSelf.Export()
+				tool.Task.infof("self value: %v", jsSelfVal)
+				tool.Task.infof("expression: %v", valueFrom)
 
-					fmt.Println("Expression:")
-					PrintJSON(valueFrom)
-
-					fmt.Println("Object.keys(self)")
-					keys, err := vm.Run("Object.keys(self)")
-					if err != nil {
-						fmt.Printf("Error evaluating Object.keys(self): %v\n", err)
-					}
-					keysVal, err := keys.Export()
-					PrintJSON(keysVal)
-				*/
+				fmt.Println("Object.keys(self)")
+				keys, err := vm.Run("Object.keys(self)")
+				if err != nil {
+					fmt.Printf("Error evaluating Object.keys(self): %v\n", err)
+				}
+				keysVal, err := keys.Export()
+				tool.Task.infof("keysVal value: %v", keysVal)
 
 				//  eval the expression in the vm, capture result in `out`
 				if out, err = evalExpression(valueFrom, vm); err != nil {
