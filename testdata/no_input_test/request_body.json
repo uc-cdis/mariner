@@ -255,7 +255,7 @@
             "in": [
               {
                 "source": "#subworkflow_test.cwl/test_initworkdir/bam_with_index",
-                "valueFrom": "$([self, self.secondaryFiles[0]])",
+                "valueFrom": "NIST7035.1.chrM.bam.bai",
                 "id": "#subworkflow_test.cwl/test_expr/file_array"
               }
             ],

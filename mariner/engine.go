@@ -462,6 +462,11 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 // so I think the expressiontool should run as a job, just like commandlinetools
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	engine.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
+
+	if err = os.Mkdir(tool.WorkingDir); err != nil {
+	return engine.errorf("failed to make tool working dir: %v; error: %v", tool.Task.Root.ID, err)
+	}
+
 	// note: context has already been loaded
 	if err = os.Chdir(tool.WorkingDir); err != nil {
 		return engine.errorf("failed to move to tool working dir: %v; error: %v", tool.Task.Root.ID, err)
