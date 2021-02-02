@@ -84,6 +84,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 						if err != nil {
 							return tool.Task.errorf("error marshalling contents to file: %v", err)
 						}
+						tool.Task.infof("Converted file to json: %v", b)
 					}
 
 					result, err := uploader.Upload(&s3manager.UploadInput{
@@ -94,6 +95,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					if err != nil {
 						return fmt.Errorf("upload to s3 failed: %v", err)
 					}
+					tool.Task.infof("wrote initdir bytes to s3 object: %v", result.Location)
 					fmt.Println("wrote initdir bytes to s3 object:", result.Location)
 					// log
 				}

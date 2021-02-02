@@ -463,9 +463,9 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	engine.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
 
-	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
-	return engine.errorf("failed to make tool working dir: %v; error: %v", tool.Task.Root.ID, err)
-	}
+// 	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
+// 	return engine.errorf("failed to make tool working dir: %v; error: %v", tool.Task.Root.ID, err)
+// 	}
 
 	// note: context has already been loaded
 	if err = os.Chdir(tool.WorkingDir); err != nil {
