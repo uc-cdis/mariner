@@ -30,6 +30,8 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 
 				// logic: exactly one of resultString or resultFile should be returned
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
+				tool.Task.infof("resultText: %v", resultText)
+				tool.Task.infof("resultFile: %v", resultFile)
 				switch {
 				case err != nil:
 					return tool.Task.errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)

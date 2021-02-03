@@ -47,6 +47,8 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 			}
 		}
 
+		tool.Task.infof("results from engine glob: %v", results)
+
 		// 2. Load Contents
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
@@ -138,6 +140,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
+        tool.Task.infof("output CWL type: %v", output.Types[0].Type)
 		// at this point we have file results captured in `results`
 		// output should be a CWLFileType or "array of Files"
 		// fixme - make this case handling more specific in the else condition - don't just catch anything
