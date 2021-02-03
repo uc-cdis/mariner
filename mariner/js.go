@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"reflect"
 
 	"github.com/robertkrimen/otto"
 )
@@ -121,7 +122,7 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			}
 
 			tool.Task.infof("expression result: %v", result)
-			tool.Task.infof("expression result type: %v", result.(type))
+			tool.Task.infof("expression result type: %v", reflect.TypeOf(result))
 
 			// result ought to be a string (edit: OR a file)
 			switch result.(type) {
