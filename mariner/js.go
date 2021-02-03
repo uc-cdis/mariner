@@ -112,11 +112,16 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			// get full $(...) expression
 			expression = c1 + c2 + expression
 
+			tool.Task.infof("Full $(...) expression: %v", expression)
+
 			// eval that thing
 			result, err := evalExpression(expression, tool.InputsVM)
 			if err != nil {
 				return "", outFile, tool.Task.errorf("%v", err)
 			}
+
+			tool.Task.infof("expression result: %v", result)
+			tool.Task.infof("expression result type: %v", result.(type))
 
 			// result ought to be a string (edit: OR a file)
 			switch result.(type) {
