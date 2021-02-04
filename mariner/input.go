@@ -302,11 +302,37 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	// OR
 	// if this tool is a step of a parent workflow but the valueFrom is empty
 	if out == nil {
+	    // get a js vm
+		vm := tool.JSVM.Copy() // #js-runtime
+
 		out, err = tool.loadInputValue(input)
-		tool.Task.warnf("!!! or fails here: 309, %v", input)
+		tool.Task.warnf("!!! [Inputs] or fails here: %v", out)
 		if err != nil {
 			return nil, tool.Task.errorf("failed to load input value: %v", err)
 		}
+
+		out, err = preProcessContext(out)
+		if err != nil {
+		    return nil, tool.Task.errorf("failed to preprocess context for tool input: %v", err)
+		}
+
+		// set `inputs` variable in vm
+		if err = vm.Set("inputs", out); err != nil {
+			return nil, tool.Task.errorf("failed to set 'inputs' value in js vm: %v", err)
+		}
+
+		jsInputs, err := vm.Get("inputs")
+		jsInputsVal, err := jsInputs.Export()
+		tool.Task.infof("inputs value: %v", jsInputsVal)
+
+		fmt.Println("Object.keys(inputs)")
+		keys, err := vm.Run("Object.keys(inputs)")
+		if err != nil {
+			fmt.Printf("Error evaluating Object.keys(inputs): %v\n", err)
+		}
+		keysVal, err := keys.Export()
+		tool.Task.infof("input keysVal value: %v", keysVal)
+
 		if out == nil {
 			// implies an optional parameter with no value provided and no default value specified
 			// this input parameter is not used by the tool
