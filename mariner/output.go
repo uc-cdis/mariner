@@ -229,7 +229,6 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 	var collectFile bool
 	var path string
 	globResults := []string{}
-	tool.Task.infof("globS3: objectList: %v", objectList)
 	for _, obj := range objectList.Contents {
 		// match key against pattern
 		key = *obj.Key
