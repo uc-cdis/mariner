@@ -245,7 +245,6 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			}
 
 			match, err = filepath.Match(s3Pattern, key)
-			tool.Task.infof("globS3: match: %v", match)
 			if err != nil {
 				return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 			} else if match {
