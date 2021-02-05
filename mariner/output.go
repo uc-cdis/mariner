@@ -229,6 +229,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 	var collectFile bool
 	var path string
 	globResults := []string{}
+	tool.Task.infof("globS3: objectList: %v", objectList)
 	for _, obj := range objectList.Contents {
 		// match key against pattern
 		key = *obj.Key
@@ -245,19 +246,19 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			}
 
 			match, err = filepath.Match(s3Pattern, key)
+			tool.Task.infof("globS3: match: %v", match)
 			if err != nil {
 				return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 			} else if match {
 				collectFile = true
 			}
 		}
-
+        tool.Task.infof("globS3: collectFile: %v", collectFile)
 		if collectFile {
 			// this needs to be represented as a filepath, not a "key"
 			// i.e., it needs a slash at the beginning
 			path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", key))
 			globResults = append(globResults, path)
-			tool.Task.infof("globS3: path: %v", path)
 		}
 	}
 	return globResults, nil

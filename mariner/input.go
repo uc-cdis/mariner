@@ -306,6 +306,10 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		out, err = tool.loadInputValue(input)
 		tool.Task.warnf("!!! or fails here: 309, %v", out)
 
+		if err != nil {
+		        return nil, tool.Task.errorf("failed to load input value: %v", err)
+		}
+
 		if out == nil {
 			// implies an optional parameter with no value provided and no default value specified
 			// this input parameter is not used by the tool
