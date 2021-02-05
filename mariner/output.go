@@ -178,7 +178,9 @@ func (engine *K8sEngine) glob(tool *Tool, output *cwl.Output) (results []*File, 
 		}
 		patterns = append(patterns, pattern)
 	}
+	tool.Task.infof("glob: patterns value: %v", patterns)
 	paths, err := engine.globS3(tool, patterns)
+	tool.Task.infof("glob: paths value: %v", paths)
 	if err != nil {
 		return results, tool.Task.errorf("%v", err)
 	}
@@ -275,6 +277,7 @@ func (tool *Tool) pattern(glob string) (pattern string, err error) {
 		if !ok {
 			return "", tool.Task.errorf("glob expression doesn't return a string pattern")
 		}
+		tool.Task.infof("resulting pattern: %v", pattern)
 		return pattern, nil
 	}
 	// not an expression, so no eval necessary
