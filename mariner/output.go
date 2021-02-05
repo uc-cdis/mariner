@@ -252,7 +252,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 				collectFile = true
 			}
 		}
-		tool.Task.infof("globS3: collectFile: %v", collectFile)
+
 		if collectFile {
 			// this needs to be represented as a filepath, not a "key"
 			// i.e., it needs a slash at the beginning
