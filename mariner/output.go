@@ -243,10 +243,13 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			if !strings.HasPrefix(s3Pattern, engine.UserID) {
 				s3wkdir := strings.TrimPrefix(engine.localPathToS3Key(tool.WorkingDir), "/")
 				s3Pattern = fmt.Sprintf("%s/%s", strings.TrimSuffix(s3wkdir, "/"), strings.TrimPrefix(s3Pattern, "/"))
+				tool.Task.infof("globS3: s3wkdir: %v", s3wkdir)
+				tool.Task.infof("globS3: s3Pattern: %v", s3Pattern)
 			}
-
+            tool.Task.infof("globS3: key: %v", key)
 			match, err = filepath.Match(s3Pattern, key)
 			tool.Task.infof("globS3: match: %v", match)
+
 			if err != nil {
 				return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 			} else if match {
