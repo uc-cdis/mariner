@@ -230,6 +230,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 	var path string
 	var s3Pattern string
 	globResults := []string{}
+	tool.Task.infof("globS3: Tool Input Paths: %v", tool.S3Input.Paths)
 	tool.Task.infof("globS3: objectList: %v", objectList)
 	for _, obj := range objectList.Contents {
 		// match key against pattern
@@ -266,12 +267,13 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			globResults = append(globResults, path)
 		}
 
-		// If no matching file, last attempt tp check the initial workflow S3 input paths for a match
+		// If no matching file, last attempt to check the initial workflow S3 input paths for a match
 		if !collectFile && len(tool.S3Input.Paths) > 0 {
 		      tool.Task.infof("globS3: No match, begin check input default.")
 			  if strings.Compare(s3Pattern, tool.S3Input.Paths[0]) == 0 {
-			        path = tool.S3Input.Paths[0]
-			        globResults = append(globResults, path)
+			        path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", s3Pattern))
+			        tool.Task.infof("globS3: default path: %v", path)
+			        globResults = append(globResults, s3Pattern)
 			  }
 		}
 	}
