@@ -228,6 +228,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 	var match bool
 	var collectFile bool
 	var path string
+	var s3Pattern string
 	globResults := []string{}
 	tool.Task.infof("globS3: objectList: %v", objectList)
 	for _, obj := range objectList.Contents {
@@ -236,7 +237,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 
 		collectFile = false
 		for _, pattern := range patterns {
-			s3Pattern := strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
+			s3Pattern = strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
 			tool.Task.infof("globS3: s3Pattern: %v", s3Pattern)
 			// handle case of glob pattern not resolving to absolute path
 			// fixme: this is not pretty
