@@ -242,8 +242,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			// fixme: this is not pretty
 			if !strings.HasPrefix(s3Pattern, engine.UserID) {
 				s3wkdir := strings.TrimPrefix(engine.localPathToS3Key(tool.WorkingDir), "/")
-				// add a "*" at the end to capture substrings of s3Pattern in key
-				s3Pattern = fmt.Sprintf("%s/%s%s", strings.TrimSuffix(s3wkdir, "/"), strings.TrimPrefix(s3Pattern, "/"), "*")
+				s3Pattern = fmt.Sprintf("%s/%s", strings.TrimSuffix(s3wkdir, "/"), strings.TrimPrefix(s3Pattern, "/"))
 				tool.Task.infof("globS3: s3wkdir: %v", s3wkdir)
 				tool.Task.infof("globS3: s3Pattern: %v", s3Pattern)
 			}
@@ -257,12 +256,22 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 				collectFile = true
 			}
 		}
+
         tool.Task.infof("globS3: collectFile: %v", collectFile)
 		if collectFile {
 			// this needs to be represented as a filepath, not a "key"
 			// i.e., it needs a slash at the beginning
 			path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", key))
 			globResults = append(globResults, path)
+		}
+
+		// If no matching file, last attempt tp check the initial workflow S3 input paths for a match
+		if !collectFile and len(tool.S3Input.Paths) > 0 {
+		      tool.Task.infof("globS3: No match, begin check input default.")
+			  if strings.Compare(s3Pattern, tool.S3Input.Paths[0]) == 0 {
+			        path = tool.S3Input.Paths[0]
+			        globResults = append(globResults, path)
+			  }
 		}
 	}
 	return globResults, nil
