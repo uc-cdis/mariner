@@ -272,7 +272,8 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 		      tool.Task.infof("globS3: No match, begin check input default.")
 		      stripS3Pattern := strings.Split(s3Pattern, "/")
 			  if strings.Compare(stripS3Pattern[len(stripS3Pattern)-1], tool.S3Input.Paths[0]) == 0 {
-			        globResults = append(globResults, stripS3Pattern)
+			        path = stripS3Pattern[len(stripS3Pattern)-1]
+			        globResults = append(globResults, path)
 			  }
 		}
 	}
