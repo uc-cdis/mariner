@@ -266,7 +266,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 		}
 
 		// If no matching file, last attempt tp check the initial workflow S3 input paths for a match
-		if !collectFile and len(tool.S3Input.Paths) > 0 {
+		if !collectFile && len(tool.S3Input.Paths) > 0 {
 		      tool.Task.infof("globS3: No match, begin check input default.")
 			  if strings.Compare(s3Pattern, tool.S3Input.Paths[0]) == 0 {
 			        path = tool.S3Input.Paths[0]
