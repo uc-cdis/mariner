@@ -267,16 +267,16 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			globResults = append(globResults, path)
 		}
 
-		// If no matching file, last attempt to check the initial workflow S3 input paths for a match
-		if !collectFile && len(tool.S3Input.Paths) > 0 {
-		      tool.Task.infof("globS3: No match, begin check input default.")
-		      stripS3Pattern := strings.Split(s3Pattern, "/")
-			  if strings.Compare(stripS3Pattern[len(stripS3Pattern)-1], tool.S3Input.Paths[0]) == 0 {
-			        path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", s3Pattern))
-			        tool.Task.infof("globS3: default path: %v", path)
-			        globResults = append(globResults, path)
-			  }
-		}
+// 		// This is a dev testing workaround if sidecar is not working, do not use this in production!
+// 		if !collectFile && len(tool.S3Input.Paths) > 0 {
+// 		      tool.Task.infof("globS3: No match, begin check input default.")
+// 		      stripS3Pattern := strings.Split(s3Pattern, "/")
+// 			  if strings.Compare(stripS3Pattern[len(stripS3Pattern)-1], tool.S3Input.Paths[0]) == 0 {
+// 			        path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", s3Pattern))
+// 			        tool.Task.infof("globS3: default path: %v", path)
+// 			        globResults = append(globResults, path)
+// 			  }
+// 		}
 	}
 	return globResults, nil
 }

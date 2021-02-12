@@ -247,7 +247,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			// upload the file contents
 			result, err = uploader.Upload(&s3manager.UploadInput{
 				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(fm.s3Key(path)), // HERE! - probably will fail, gotta take away the leading slash
+				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
 				Body:   f,
 			})
 			if err != nil {
