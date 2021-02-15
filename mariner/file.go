@@ -176,7 +176,7 @@ func (engine *K8sEngine) loadContents(f *File) (err error) {
 	downloader := s3manager.NewDownloader(sess)
 
 	// Location field stores full path, no need to handle prefix here
-	s3Key := strings.TrimPrefix(engine.localPathToS3Key(f.Location), "/")
+	s3Key := engine.localPathToS3Key(f.Location)
 
 	// Create a buffer to write the S3 Object contents to.
 	// see: https://stackoverflow.com/questions/41645377/golang-s3-download-to-buffer-using-s3manager-downloader
