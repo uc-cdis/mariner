@@ -238,7 +238,7 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 // fixme
 func (tool *Tool) cltArgs() []string {
 	tool.Task.infof("begin load CommandLineTool container args")
-	/*
+
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
@@ -253,24 +253,23 @@ func (tool *Tool) cltArgs() []string {
 			touch %vdone
 			`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
 	}
-	*/
 
 	// for debugging
 
-		args := []string{
-			"-c",
-			fmt.Sprintf(`
-								while [[ ! -f %vrun.sh ]]; do
-										echo "Waiting for sidecar to finish setting up..";
-										sleep 5
-								done
-								echo "side done setting up"
-								echo "staying alive"
-								while true; do
-									:
-								done
-								`, tool.WorkingDir),
-		}
+// 		args := []string{
+// 			"-c",
+// 			fmt.Sprintf(`
+// 								while [[ ! -f %vrun.sh ]]; do
+// 										echo "Waiting for sidecar to finish setting up..";
+// 										sleep 5
+// 								done
+// 								echo "side done setting up"
+// 								echo "staying alive"
+// 								while true; do
+// 									:
+// 								done
+// 								`, tool.WorkingDir),
+// 		}
 
 
 	tool.Task.infof("end load CommandLineTool container args")
