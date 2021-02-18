@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"reflect"
 
@@ -14,6 +15,38 @@ import (
 // this file contains code for evaluating JS expressions encountered in the CWL
 // EvalExpression evals a single expression (something like $(...) or ${...})
 // resolveExpressions processes a string which may contain several embedded expressions, each wrapped in their own $()/${} wrapper
+
+// EvaluateExpression
+func (tool *Tool) evaluateExpression() (err error) {
+	tool.Task.infof("begin evaluate expression")
+
+    // initial tool directory should exist, but create it if it does not.
+    // not sure if this will work, needs testing.
+	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
+	    return engine.errorf("failed to make ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
+	}
+
+	// note: context has already been loaded
+	if err = os.Chdir(tool.WorkingDir); err != nil {
+		return engine.errorf("failed to move to ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
+	}
+	result, err := evalExpression(tool.Task.Root.Expression, tool.InputsVM)
+	if err != nil {
+		return engine.errorf("failed to evaluate expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
+	}
+	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
+
+	// expression must return a JSON object where the keys are the IDs of the ExpressionTool outputs
+	// see description of `expression` field here:
+	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
+	var ok bool
+	tool.ExpressionResult, ok = result.(map[string]interface{})
+	if !ok {
+		return engine.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
+	}
+	tool.Task.infof("end evaluate expression")
+	return nil
+}
 
 // NOTE: make uniform either UpperCase, or camelCase for naming functions
 // ----- none of these names really need to be exported, since they get called within the `mariner` package

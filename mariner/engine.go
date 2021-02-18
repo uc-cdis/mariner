@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -453,38 +452,19 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	return nil
 }
 
-// #no-fuse - this has to change!
-// currently, regrettably, expressiontools run "in the engine", not in separate containers
-// need to revisit this in detail
-// figure out if expression tools should be dispatched as jobs
-// or if it's okay that they run "in the engine"
-// probably no actual computation of any kind should run "in the engine"
-// so I think the expressiontool should run as a job, just like commandlinetools
+// runExpressionTool..
+// 1. Evaluates the tool expression.
+// 2. Makes call to RunK8sJob to dispatch job to run the ExpressionTool.
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	engine.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
-
-    // initial tool directories supported only if InitialWorkDirRequirement specified
-	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
-	    return engine.errorf("failed to make tool working dir: %v; error: %v", tool.Task.Root.ID, err)
-	}
-
-	// note: context has already been loaded
-	if err = os.Chdir(tool.WorkingDir); err != nil {
-		return engine.errorf("failed to move to tool working dir: %v; error: %v", tool.Task.Root.ID, err)
-	}
-	result, err := evalExpression(tool.Task.Root.Expression, tool.InputsVM)
+	err = tool.evaluateExpression()
 	if err != nil {
-		return engine.errorf("failed to eval expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
+		return engine.errorf("failed to evaluate expression for tool: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
 
-	// expression must return a JSON object where the keys are the IDs of the ExpressionTool outputs
-	// see description of `expression` field here:
-	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
-	var ok bool
-	tool.ExpressionResult, ok = result.(map[string]interface{})
-	if !ok {
-		return engine.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
+	err = engine.dispatchTaskJob(tool)
+	if err != nil {
+		return engine.errorf("failed to dispatch task job: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	engine.infof("end run ExpressionTool: %v", tool.Task.Root.ID)
 	return nil

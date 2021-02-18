@@ -213,13 +213,16 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 		return nil, tool.Task.errorf("failed to load cpu/mem info: %v", err)
 	}
 
-	// if not specified use config
-	container.Command = []string{tool.cltBash()} // fixme - please
+    // Only add commands if this is a CLT
+    if tool.Task.Root.Class == CWLCommandLineTool {
+	    // if not specified use config
+	    container.Command = []string{tool.cltBash()} // fixme - please
 
-	container.Args = tool.cltArgs() // fixme - make string constant or something
+	    container.Args = tool.cltArgs() // fixme - make string constant or something
 
-	if container.Env, err = tool.env(); err != nil {
-		return nil, tool.Task.errorf("failed to load env info: %v", err)
+	    if container.Env, err = tool.env(); err != nil {
+		    return nil, tool.Task.errorf("failed to load env info: %v", err)
+	    }
 	}
 
 	tool.Task.infof("end load main container spec")
