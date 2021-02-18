@@ -23,16 +23,16 @@ func (tool *Tool) evaluateExpression() (err error) {
     // initial tool directory should exist, but create it if it does not.
     // not sure if this will work, needs testing.
 	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
-	    return engine.errorf("failed to make ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
+	    return tool.Task.errorf("failed to make ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
 
 	// note: context has already been loaded
 	if err = os.Chdir(tool.WorkingDir); err != nil {
-		return engine.errorf("failed to move to ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
+		return tool.Task.errorf("failed to move to ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	result, err := evalExpression(tool.Task.Root.Expression, tool.InputsVM)
 	if err != nil {
-		return engine.errorf("failed to evaluate expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
+		return tool.Task.errorf("failed to evaluate expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
 
@@ -42,7 +42,7 @@ func (tool *Tool) evaluateExpression() (err error) {
 	var ok bool
 	tool.ExpressionResult, ok = result.(map[string]interface{})
 	if !ok {
-		return engine.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
+		return tool.Task.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
 	}
 	tool.Task.infof("end evaluate expression")
 	return nil
