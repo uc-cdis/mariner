@@ -173,7 +173,6 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	if err != nil {
 		return nil, engine.errorf("failed to load task main container: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	s3sidecar := engine.s3SidecarContainer(tool)
 	gen3fuse := gen3fuseContainer(engine.Manifest, marinerTask, engine.RunID)
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
@@ -181,7 +180,15 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	}
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
 	task.Env = append(task.Env, workingDir)
-	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
+
+	if tool.Task.Root.Class == CWLCommandLineTool {
+	    s3sidecar := engine.s3SidecarContainer(tool)
+	    containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
+	} else {
+	    // I don't think ExpressionTools needs sidecar, should be only CLT, to fetch commons data. DOUBLE-CHECK this.
+	    containers = []k8sv1.Container{*task, *gen3fuse}
+	}
+
 	engine.infof("end load container spec for tool: %v", tool.Task.Root.ID)
 	return containers, nil
 }
@@ -217,12 +224,14 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
     if tool.Task.Root.Class == CWLCommandLineTool {
 	    // if not specified use config
 	    container.Command = []string{tool.cltBash()} // fixme - please
-
 	    container.Args = tool.cltArgs() // fixme - make string constant or something
+	} else {
+	    container.Command = []string{tool.cltBash()}
+	    container.Args = []string{}
+	}
 
-	    if container.Env, err = tool.env(); err != nil {
-		    return nil, tool.Task.errorf("failed to load env info: %v", err)
-	    }
+    if container.Env, err = tool.env(); err != nil {
+		return nil, tool.Task.errorf("failed to load env info: %v", err)
 	}
 
 	tool.Task.infof("end load main container spec")
