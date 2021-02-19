@@ -85,7 +85,6 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 						if err != nil {
 							return tool.Task.errorf("error marshalling contents to file: %v", err)
 						}
-						tool.Task.infof("Converted file to json: %v", b)
 					}
 
 					result, err := uploader.Upload(&s3manager.UploadInput{

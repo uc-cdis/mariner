@@ -465,7 +465,6 @@ func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	if err != nil {
 		return engine.errorf("failed to evaluate expression for tool: %v; error: %v", tool.Task.Root.ID, err)
 	}
-
 	err = engine.dispatchTaskJob(tool)
 	if err != nil {
 		return engine.errorf("failed to dispatch task job: %v; error: %v", tool.Task.Root.ID, err)

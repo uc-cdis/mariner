@@ -138,7 +138,6 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
-
 		// at this point we have file results captured in `results`
 		// output should be a CWLFileType or "array of Files"
 		// fixme - make this case handling more specific in the else condition - don't just catch anything
@@ -176,9 +175,7 @@ func (engine *K8sEngine) glob(tool *Tool, output *cwl.Output) (results []*File, 
 		}
 		patterns = append(patterns, pattern)
 	}
-
 	paths, err := engine.globS3(tool, patterns)
-
 	if err != nil {
 		return results, tool.Task.errorf("%v", err)
 	}
@@ -226,7 +223,6 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 	var match bool
 	var collectFile bool
 	var path string
-	var s3Pattern string
 	globResults := []string{}
 
 	for _, obj := range objectList.Contents {
@@ -235,7 +231,8 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 
 		collectFile = false
 		for _, pattern := range patterns {
-			s3Pattern = strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
+			s3Pattern := strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
+
 			// handle case of glob pattern not resolving to absolute path
 			// fixme: this is not pretty
 			if !strings.HasPrefix(s3Pattern, engine.UserID) {
@@ -244,21 +241,18 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			}
 
 			match, err = filepath.Match(s3Pattern, key)
-
 			if err != nil {
 				return nil, fmt.Errorf("glob pattern matching failed: %v", err)
 			} else if match {
 				collectFile = true
 			}
 		}
-
 		if collectFile {
 			// this needs to be represented as a filepath, not a "key"
 			// i.e., it needs a slash at the beginning
 			path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", key))
 			globResults = append(globResults, path)
 		}
-
 	}
 	return globResults, nil
 }
@@ -279,7 +273,6 @@ func (tool *Tool) pattern(glob string) (pattern string, err error) {
 		if !ok {
 			return "", tool.Task.errorf("glob expression doesn't return a string pattern")
 		}
-
 		return pattern, nil
 	}
 	// not an expression, so no eval necessary

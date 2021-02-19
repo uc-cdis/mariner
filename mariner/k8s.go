@@ -173,7 +173,6 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	if err != nil {
 		return nil, engine.errorf("failed to load task main container: %v; error: %v", tool.Task.Root.ID, err)
 	}
-
 	s3sidecar := engine.s3SidecarContainer(tool)
 	gen3fuse := gen3fuseContainer(engine.Manifest, marinerTask, engine.RunID)
 	workingDir := k8sv1.EnvVar{
@@ -183,7 +182,6 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	gen3fuse.Env = append(gen3fuse.Env, workingDir)
 	task.Env = append(task.Env, workingDir)
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
-
 	engine.infof("end load container spec for tool: %v", tool.Task.Root.ID)
 	return containers, nil
 }
@@ -241,7 +239,6 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 // fixme
 func (tool *Tool) containerArgs() []string {
 	tool.Task.infof("begin load container args")
-
 	args := []string{
 		"-c",
 		fmt.Sprintf(`
@@ -313,7 +310,6 @@ func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 // for marinerTask job
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
-
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",

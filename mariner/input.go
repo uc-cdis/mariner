@@ -256,7 +256,6 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 				// Question: how to handle non-array/struct data types?
 				// --------- no preprocessing should have to happen in this case.
 				self, err := tool.loadInputValue(input)
-
 				if err != nil {
 					return nil, tool.Task.errorf("failed to load value: %v", err)
 				}
