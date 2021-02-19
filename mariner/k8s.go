@@ -184,14 +184,6 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 	task.Env = append(task.Env, workingDir)
 	containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
 
-// 	if tool.Task.Root.Class == CWLCommandLineTool {
-// 	    s3sidecar := engine.s3SidecarContainer(tool)
-// 	    containers = []k8sv1.Container{*task, *s3sidecar, *gen3fuse}
-// 	} else {
-// 	    // I don't think ExpressionTools needs sidecar, should be only CLT, to fetch commons data. DOUBLE-CHECK this.
-// 	    containers = []k8sv1.Container{*task, *gen3fuse}
-// 	}
-
 	engine.infof("end load container spec for tool: %v", tool.Task.Root.ID)
 	return containers, nil
 }
@@ -223,12 +215,10 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 		return nil, tool.Task.errorf("failed to load cpu/mem info: %v", err)
 	}
 
-    // Only add commands if this is a CLT
-    if tool.Task.Root.Class == CWLCommandLineTool {
-	    container.Args = tool.cltArgs() // fixme - make string constant or something
-	} else {
-	    container.Args = []string{}
-	}
+    // fixme - make string constant or something
+    // We need some standard args to pass to sidecar for ExpressionTools (probably two constants for CLT and EXPTOOL)
+	container.Args = tool.cltArgs()
+
 	// if not specified use config
 	container.Command = []string{tool.cltBash()} // fixme - please
 
@@ -325,6 +315,13 @@ func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 // for marinerTask job
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
+
+	// create a config command for ExpressionTools to place here instead of this
+	commandArg := strings.Join(tool.Command.Args, " ")
+	// then it's an ExpressionTool task
+	if len(commandArg) < 1:
+	    commandArg = "touch "  + tool.WorkingDir + "expression.txt"
+
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
@@ -344,7 +341,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "TOOL_COMMAND", // the command from the commandlinetool to actually execute
-			Value: strings.Join(tool.Command.Args, " "),
+			Value: commandArg,
 		},
 		{
 			Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., '/engine-workspace/workflowRuns/{runID}/{taskID}/'
