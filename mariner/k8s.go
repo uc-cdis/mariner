@@ -319,8 +319,9 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	// create a config command for ExpressionTools to place here instead of this
 	commandArg := strings.Join(tool.Command.Args, " ")
 	// then it's an ExpressionTool task
-	if len(commandArg) < 1:
+	if len(commandArg) < 1 {
 	    commandArg = "touch "  + tool.WorkingDir + "expression.txt"
+	}
 
 	env = []k8sv1.EnvVar{
 		{
