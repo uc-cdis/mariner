@@ -42,6 +42,10 @@ func (tool *Tool) evaluateExpression() (err error) {
 	if !ok {
 		return tool.Task.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
 	}
+	// we assign a command for the ExpressionTool container for sidecar, it is a task like CLT.
+	cmdPath := tool.WorkingDir + "expression.txt"
+	cmd := []string{"touch", cmdPath}
+	tool.Command = exec.Command(cmd[0], cmd[1:]...)
 	tool.Task.infof("end evaluate expression")
 	return nil
 }

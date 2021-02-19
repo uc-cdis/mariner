@@ -314,13 +314,6 @@ func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
 
-	// assume this is an ExpressionTool
-	commandArg := "touch "  + tool.WorkingDir + "expression.txt"
-	// if it's not, update it to the CommandLineTool commands
-	if tool.Command != nil {
-	    commandArg = strings.Join(tool.Command.Args, " ")
-	}
-
 	env = []k8sv1.EnvVar{
 		{
 			Name:      "AWSCREDS",
@@ -340,7 +333,7 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 		},
 		{
 			Name:  "TOOL_COMMAND", // the command from the commandlinetool to actually execute
-			Value: commandArg,
+			Value: strings.Join(tool.Command.Args, " "),
 		},
 		{
 			Name:  "TOOL_WORKING_DIR", // the tool's working directory - e.g., '/engine-workspace/workflowRuns/{runID}/{taskID}/'
