@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"reflect"
 
 	"github.com/robertkrimen/otto"
 )
