@@ -20,8 +20,7 @@ import (
 func (tool *Tool) evaluateExpression() (err error) {
 	tool.Task.infof("begin evaluate expression")
 
-    // initial tool directory should exist, but create it if it does not.
-    // not sure if this will work, needs testing.
+	// initial tool directory should exist, but create it if it does not.
 	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
 	    return tool.Task.errorf("failed to make ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
@@ -146,16 +145,11 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			// get full $(...) expression
 			expression = c1 + c2 + expression
 
-			tool.Task.infof("Full $(...) expression: %v", expression)
-
 			// eval that thing
 			result, err := evalExpression(expression, tool.InputsVM)
 			if err != nil {
 				return "", outFile, tool.Task.errorf("%v", err)
 			}
-
-			tool.Task.infof("expression result: %v", result)
-			tool.Task.infof("expression result type: %v", reflect.TypeOf(result))
 
 			// result ought to be a string (edit: OR a file)
 			switch result.(type) {

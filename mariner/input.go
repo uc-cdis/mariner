@@ -256,7 +256,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 				// Question: how to handle non-array/struct data types?
 				// --------- no preprocessing should have to happen in this case.
 				self, err := tool.loadInputValue(input)
-				tool.Task.warnf("!!! fails here 259: %v", input)
+
 				if err != nil {
 					return nil, tool.Task.errorf("failed to load value: %v", err)
 				}
@@ -269,7 +269,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 				if err = vm.Set("self", self); err != nil {
 					return nil, tool.Task.errorf("failed to set 'self' value in js vm: %v", err)
 				}
-
+				/*
 				// Troubleshooting js
 				// note: when accessing object fields using keys must use otto.Run("obj.key"), NOT otto.Get("obj.key")
 
@@ -285,7 +285,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 					fmt.Printf("Error evaluating Object.keys(self): %v\n", err)
 				}
 				keysVal, err := keys.Export()
-				tool.Task.infof("keysVal value: %v", keysVal)
+				*/
 
 				//  eval the expression in the vm, capture result in `out`
 				if out, err = evalExpression(valueFrom, vm); err != nil {
@@ -304,7 +304,6 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	if out == nil {
 
 		out, err = tool.loadInputValue(input)
-		tool.Task.warnf("!!! or fails here: 309, %v", out)
 
 		if err != nil {
 		        return nil, tool.Task.errorf("failed to load input value: %v", err)
@@ -475,7 +474,6 @@ func (tool *Tool) loadInputValue(input *cwl.Input) (out interface{}, err error) 
 			// determine if this param is required or optional
 			required = true
 			for _, t := range input.Types {
-				tool.Task.warnf("!!! debug, value of type: %v", t.Type)
 				if t.Type == CWLNullType {
 					required = false
 				}

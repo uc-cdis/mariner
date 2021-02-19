@@ -388,7 +388,7 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 }
 
 // RunTool runs the tool
-// If ExpressionTool, passes to appropriate handler to eval the expression
+// If ExpressionTool, passes to appropriate handler to create k8s job and eval the expression
 // If CommandLineTool, passes to appropriate handler to create k8s job
 func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 	engine.infof("begin run tool: %v", tool.Task.Root.ID)
@@ -398,7 +398,7 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 			return engine.errorf("failed to run ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
 
-	    if err = engine.listenForDone(tool); err != nil {
+		if err = engine.listenForDone(tool); err != nil {
 			return engine.errorf("failed to listen for task to finish: %v; error: %v", tool.Task.Root.ID, err)
 		}
 	case "CommandLineTool":

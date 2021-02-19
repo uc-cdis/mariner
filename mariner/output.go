@@ -47,8 +47,6 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 			}
 		}
 
-		tool.Task.infof("results from engine glob: %v", results)
-
 		// 2. Load Contents
 		// no need to handle prefixes here, since the full paths
 		// are already in the File objects stored in `results`
@@ -140,7 +138,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 		}
 		//// end of 4 step processing pipeline for collecting/handling output files ////
 
-        tool.Task.infof("output CWL type: %v", output.Types[0].Type)
+
 		// at this point we have file results captured in `results`
 		// output should be a CWLFileType or "array of Files"
 		// fixme - make this case handling more specific in the else condition - don't just catch anything
@@ -178,9 +176,9 @@ func (engine *K8sEngine) glob(tool *Tool, output *cwl.Output) (results []*File, 
 		}
 		patterns = append(patterns, pattern)
 	}
-	tool.Task.infof("glob: patterns value: %v", patterns)
+
 	paths, err := engine.globS3(tool, patterns)
-	tool.Task.infof("glob: paths value: %v", paths)
+
 	if err != nil {
 		return results, tool.Task.errorf("%v", err)
 	}
@@ -230,8 +228,7 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 	var path string
 	var s3Pattern string
 	globResults := []string{}
-	tool.Task.infof("globS3: Tool Input Paths: %v", tool.S3Input.Paths)
-	tool.Task.infof("globS3: objectList: %v", objectList)
+
 	for _, obj := range objectList.Contents {
 		// match key against pattern
 		key = *obj.Key
@@ -239,18 +236,14 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 		collectFile = false
 		for _, pattern := range patterns {
 			s3Pattern = strings.TrimPrefix(engine.localPathToS3Key(pattern), "/")
-			tool.Task.infof("globS3: s3Pattern: %v", s3Pattern)
 			// handle case of glob pattern not resolving to absolute path
 			// fixme: this is not pretty
 			if !strings.HasPrefix(s3Pattern, engine.UserID) {
 				s3wkdir := strings.TrimPrefix(engine.localPathToS3Key(tool.WorkingDir), "/")
 				s3Pattern = fmt.Sprintf("%s/%s", strings.TrimSuffix(s3wkdir, "/"), strings.TrimPrefix(s3Pattern, "/"))
-				tool.Task.infof("globS3: s3wkdir: %v", s3wkdir)
-				tool.Task.infof("globS3: s3Pattern: %v", s3Pattern)
 			}
-            tool.Task.infof("globS3: key: %v", key)
+
 			match, err = filepath.Match(s3Pattern, key)
-			tool.Task.infof("globS3: match: %v", match)
 
 			if err != nil {
 				return nil, fmt.Errorf("glob pattern matching failed: %v", err)
@@ -259,7 +252,6 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			}
 		}
 
-        tool.Task.infof("globS3: collectFile: %v", collectFile)
 		if collectFile {
 			// this needs to be represented as a filepath, not a "key"
 			// i.e., it needs a slash at the beginning
@@ -267,16 +259,6 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 			globResults = append(globResults, path)
 		}
 
-// 		// This is a dev testing workaround if sidecar is not working, do not use this in production!
-// 		if !collectFile && len(tool.S3Input.Paths) > 0 {
-// 		      tool.Task.infof("globS3: No match, begin check input default.")
-// 		      stripS3Pattern := strings.Split(s3Pattern, "/")
-// 			  if strings.Compare(stripS3Pattern[len(stripS3Pattern)-1], tool.S3Input.Paths[0]) == 0 {
-// 			        path = engine.s3KeyToLocalPath(fmt.Sprintf("/%s", s3Pattern))
-// 			        tool.Task.infof("globS3: default path: %v", path)
-// 			        globResults = append(globResults, path)
-// 			  }
-// 		}
 	}
 	return globResults, nil
 }
@@ -297,7 +279,7 @@ func (tool *Tool) pattern(glob string) (pattern string, err error) {
 		if !ok {
 			return "", tool.Task.errorf("glob expression doesn't return a string pattern")
 		}
-		tool.Task.infof("resulting pattern: %v", pattern)
+
 		return pattern, nil
 	}
 	// not an expression, so no eval necessary

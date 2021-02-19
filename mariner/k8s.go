@@ -174,7 +174,7 @@ func (engine *K8sEngine) taskContainers(tool *Tool) (containers []k8sv1.Containe
 		return nil, engine.errorf("failed to load task main container: %v; error: %v", tool.Task.Root.ID, err)
 	}
 
-    s3sidecar := engine.s3SidecarContainer(tool)
+	s3sidecar := engine.s3SidecarContainer(tool)
 	gen3fuse := gen3fuseContainer(engine.Manifest, marinerTask, engine.RunID)
 	workingDir := k8sv1.EnvVar{
 		Name:  "TOOL_WORKING_DIR",
@@ -215,14 +215,13 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 		return nil, tool.Task.errorf("failed to load cpu/mem info: %v", err)
 	}
 
-    // fixme - make string constant or something
-    // We need some standard args to pass to sidecar for ExpressionTools (probably two constants for CLT and EXPTOOL)
-	container.Args = tool.cltArgs()
+	// fixme - make string constant or something
+	container.Args = tool.containerArgs()
 
 	// if not specified use config
 	container.Command = []string{tool.cltBash()} // fixme - please
 
-    if container.Env, err = tool.env(); err != nil {
+	if container.Env, err = tool.env(); err != nil {
 		return nil, tool.Task.errorf("failed to load env info: %v", err)
 	}
 
@@ -240,8 +239,8 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 // TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
 // Q: how to handle case of different possible bash, depending on CLT image specified in CWL?
 // fixme
-func (tool *Tool) cltArgs() []string {
-	tool.Task.infof("begin load CommandLineTool container args")
+func (tool *Tool) containerArgs() []string {
+	tool.Task.infof("begin load container args")
 
 	args := []string{
 		"-c",
@@ -275,8 +274,7 @@ func (tool *Tool) cltArgs() []string {
 // 								`, tool.WorkingDir),
 // 		}
 
-
-	tool.Task.infof("end load CommandLineTool container args")
+	tool.Task.infof("end load container args")
 	return args
 }
 
@@ -316,7 +314,7 @@ func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
 
-	// assume this is an ExpressionTool, place this string in config instead of here
+	// assume this is an ExpressionTool
 	commandArg := "touch "  + tool.WorkingDir + "expression.txt"
 	// if it's not, update it to the CommandLineTool commands
 	if tool.Command != nil {
