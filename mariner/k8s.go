@@ -316,11 +316,11 @@ func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
 
-	// create a config command for ExpressionTools to place here instead of this
-	commandArg := strings.Join(tool.Command.Args, " ")
-	// then it's an ExpressionTool task
-	if len(commandArg) < 1 {
-	    commandArg = "touch "  + tool.WorkingDir + "expression.txt"
+	// create a config constant for ExpressionTools to place here instead of this
+	if tool.Task.Root.Class == CWLCommandLineTool {
+	    commandArg := strings.Join(tool.Command.Args, " ")
+	} else {
+	    commandArg := "touch "  + tool.WorkingDir + "expression.txt"
 	}
 
 	env = []k8sv1.EnvVar{

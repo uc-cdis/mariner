@@ -397,6 +397,10 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 		if err = engine.runExpressionTool(tool); err != nil {
 			return engine.errorf("failed to run ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
+
+	    if err = engine.listenForDone(tool); err != nil {
+			return engine.errorf("failed to listen for task to finish: %v; error: %v", tool.Task.Root.ID, err)
+		}
 	case "CommandLineTool":
 		if err = engine.runCommandLineTool(tool); err != nil {
 			return engine.errorf("failed to run CommandLineTool: %v; error: %v", tool.Task.Root.ID, err)
