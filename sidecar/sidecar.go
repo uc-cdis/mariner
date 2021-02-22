@@ -243,7 +243,6 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			fmt.Println("file uploaded to location:", result.Location)
 			if err = f.Close(); err != nil {
 				fmt.Println("failed to close file:", err)
-				return
 			}
 			<-guard
 		}(p)
