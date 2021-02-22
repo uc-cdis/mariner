@@ -5,16 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"sync"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/robertkrimen/otto"
 	cwl "github.com/uc-cdis/cwl.go"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -387,9 +387,7 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 	return nil
 }
 
-// RunTool runs the tool
-// If ExpressionTool, passes to appropriate handler to create k8s job and eval the expression
-// If CommandLineTool, passes to appropriate handler to create k8s job
+// RunTool runs the tool from the engine and passes to the appropriate handler to create a k8s job.
 func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 	engine.infof("begin run tool: %v", tool.Task.Root.ID)
 	switch class := tool.Task.Root.Class; class {
@@ -397,7 +395,6 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 		if err = engine.runExpressionTool(tool); err != nil {
 			return engine.errorf("failed to run ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
-
 		if err = engine.listenForDone(tool); err != nil {
 			return engine.errorf("failed to listen for task to finish: %v; error: %v", tool.Task.Root.ID, err)
 		}
@@ -405,12 +402,7 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 		if err = engine.runCommandLineTool(tool); err != nil {
 			return engine.errorf("failed to run CommandLineTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
-
-		// collect resource metrics via k8s api
-		// NOTE: at present, metrics are NOT collected for expressionTools
-		// this should be fixed
 		go engine.collectResourceMetrics(tool)
-
 		if err = engine.listenForDone(tool); err != nil {
 			return engine.errorf("failed to listen for task to finish: %v; error: %v", tool.Task.Root.ID, err)
 		}
@@ -456,9 +448,7 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	return nil
 }
 
-// runExpressionTool..
-// 1. Evaluates the tool expression.
-// 2. Makes call to RunK8sJob to dispatch job to run the ExpressionTool.
+// runExpressionTool uses the engine to dispatch a task job for a given tool to evaluate an expression.
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	engine.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
 	err = tool.evaluateExpression()

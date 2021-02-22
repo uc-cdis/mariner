@@ -219,42 +219,15 @@ func (tool *Tool) processFileList(l interface{}) ([]*File, error) {
 	return out, nil
 }
 
-// if err and input is not optional, it is a fatal error and the run should fail out
+// transformInput parses all input in a workflow from the engine's tool.
 func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out interface{}, err error) {
 	tool.Task.infof("begin transform input: %v", input.ID)
-
-	/*
-		NOTE: presently only context loaded into js vm's here is `self`
-		Will certainly need to add more context to handle all cases
-		Definitely, definitely need a generalized method for loading appropriate context at appropriate places
-		In particular, the `inputs` context is probably going to be needed most commonly
-
-		OTHERNOTE: `self` (in js vm) takes on different values in different places, according to cwl docs
-		see: https://www.commonwl.org/v1.0/Workflow.html#Parameter_references
-		---
-		Steps:
-		1. handle ValueFrom case at stepInput level
-		 - if no ValueFrom specified, assign parameter value to `out` to processed in next step
-		2. handle ValueFrom case at toolInput level
-		 - initial value is `out` from step 1
-	*/
 	localID := lastInPath(input.ID)
-
-	// stepInput ValueFrom case
 	if tool.StepInputMap[localID] != nil {
-		// no processing needs to happen if the valueFrom field is empty
 		if tool.StepInputMap[localID].ValueFrom != "" {
-			// here the valueFrom field is not empty, so we need to handle valueFrom
 			valueFrom := tool.StepInputMap[localID].ValueFrom
 			if strings.HasPrefix(valueFrom, "$") {
-				// valueFrom is an expression that needs to be eval'd
-
-				// get a js vm
-				vm := tool.JSVM.Copy() // #js-runtime
-
-				// preprocess struct/array so that fields can be accessed in vm
-				// Question: how to handle non-array/struct data types?
-				// --------- no preprocessing should have to happen in this case.
+				vm := tool.JSVM.Copy()
 				self, err := tool.loadInputValue(input)
 				if err != nil {
 					return nil, tool.Task.errorf("failed to load value: %v", err)
@@ -263,73 +236,28 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 				if err != nil {
 					return nil, tool.Task.errorf("failed to preprocess context: %v", err)
 				}
-
-				// set `self` variable in vm
 				if err = vm.Set("self", self); err != nil {
 					return nil, tool.Task.errorf("failed to set 'self' value in js vm: %v", err)
 				}
-				/*
-				// Troubleshooting js
-				// note: when accessing object fields using keys must use otto.Run("obj.key"), NOT otto.Get("obj.key")
-
-				fmt.Println("self in js:")
-				jsSelf, err := vm.Get("self")
-				jsSelfVal, err := jsSelf.Export()
-				tool.Task.infof("self value: %v", jsSelfVal)
-				tool.Task.infof("expression: %v", valueFrom)
-
-				fmt.Println("Object.keys(self)")
-				keys, err := vm.Run("Object.keys(self)")
-				if err != nil {
-					fmt.Printf("Error evaluating Object.keys(self): %v\n", err)
-				}
-				keysVal, err := keys.Export()
-				*/
-
-				//  eval the expression in the vm, capture result in `out`
 				if out, err = evalExpression(valueFrom, vm); err != nil {
 					return nil, tool.Task.errorf("failed to eval js expression: %v; error: %v", valueFrom, err)
 				}
 			} else {
-				// valueFrom is not an expression - take raw string/val as value
 				out = valueFrom
 			}
 		}
 	}
 
-	// if this tool is not a step of a parent workflow
-	// OR
-	// if this tool is a step of a parent workflow but the valueFrom is empty
 	if out == nil {
-
 		out, err = tool.loadInputValue(input)
-
 		if err != nil {
-		        return nil, tool.Task.errorf("failed to load input value: %v", err)
+			return nil, tool.Task.errorf("failed to load input value: %v", err)
 		}
-
 		if out == nil {
-			// implies an optional parameter with no value provided and no default value specified
-			// this input parameter is not used by the tool
 			tool.Task.infof("optional input with no value or default provided - skipping: %v", input.ID)
 			return nil, nil
 		}
 	}
-
-	// if file, need to ensure that all file attributes get populated (e.g., basename)
-	/*
-		fixme: handle array of files
-		Q: what about directories (?)
-
-		do this:
-
-		switch statement:
-		case file
-		case []file
-
-		note: check types in the param type list?
-		vs. checking types of actual values
-	*/
 
 	switch {
 	case isFile(out):
@@ -341,13 +269,8 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 			return nil, tool.Task.errorf("failed to process file list: %v; error: %v", out, err)
 		}
 	default:
-		// fmt.Println("is not a file object")
+		tool.Task.infof("input is not a file object: %v", input.ID)
 	}
-
-	// ######### Load Secondary Files ############
-	// ######### ought to encapsulate this to a function
-	// ######### and call it for inputs and outputs
-	// ######### since it's basically the same process both times
 
 	if len(input.SecondaryFiles) > 0 {
 		var fileArray []*File
@@ -357,48 +280,33 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		case isArrayOfFile(out):
 			fileArray = out.([]*File)
 		default:
-			// this is a fatal error - engine should fail out here
-			// but don't panic - actually handle this err and fail out gracefully
-			panic("invalid input: secondary files specified for a non-file input")
+			return nil, tool.Task.errorf("invalid input: secondary files specified for a non-file input.")
 		}
-
 		for _, entry := range input.SecondaryFiles {
 			val := entry.Entry
 			if strings.HasPrefix(val, "$") {
 				vm := tool.JSVM.Copy()
 				for _, fileObj := range fileArray {
-					// preprocess output file object
 					self, err := preProcessContext(fileObj)
 					if err != nil {
 						return nil, tool.Task.errorf("%v", err)
 					}
-					// set `self` variable name
-					// assuming it is okay to use one vm for all evaluations and just reset the `self` variable before each eval
 					vm.Set("self", self)
-
-					// eval js
 					jsResult, err := evalExpression(val, vm)
 					if err != nil {
 						return nil, tool.Task.errorf("%v", err)
 					}
-
-					// retrieve secondaryFile's path (type interface{} with underlying type string)
 					sFilePath, ok := jsResult.(string)
 					if !ok {
 						return nil, tool.Task.errorf("secondaryFile expression did not return string")
 					}
-
 					if exist, _ := engine.fileExists(sFilePath); !exist {
-						// fatal error
-						panic("secondary file doesn't exist")
+						return nil, tool.Task.errorf("secondary file doesn't exist")
 					}
-
-					// get file object for secondaryFile and append it to the input file's SecondaryFiles field
 					sFileObj := fileObject(sFilePath)
 					fileObj.SecondaryFiles = append(fileObj.SecondaryFiles, sFileObj)
 				}
 			} else {
-				// follow those two steps indicated at the bottom of the secondaryFiles field description
 				suffix, carats := trimLeading(val, "^")
 				for _, fileObj := range fileArray {
 					engine.loadSFilesFromPattern(tool, fileObj, suffix, carats)
@@ -414,15 +322,11 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		}
 	}
 
-	// at this point, variable `out` is the transformed input thus far (even if no transformation actually occured)
-	// so `out` will be what we work with in this next block as an initial value
-	// tool inputBinding ValueFrom case
 	if input.Binding != nil && input.Binding.ValueFrom != nil {
 		valueFrom := input.Binding.ValueFrom.String
 		if strings.HasPrefix(valueFrom, "$") {
-			vm := tool.JSVM.Copy() // #js-runtime
+			vm := tool.JSVM.Copy()
 			var context interface{}
-			// fixme: handle array of files
 			switch out.(type) {
 			case *File, []*File:
 				context, err = preProcessContext(out)
@@ -432,17 +336,14 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 			default:
 				context = out
 			}
-
-			vm.Set("self", context) // NOTE: again, will more than likely need additional context here to cover other cases
+			vm.Set("self", context)
 			if out, err = evalExpression(valueFrom, vm); err != nil {
 				return nil, tool.Task.errorf("failed to eval expression: %v; error: %v", valueFrom, err)
 			}
 		} else {
-			// not an expression, so no eval necessary - take raw value
 			out = valueFrom
 		}
 	}
-
 	tool.Task.infof("end transform input: %v", input.ID)
 	return out, nil
 }

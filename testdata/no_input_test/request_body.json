@@ -85,15 +85,13 @@
       {
         "inputs": [
           {
-            "type": [
-              {
-                "items": "File",
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": {
+              "items": [
+                "null",
+                "File"
+              ],
+              "type": "array"
+            },
             "id": "#expressiontool_test.cwl/file_array"
           }
         ],
@@ -255,7 +253,7 @@
             "in": [
               {
                 "source": "#subworkflow_test.cwl/test_initworkdir/bam_with_index",
-                "valueFrom": "NIST7035.1.chrM.bam.bai",
+                "valueFrom": "$([self, self.secondaryFiles[0]])",
                 "id": "#subworkflow_test.cwl/test_expr/file_array"
               }
             ],

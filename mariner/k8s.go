@@ -194,10 +194,7 @@ func (engine *K8sEngine) s3SidecarContainer(tool *Tool) (container *k8sv1.Contai
 	return container
 }
 
-// FIXME - TODO - insert some error/warning handling here
-// in case errors/warnings creating the container as specified in the cwl
-// additionally, add logic to check if the tool has specified each field
-// if a field is not specified, the spec should be filled out using values from the mariner-config
+// taskContainer sets up and returns a k8s container for the tool task.
 func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 	tool.Task.infof("begin load main container spec")
 	conf := Config.Containers.Task
@@ -205,38 +202,21 @@ func (tool *Tool) taskContainer() (container *k8sv1.Container, err error) {
 	container.Name = conf.Name
 	container.VolumeMounts = volumeMounts(marinerTask)
 	container.ImagePullPolicy = conf.pullPolicy()
-
 	container.Image = tool.dockerImage()
 	tool.Task.Log.ContainerImage = container.Image
-
 	if container.Resources, err = tool.resourceReqs(); err != nil {
 		return nil, tool.Task.errorf("failed to load cpu/mem info: %v", err)
 	}
-
-	// fixme - make string constant or something
 	container.Args = tool.containerArgs()
-
-	// if not specified use config
-	container.Command = []string{tool.cltBash()} // fixme - please
-
+	container.Command = []string{tool.cltBash()}
 	if container.Env, err = tool.env(); err != nil {
 		return nil, tool.Task.errorf("failed to load env info: %v", err)
 	}
-
 	tool.Task.infof("end load main container spec")
 	return container, nil
 }
 
-// wait for sidecar to setup
-// in particular wait until run.sh exists (run.sh is the command for the Tool)
-// as soon as run.sh exists, run this script
-// HERE TODO - put this in a bash script
-// actually don't, because the CLT runs in its own container
-// - won't have the mariner repo, and we shouldn't clone it in there
-// so, just make this string a constant or something in the config file
-// TOOL_WORKING_DIR is an envVar - no need to inject from go vars here
-// Q: how to handle case of different possible bash, depending on CLT image specified in CWL?
-// fixme
+// containerArgs creates the necessary command arguments in a tool container for sidecar.
 func (tool *Tool) containerArgs() []string {
 	tool.Task.infof("begin load container args")
 	args := []string{
@@ -253,24 +233,6 @@ func (tool *Tool) containerArgs() []string {
 			touch %vdone
 			`, tool.WorkingDir, tool.WorkingDir, tool.WorkingDir, tool.cltBash(), tool.WorkingDir, tool.WorkingDir),
 	}
-
-	// for debugging
-
-// 		args := []string{
-// 			"-c",
-// 			fmt.Sprintf(`
-// 								while [[ ! -f %vrun.sh ]]; do
-// 										echo "Waiting for sidecar to finish setting up..";
-// 										sleep 5
-// 								done
-// 								echo "side done setting up"
-// 								echo "staying alive"
-// 								while true; do
-// 									:
-// 								done
-// 								`, tool.WorkingDir),
-// 		}
-
 	tool.Task.infof("end load container args")
 	return args
 }

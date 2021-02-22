@@ -224,7 +224,6 @@ func (engine *K8sEngine) globS3(tool *Tool, patterns []string) ([]string, error)
 	var collectFile bool
 	var path string
 	globResults := []string{}
-
 	for _, obj := range objectList.Contents {
 		// match key against pattern
 		key = *obj.Key

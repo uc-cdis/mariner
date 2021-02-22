@@ -16,16 +16,12 @@ import (
 // EvalExpression evals a single expression (something like $(...) or ${...})
 // resolveExpressions processes a string which may contain several embedded expressions, each wrapped in their own $()/${} wrapper
 
-// EvaluateExpression
+// evaluateExpression evaluates the expression from the tool in its virtual machine.
 func (tool *Tool) evaluateExpression() (err error) {
 	tool.Task.infof("begin evaluate expression")
-
-	// initial tool directory should exist, but create it if it does not.
 	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
-	    return tool.Task.errorf("failed to make ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
+		return tool.Task.errorf("failed to make ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
-
-	// note: context has already been loaded
 	if err = os.Chdir(tool.WorkingDir); err != nil {
 		return tool.Task.errorf("failed to move to ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
 	}
@@ -33,17 +29,12 @@ func (tool *Tool) evaluateExpression() (err error) {
 	if err != nil {
 		return tool.Task.errorf("failed to evaluate expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
-
-	// expression must return a JSON object where the keys are the IDs of the ExpressionTool outputs
-	// see description of `expression` field here:
-	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
+	os.Chdir("/")
 	var ok bool
 	tool.ExpressionResult, ok = result.(map[string]interface{})
 	if !ok {
 		return tool.Task.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
 	}
-	// we assign a command for the ExpressionTool container for sidecar, it is a task like CLT.
 	cmdPath := tool.WorkingDir + "expression.txt"
 	cmd := []string{"touch", cmdPath}
 	tool.Command = exec.Command(cmd[0], cmd[1:]...)
