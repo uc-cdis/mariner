@@ -5,17 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"sync"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/robertkrimen/otto"
 	cwl "github.com/uc-cdis/cwl.go"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -388,9 +387,7 @@ func (engine *K8sEngine) setupTool(tool *Tool) (err error) {
 	return nil
 }
 
-// RunTool runs the tool
-// If ExpressionTool, passes to appropriate handler to eval the expression
-// If CommandLineTool, passes to appropriate handler to create k8s job
+// RunTool runs the tool from the engine and passes to the appropriate handler to create a k8s job.
 func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 	engine.infof("begin run tool: %v", tool.Task.Root.ID)
 	switch class := tool.Task.Root.Class; class {
@@ -398,16 +395,14 @@ func (engine *K8sEngine) runTool(tool *Tool) (err error) {
 		if err = engine.runExpressionTool(tool); err != nil {
 			return engine.errorf("failed to run ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
+		if err = engine.listenForDone(tool); err != nil {
+			return engine.errorf("failed to listen for task to finish: %v; error: %v", tool.Task.Root.ID, err)
+		}
 	case "CommandLineTool":
 		if err = engine.runCommandLineTool(tool); err != nil {
 			return engine.errorf("failed to run CommandLineTool: %v; error: %v", tool.Task.Root.ID, err)
 		}
-
-		// collect resource metrics via k8s api
-		// NOTE: at present, metrics are NOT collected for expressionTools
-		// this should be fixed
 		go engine.collectResourceMetrics(tool)
-
 		if err = engine.listenForDone(tool); err != nil {
 			return engine.errorf("failed to listen for task to finish: %v; error: %v", tool.Task.Root.ID, err)
 		}
@@ -453,32 +448,16 @@ func (engine *K8sEngine) listenForDone(tool *Tool) (err error) {
 	return nil
 }
 
-// #no-fuse - this has to change!
-// currently, regrettably, expressiontools run "in the engine", not in separate containers
-// need to revisit this in detail
-// figure out if expression tools should be dispatched as jobs
-// or if it's okay that they run "in the engine"
-// probably no actual computation of any kind should run "in the engine"
-// so I think the expressiontool should run as a job, just like commandlinetools
+// runExpressionTool uses the engine to dispatch a task job for a given tool to evaluate an expression.
 func (engine *K8sEngine) runExpressionTool(tool *Tool) (err error) {
 	engine.infof("begin run ExpressionTool: %v", tool.Task.Root.ID)
-	// note: context has already been loaded
-	if err = os.Chdir(tool.WorkingDir); err != nil {
-		return engine.errorf("failed to move to tool working dir: %v; error: %v", tool.Task.Root.ID, err)
-	}
-	result, err := evalExpression(tool.Task.Root.Expression, tool.InputsVM)
+	err = tool.evaluateExpression()
 	if err != nil {
-		return engine.errorf("failed to eval expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
+		return engine.errorf("failed to evaluate expression for tool: %v; error: %v", tool.Task.Root.ID, err)
 	}
-	os.Chdir("/") // move back (?) to root after tool finishes execution -> or, where should the default directory position be?
-
-	// expression must return a JSON object where the keys are the IDs of the ExpressionTool outputs
-	// see description of `expression` field here:
-	// https://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
-	var ok bool
-	tool.ExpressionResult, ok = result.(map[string]interface{})
-	if !ok {
-		return engine.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
+	err = engine.dispatchTaskJob(tool)
+	if err != nil {
+		return engine.errorf("failed to dispatch task job: %v; error: %v", tool.Task.Root.ID, err)
 	}
 	engine.infof("end run ExpressionTool: %v", tool.Task.Root.ID)
 	return nil

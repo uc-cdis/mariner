@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/robertkrimen/otto"
@@ -13,6 +15,32 @@ import (
 // this file contains code for evaluating JS expressions encountered in the CWL
 // EvalExpression evals a single expression (something like $(...) or ${...})
 // resolveExpressions processes a string which may contain several embedded expressions, each wrapped in their own $()/${} wrapper
+
+// evaluateExpression evaluates the expression from the tool in its virtual machine.
+func (tool *Tool) evaluateExpression() (err error) {
+	tool.Task.infof("begin evaluate expression")
+	if err = os.MkdirAll(tool.WorkingDir, os.ModeDir); err != nil {
+		return tool.Task.errorf("failed to make ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
+	}
+	if err = os.Chdir(tool.WorkingDir); err != nil {
+		return tool.Task.errorf("failed to move to ExpressionTool working dir: %v; error: %v", tool.Task.Root.ID, err)
+	}
+	result, err := evalExpression(tool.Task.Root.Expression, tool.InputsVM)
+	if err != nil {
+		return tool.Task.errorf("failed to evaluate expression for ExpressionTool: %v; error: %v", tool.Task.Root.ID, err)
+	}
+	os.Chdir("/")
+	var ok bool
+	tool.ExpressionResult, ok = result.(map[string]interface{})
+	if !ok {
+		return tool.Task.errorf("ExpressionTool expression did not return a JSON object: %v", tool.Task.Root.ID)
+	}
+	cmdPath := tool.WorkingDir + "expression.txt"
+	cmd := []string{"touch", cmdPath}
+	tool.Command = exec.Command(cmd[0], cmd[1:]...)
+	tool.Task.infof("end evaluate expression")
+	return nil
+}
 
 // NOTE: make uniform either UpperCase, or camelCase for naming functions
 // ----- none of these names really need to be exported, since they get called within the `mariner` package

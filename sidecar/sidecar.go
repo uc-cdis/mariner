@@ -207,9 +207,8 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 	return nil
 }
 
-// 5. upload this task's output to s3
+// uploadOutputFiles utilizes a file manager to upload output files for a task.
 func (fm *S3FileManager) uploadOutputFiles() (err error) {
-	// collect paths of all files in the task working directory
 	paths := []string{}
 	_ = filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
@@ -217,37 +216,24 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 		}
 		return nil
 	})
-
-	// note: uploader is safe for concurrent use
 	sess := fm.newS3Session()
 	uploader := s3manager.NewUploader(sess)
-
 	var result *s3manager.UploadOutput
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
 	for _, p := range paths {
-		// blocks if guard channel is already full to capacity
-		// proceeds as soon as there is an open slot in the channel
 		guard <- struct{}{}
-
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
-
-			// debug
-			fmt.Println("trying to upload file:", path)
-
-			// open file for reading
 			f, err := os.Open(path)
 			if err != nil {
 				fmt.Println("failed to open file:", path, err)
 				return
 			}
-
-			// upload the file contents
 			result, err = uploader.Upload(&s3manager.UploadInput{
 				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(fm.s3Key(path)), // HERE! - probably will fail, gotta take away the leading slash
+				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
 				Body:   f,
 			})
 			if err != nil {
@@ -255,16 +241,9 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 				return
 			}
 			fmt.Println("file uploaded to location:", result.Location)
-
-			// seems that files are already closed by this point
-			// close the file - very important
 			if err = f.Close(); err != nil {
 				fmt.Println("failed to close file:", err)
-				// return
 			}
-
-			// release this spot in the guard channel
-			// so the next goroutine can run
 			<-guard
 		}(p)
 	}
