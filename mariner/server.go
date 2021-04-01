@@ -438,7 +438,7 @@ func (server *Server) setResponseHeader(next http.Handler) http.Handler {
 // handleAuth is invoked by the server to use arborist and wts to authorize user access.
 func (server *Server) handleAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if server.authZ(r) && fetchRefreshToken() {
+		if server.authZ(r) && server.fetchRefreshToken() {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -524,7 +524,7 @@ func (server *Server) fetchRefreshToken() bool {
 	if res.StatusCode != 200 {
 		fmt.Println("refresh token expired or user not logged in, fetching new refresh token")
 		authUrl := wtsPath + "authorization_url?redirect=/"
-		res, err := http.Get(autUrl)
+		res, err := http.Get(authUrl)
 		if err != nil {
 			fmt.Println("error fetching refresh token from wts")
 			return false
