@@ -512,7 +512,7 @@ func (server *Server) authZ(r *http.Request) bool {
 	return authResponse.Auth
 }
 
-// fetchRefreshToken is invoked from the server to check if a resfresh token is expired and fetches a new one if it is.
+// fetchRefreshToken is invoked from the server to check if a refresh token is expired and fetches a new one if it is.
 func (server *Server) fetchRefreshToken() bool {
 	wtsPath := fmt.Sprintf("https://%s/wts/oauth2/", os.Getenv("GEN3_HOSTNAME"))
 	connectedUrl := wtsPath + "connected"
