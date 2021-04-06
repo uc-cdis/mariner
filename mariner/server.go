@@ -435,17 +435,13 @@ func (server *Server) setResponseHeader(next http.Handler) http.Handler {
 	})
 }
 
-// auth middleware - processes every request, checks auth with arborist
-// if arborist says 'okay', then process the request
-// if arborist says 'not okay', then http error 'not authorized'
+// handleAuth is invoked by the server to use arborist and wts to authorize user access.
 func (server *Server) handleAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if server.authZ(r) {
-			// fmt.Println("user has access") // log
+		if server.authZ(r) && server.fetchRefreshToken() {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// fmt.Println("user does NOT have access") // log
 		http.Error(w, "user not authorized to access this resource", 403)
 	})
 }
@@ -514,6 +510,33 @@ func (server *Server) authZ(r *http.Request) bool {
 		return false
 	}
 	return authResponse.Auth
+}
+
+// fetchRefreshToken is invoked from the server to check if a refresh token is expired and fetches a new one if it is.
+func (server *Server) fetchRefreshToken() bool {
+	wtsPath := "http://workspace-token-service/oauth2/"
+	connectedUrl := wtsPath + "connected"
+	res, err := http.Get(connectedUrl)
+	if err != nil {
+		fmt.Println("error checking if user is connected or has a valid token via wts")
+		return false
+	}
+	if res.StatusCode != 200 {
+		fmt.Println("refresh token expired or user not logged in, fetching new refresh token")
+		authUrl := wtsPath + "authorization_url?redirect=/"
+		res, err := http.Get(authUrl)
+		if err != nil {
+			fmt.Println("error fetching refresh token from wts")
+			return false
+		}
+		if res.StatusCode == 400 {
+			fmt.Println("wts refresh token bad request, user error")
+			return false
+		}
+		res.Body.Close()
+	}
+	res.Body.Close()
+	return true
 }
 
 // HandleHealthcheck registers root endpoint
