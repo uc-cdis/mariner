@@ -3,11 +3,11 @@ FROM quay.io/cdis/golang:1.15-buster as builder
 COPY . $GOPATH/src/github.com/uc-cdis/mariner/
 WORKDIR $GOPATH/src/github.com/uc-cdis/mariner/
 
-RUN go get -d -v
-RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
-
 # Install db
 RUN apt-get update && apt-get install --no-install-recommends -y bash postgresql
+
+RUN go get -d -v
+RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
 
 FROM scratch
 COPY --from=builder /mariner /
