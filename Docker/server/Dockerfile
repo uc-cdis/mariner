@@ -4,7 +4,7 @@ COPY . $GOPATH/src/github.com/uc-cdis/mariner/
 WORKDIR $GOPATH/src/github.com/uc-cdis/mariner/
 
 # Install db
-RUN apt-get update && apt-get install --no-install-recommends -y bash postgresql
+RUN apt-get update && apt-get install --no-install-recommends -y jq bash postgresql
 
 RUN go get -d -v
 RUN go build -ldflags "-linkmode external -extldflags -static" -o /mariner
