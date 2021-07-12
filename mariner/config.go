@@ -107,6 +107,8 @@ const (
 	// paths for server
 	pathToUserRunsf   = "%v/workflowRuns/"                // fill with userID
 	pathToUserRunLogf = pathToUserRunsf + "%v/" + logFile // fill with runID
+
+	commonsDataPersistentVolumeClaimName = "nfs-commons-data-test-pvc"
 )
 
 var (
