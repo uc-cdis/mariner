@@ -1,6 +1,6 @@
 # mariner: the Gen3 workflow execution service
 
-## Context 
+## Context
 
 ### What are "workflows" and why should we run them?
 
@@ -16,9 +16,9 @@ then A and B can run concurrently.
 
 Bioinformatics at scale necessitates running workflows over massive amounts of data.
 In order for Gen3 to be a more complete and useful cloud-based bioinformatics platform,
-Gen3 needs the functionality to run these large scale workflows.  
+Gen3 needs the functionality to run these large scale workflows.
 
-#### Terminology Note 
+#### Terminology Note
 
 In the context of bioinformatics, the terms "pipeline" and "workflow" refer to the same thing
 and are often used interchangeably.
@@ -51,11 +51,11 @@ and run the computation in a container built from that image.
 
 #### Examples of workflows written in CWL
 
-[CWL User Guide Examples](https://www.commonwl.org/user_guide/02-1st-example/index.html) - this collection of examples (with an accompanying explanation for each example) covers all the basic features and syntax of CWL and is a truly great resource for learning the basics of CWL in a relatively small amount of time.  
+[CWL User Guide Examples](https://www.commonwl.org/user_guide/02-1st-example/index.html) - this collection of examples (with an accompanying explanation for each example) covers all the basic features and syntax of CWL and is a truly great resource for learning the basics of CWL in a relatively small amount of time.
 
-[Genomel Workflows](https://github.com/uc-cdis/genomel_pipelines)  
+[Genomel Workflows](https://github.com/uc-cdis/genomel_pipelines)
 
-[KidsFirst Workflows](https://github.com/kids-first?utf8=%E2%9C%93&q=workflow&type=&language=)  
+[KidsFirst Workflows](https://github.com/kids-first?utf8=%E2%9C%93&q=workflow&type=&language=)
 
 Test Workflow
 - [Workflow in CWL](https://github.com/uc-cdis/mariner/tree/feat/k8s/testdata/workflow/cwl)
@@ -72,9 +72,9 @@ Reasons we wrote our own:
 
 ## Workflow As Graph
 
-A workflow may be represented as a graph, where  
+A workflow may be represented as a graph, where
 - each vertex represents a workflow process, and
-- edges between vertices represent the workflow-step relation between processes;  
+- edges between vertices represent the workflow-step relation between processes;
 the upstream vertex is the workflow and the immediately downstream vertex is a step of that workflow
 
 Each vertex in the graph is either a leaf or not a leaf,
@@ -91,7 +91,7 @@ it first creates a graph representation of the workflow
 and then recursively traverses the graph from the top down.
 When mariner handles a particular vertex in the graph, the logic is this:
 - if workflow, then resolve(workflow)
-- else, dispatch(task)   
+- else, dispatch(task)
 
 where to "resolve a workflow" means to handle all of its steps,
 and to "dispatch a task" means to run that task as a job.
@@ -108,14 +108,14 @@ Input to a step comes from one (or both) of the following sources:
 For a workflow consisting of steps X and Y, we say there exists a dependency
 between X and Y if X takes as input the ouput of Y.
 Dependencies like this have implications for job scheduling
-in that step X cannot run until step Y runs and finishes running.  
+in that step X cannot run until step Y runs and finishes running.
 
 In the case where there is no dependency between steps X and Y (i.e., X and Y are independent),
 then X and Y run concurrently.
 
 ### Example
 
-<img src="./docs/diagrams/graph.svg" height="500" align="right">
+<img src="../diagrams/graph.svg" height="500" align="right">
 
 This graph represents a workflow consisting of processes A,...,E.
 Vertex A represents the top-level workflow,
@@ -133,7 +133,7 @@ Notice that neither step takes as input the output of the other step,
 which means that these steps are independent of one another.
 For job scheduling, this implies that tasks D and E will run concurrently.
 
-So when mariner runs the workflow represented by this graph, here's the sequence of events:  
+So when mariner runs the workflow represented by this graph, here's the sequence of events:
 - Handle workflow A
 - Resolve workflow A
   - Concurrently handle steps B and C
@@ -144,7 +144,7 @@ So when mariner runs the workflow represented by this graph, here's the sequence
     - Dispatch tasks D and E to run concurrently
     - Listen for D and E to finish
     - Collect output from each step individually
-    - Merge output from D and E into a single workflow B output object  
+    - Merge output from D and E into a single workflow B output object
     - --- workflow B finishes ---
   - Pass output from step B to step C
   - Dispatch task C
@@ -154,7 +154,7 @@ So when mariner runs the workflow represented by this graph, here's the sequence
   - --- workflow A finishes ---
 - Return workflow A output
 
-## mariner API 
+## mariner API
 
 The core of the API will be the [GA4GH Workflow Execution Service (WES) API](https://github.com/ga4gh/workflow-execution-service-schemas).
 Optionally we may implement extensions or additional functionality.
@@ -213,16 +213,16 @@ Endpoints:
   - every call to the mariner API must include a token for auth
   - mariner passes token from API request to [arborist](https://github.com/uc-cdis/arborist) to check that user's privileges;
   only upon arborist's okay does mariner perform the requested action
-  
-## System Components Diagram
-<img src="./docs/diagrams/components.svg">
 
-## How does it work? 
+## System Components Diagram
+<img src="../diagrams/components.svg">
+
+## How does it work?
 
 Prerequisite: an API token
 
 To run a workflow, pass (workflow, inputs, token)
-as the JSON body of a POST request to the mariner API `/runs` endpoint.  
+as the JSON body of a POST request to the mariner API `/runs` endpoint.
 See: [example request body](https://github.com/uc-cdis/mariner/blob/feat/k8s/testdata/request_body.json)
 
 mariner will first check authorization for the user by passing the token
@@ -237,7 +237,7 @@ to track status, retrieve logs, and eventually retrieve output of that workflow 
 mariner-engine resolves the graph of the workflow and
 creates an input/output dependency map for all the steps of the workflow.
 The engine uses the dependency map to schedule all the tasks of the workflow as k8s jobs,
-where one task corresponds to one job.  
+where one task corresponds to one job.
 
 mariner-engine logs all events of the workflow run and incrementally writes these logs to workflowHistorydb.
 
@@ -250,13 +250,13 @@ At any point, the user can retrieve logs of any workflow run (i.e., regardless o
 
 Once a workflow run's status is `complete`, the user can retrieve the output JSON (along with the logs) of that workflow run by hitting the mariner API `/runs/{runID}` endpoint.
 
-## Who has authZ to run workflows? 
+## Who has authZ to run workflows?
 
 Anyone with `admin` privileges can run workflows.
 
 In the first iteration, Matt and some of the bioinformaticians and developers will have admin privileges for testing and running workflows internally.
 
-## Logs, workflowHistorydb 
+## Logs, workflowHistorydb
 
 Logs are written to workflowHistorydb incrementally to allow for retrieval of logs
 in the case where the workflow run fails at any point.
@@ -270,7 +270,7 @@ A complete record for a workflow run could be a JSON identified with key `/userI
 
 Any thoughts on the workflowHistorydb (what kind of storage to use, how to organize the db) are welcome.
 
-## The Engine Workspace 
+## The Engine Workspace
 
 A workflow run generates files, and workflow tasks may define and depend on particular directory structures
 for their execution to run as intended.
@@ -295,7 +295,7 @@ to the engine job as well as to each task job.
 
 The bucket gets mounted at the `/userID/runID/` prefix,
 so that user_1's engine workspace is not exposed to user_2's workflow run.
-That is, mounting the engine workspace at this prefix 
+That is, mounting the engine workspace at this prefix
 prevents users from seeing or interacting with other users' data.
 
 ## Data Flow
@@ -322,12 +322,12 @@ Inputs of type `file` come from one of the following data components:
 
 Specify a commons data file by its GUID.
 Commons data is made available to the workflow run via [gen3-fuse](https://github.com/uc-cdis/gen3-fuse).
-  
+
 User data are data files in the user-data-space (all files with `/userID/` prefix in the user-data bucket).
 These files are specified via path relative to the `/userID/` prefix.
-These files are made available to the workflow run via goofys fuse mount.  
+These files are made available to the workflow run via goofys fuse mount.
 
-An unaddressed use-case/open question:  
+An unaddressed use-case/open question:
 User has a large amount of data in their own bucket(s) somewhere, which may or may not be private/controlled-access.
 User wants to run workflow using these data as input, without moving/staging the data to some user-data-space.
 
@@ -348,15 +348,15 @@ So the final output files of a workflow run are stored in the engine workspace f
 
 ### How do you retrieve the output of a workflow run?
 
-To retrieve the output JSON (and all the logs) for a completed workflow run, hit the `/runs/{runID}` API endpoint.  
+To retrieve the output JSON (and all the logs) for a completed workflow run, hit the `/runs/{runID}` API endpoint.
 
-It's currently an open question as to how users would browse and retrieve data files generated by a workflow run.  
+It's currently an open question as to how users would browse and retrieve data files generated by a workflow run.
 
-One idea:  
-Create some service which allows users to access their 
+One idea:
+Create some service which allows users to access their
   1. user-data-space
-  2. engine workspace  
-  
+  2. engine workspace
+
 Present both of these entities as separate directories in one place
 so that a user could browse, upload, download, delete files from their user-data-space
 as well as browse and download files from their engine workspace, all in one place.
@@ -364,14 +364,14 @@ as well as browse and download files from their engine workspace, all in one pla
 ## Objectives for First Iteration
 
 At the end of this next stage of development, it will be possible to
-put this sequence of steps into a script:  
- 
+put this sequence of steps into a script:
+
 1. Define a cohort via graphQL query
 2. Retrieve GUIDs for data files of cohort via graphQL query
 3. Create the inputs JSON map for a workflow using GUIDs to specify commons file inputs.
 4. POST (workflow, inputs, token) to mariner API `/runs` endpoint to run the workflow
 5. Listen to run status via `/runs/{runID}/status` endpoint
-6. When status is "complete" or 'failed', retrieve complete execution logs (including output JSON of a successfully completed run) via GET `/runs/{runID}`  
+6. When status is "complete" or 'failed', retrieve complete execution logs (including output JSON of a successfully completed run) via GET `/runs/{runID}`
 
 Viewing and retrieving files from the engine workspace would be done "manually"
 via the AWS CLI until a solution for this situation is figured out.
@@ -394,11 +394,11 @@ Commons files are specified by GUIDs, while user files are specified by path rel
 
 Right now we don't really have a workflow execution service per se, but we do have a prototype workflow engine.
 The engine was developed working with a [test workflow](https://github.com/uc-cdis/mariner/tree/feat/k8s/testdata/workflow/cwl) which is basic but does include step dependencies
-and the [scatter](https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep) CWL feature.  
-  
+and the [scatter](https://www.commonwl.org/v1.0/Workflow.html#WorkflowStep) CWL feature.
+
 So we have an engine which can run workflows written in CWL. Some non-basic features of CWL are currently
 not supported, such as the [schemaDef requirement](https://www.commonwl.org/v1.0/Workflow.html#SchemaDefRequirement)
-and [$import and $include](https://www.commonwl.org/v1.0/Workflow.html#Document_preprocessing) statements.  
+and [$import and $include](https://www.commonwl.org/v1.0/Workflow.html#Document_preprocessing) statements.
 
 So job scheduling, concurrency, handling step dependencies, passing i/o between steps, parsing CWL,
 handling javascript in CWL, resolving the workflow graph, dispatching tasks, collecting output,
@@ -424,18 +424,18 @@ Unfortunately this is a very hard thing to reliably predict, but here's an attem
   - capture structured logs
   - implement workflowHistorydb
   - build out half of WES API
-- By the end of October: 
+- By the end of October:
   - build out second half of WES API
   - secure API via arborist
   - implement basic version of user-data-space
 - By the end of November:
   - implement gen3-fuse to serve commons data to workflow run
   - deploy mariner to some commons' test or staging environment for testing real workflows on real data
-  
+
 ## An Actual Timeline
 
 Here is a three sprint plan starting today, Tuesday, 9/17,
-ending on Friday, 10/25, to get from prototype to first deployment to a staging environment.  
+ending on Friday, 10/25, to get from prototype to first deployment to a staging environment.
 
 ```
 Sprint 1: M 9/16 - F 9/27
@@ -492,42 +492,42 @@ the EBS volume is killed after the task using it finishes running.
 
 so long as our EC2/EBS and S3 resources are located in the same region
 this design should be robust, scalable (horizontally and vertically), and fast.
-  
-## Open Questions 
+
+## Open Questions
 
 1. How will users browse and download output files from a workflow run?
 That is, how will users access their engine workspace for a particular run?
 2. What should the user experience be like for the user-data-space?
-3. What functionality/endpoints (in addition to the WES API) should the mariner API have?  
+3. What functionality/endpoints (in addition to the WES API) should the mariner API have?
 
 ## Examples of other workflow execution services and otherwise relevant resources
 
-[Toil](http://toil.ucsc-cgl.org/) is UCSC's pipeline management system.   
+[Toil](http://toil.ucsc-cgl.org/) is UCSC's pipeline management system.
 
 [How IBM uses Toil](https://developer.ibm.com/storage/2017/05/04/cwl-workflow-lsf-toil/) to run CWL workflows on IBM Spectrum LSF cluster.
 
 [Rabix](https://rabix.io/) is an open source graphical editor which enables visual programming in CWL.
 
 Explore this list of [workflow visualizations](https://view.commonwl.org/workflows?page=0&size=10)
-generated by the [Common Workflow Language Viewer](https://view.commonwl.org/).  
+generated by the [Common Workflow Language Viewer](https://view.commonwl.org/).
 [This page](https://esciencelab.org.uk/products/cwlviewer/) has a nice video explaining the CWL Viewer tool.
 
-[Dockstore](https://dockstore.org/) is an open platform used by the GA4GH for sharing Docker-based tools described with the Common Workflow Language (CWL), the Workflow Description Language (WDL), or Nextflow (NFL). 
+[Dockstore](https://dockstore.org/) is an open platform used by the GA4GH for sharing Docker-based tools described with the Common Workflow Language (CWL), the Workflow Description Language (WDL), or Nextflow (NFL).
 
 [Firecloud](https://firecloud.terra.bio/) lets you run workflows in a [workspace](https://support.terra.bio/hc/en-us/articles/360022716811), which is basically a dataset and collection of analysis tools wrapped into a unit.
 
 [Arvados](https://arvados.org/) is an open source platform for managing compute and storage for cloud and HPC clusters.
-You can [use the Arvados Workbench to run a workflow](https://doc.arvados.org/v1.4/user/tutorials/tutorial-workflow-workbench.html). 
+You can [use the Arvados Workbench to run a workflow](https://doc.arvados.org/v1.4/user/tutorials/tutorial-workflow-workbench.html).
 
 [Galaxy](https://usegalaxy.org/) is another open source platform for data intensive biomedical research,
-which has a library of tools and workflows that you can pick from to compose your own workflow in a visual workflow editor. 
+which has a library of tools and workflows that you can pick from to compose your own workflow in a visual workflow editor.
 
-[Seven Bridges](https://www.sevenbridges.com/platform/) has a pretty fully formed workflow execution service.  
-See also: [Cavatica](http://docs.cavatica.org/docs/getting-started)  
+[Seven Bridges](https://www.sevenbridges.com/platform/) has a pretty fully formed workflow execution service.
+See also: [Cavatica](http://docs.cavatica.org/docs/getting-started)
 
-Seven Bridges also has a [library of CWL workflows and tools](https://igor.sbgenomics.com/public/apps/?__hstc=64521200.1c372e320068fc5c77fb422e9312dd18.1565808892437.1566507563181.1567095819982.4&__hssc=64521200.7.1567095819982&__hsfp=3244085210) that you can mix and match to create your own workflow.  
-  
-[Seven Bridges quickstart](https://docs.sevenbridges.com/docs/quickstart) for running a workflow on their platform.  
+Seven Bridges also has a [library of CWL workflows and tools](https://igor.sbgenomics.com/public/apps/?__hstc=64521200.1c372e320068fc5c77fb422e9312dd18.1565808892437.1566507563181.1567095819982.4&__hssc=64521200.7.1567095819982&__hsfp=3244085210) that you can mix and match to create your own workflow.
+
+[Seven Bridges quickstart](https://docs.sevenbridges.com/docs/quickstart) for running a workflow on their platform.
 
 ["A Review of Bioinformatic Pipeline Frameworks"](https://academic.oup.com/bib/article/18/3/530/2562749)
 is a highly relevant journal article which provides additional context and helps
@@ -537,6 +537,6 @@ This [BioExcel article](https://bioexcel.eu/common-workflow-language/) contains 
 CWL, background and motivation for the standards movement in bioinformatics workflows,
 and contains lots of links to other relevant resources.
 
-"What's a [research object](http://www.researchobject.org/)?"  
-  
-A [long list of workflow systems](https://github.com/common-workflow-language/common-workflow-language/wiki/Existing-Workflow-systems)  
+"What's a [research object](http://www.researchobject.org/)?"
+
+A [long list of workflow systems](https://github.com/common-workflow-language/common-workflow-language/wiki/Existing-Workflow-systems)
