@@ -57,8 +57,11 @@ of how to run a small test workflow and hit all the Mariner API endpoints.
 1. On your machine, move to directory `testdata/no_input_test`
 
 2. Fetch token using API key
+
+[//]: # (pragma: allowlist secret)
+
 ```
-echo Authorization: bearer $(curl -d '{"<replaceme>": "<replaceme>", "key_id": "<replaceme>"}' -X POST -H "Content-Type: application/json" https://<replaceme>.planx-pla.net/user/credentials/api/access_token | jq .access_token | sed 's/"//g') > auth
+echo Authorization: bearer $(curl -d '{"<api_key>": "<replaceme>", "key_id": "<replaceme>"}' -X POST -H "Content-Type: application/json" https://<replaceme>.planx-pla.net/user/credentials/api/access_token | jq .access_token | sed 's/"//g') > auth
 ```
 
 3. POST the workflow request
