@@ -55,7 +55,7 @@ JSON body, which looks like this:
 An example request body can be found [here](https://github.com/uc-cdis/mariner/blob/master/testdata/user_data_test/request_body.json).
 
 5. At this point you're ready to ask Mariner to run your workflow,
-and you can do that via the API call demonstrated in step 3 from the [Run A Workflow](run_a_workflow.md) section.
+and you can do that via the API call demonstrated in step 3 from the [Quickstart](run_a_workflow.md) section.
 
 #### Notes
 

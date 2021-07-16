@@ -11,10 +11,10 @@ standard [WES API](https://ga4gh.github.io/workflow-execution-service-schemas).
 
 All documentation can be found in the [docs](docs) folder, and key documents are linked below.
 
-* [Deploying Mariner to a Gen3 Data Commons](docs/how-to/deploy.md))
+* [Deploying Mariner to a Gen3 Data Commons](docs/how-to/deploy.md)
 * [Quick start](docs/how-to/run_a_workflow.md)
 * [How To Write A Workflow](docs/how-to/write_and_run_workflow.md)
 * [How To Retrieve Workflow Output](docs/how-to/retrieve_workflow_output.md)
-* [Architecture](docs/reference/TechnicalDesignProposal.md)
+* [Technical Design and Architecture](docs/reference/TechnicalDesignProposal.md)
 * [Running CWL Conformance Tests](https://github.com/uc-cdis/mariner/tree/master/conformance)
 * [CWL User Guide](https://www.commonwl.org/user_guide/02-1st-example/index.html)
