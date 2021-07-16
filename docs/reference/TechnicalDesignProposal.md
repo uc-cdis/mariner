@@ -115,7 +115,7 @@ then X and Y run concurrently.
 
 ### Example
 
-<img src="../../diagrams/graph.svg" height="500" align="right">
+<img src="docs/diagrams/graph.svg" height="500" align="right">
 
 This graph represents a workflow consisting of processes A,...,E.
 Vertex A represents the top-level workflow,
@@ -215,7 +215,7 @@ Endpoints:
   only upon arborist's okay does mariner perform the requested action
 
 ## System Components Diagram
-<img src="../../diagrams/components.svg">
+<img src="docs/diagrams/components.svg">
 
 ## How does it work?
 
