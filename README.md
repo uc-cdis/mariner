@@ -2,11 +2,11 @@
 
 Mariner is a workflow execution service written in [Go](https://golang.org)
 for running [CWL](https://www.commonwl.org) workflows on [Kubernetes](https://kubernetes.io).
-Mariner's API is an implementation of the [GA4GH](https://www.ga4gh.org) 
+Mariner's API is an implementation of the [GA4GH](https://www.ga4gh.org)
 standard [WES API](https://ga4gh.github.io/workflow-execution-service-schemas).
 
 Mariner presentations:
-- [Mariner pt. 1](https://docs.google.com/presentation/d/1FKlOJeGyimX3MVURNiM9gOtdHB8gu9sx6NJP0WfTtHI/edit#slide=id.p) - gives 
+- [Mariner pt. 1](https://docs.google.com/presentation/d/1FKlOJeGyimX3MVURNiM9gOtdHB8gu9sx6NJP0WfTtHI/edit#slide=id.p) - gives
 context for the service, why it's critical to Gen3, how it fits in with the larger data commons picture
 - [Mariner pt. 2](https://docs.google.com/presentation/d/1C52GialV2VYUzVW_KlObQArZi22kGuIhhRnm3mDgMDE/edit#slide=id.g7e9daf6d29_0_0) - gives high level details on the Mariner service itself, API, overview of architectural components
 
@@ -28,7 +28,7 @@ If WTS is not already running in your environment, deploy the WTS.
     3. Currently Mariner is not setup with network policies (this will be fixed very very soon),
     so for now in your dev or qa environment in order for Mariner to work,
     [network policies must be "off"](https://github.com/uc-cdis/gitops-dev/blob/78ce75e69c786bbdda629c6c8d76a17476c2084a/mattgarvin1.planx-pla.net/manifest.json#L161)
-    
+
 ### Deployment
 
 3. Deploy the Mariner server by running `gen3 kube-setup-mariner`
@@ -44,7 +44,7 @@ If WTS is not already running in your environment, deploy the WTS.
 
 #### Auth Note
 
-Right now the Mariner auth scheme is coarse - you 
+Right now the Mariner auth scheme is coarse - you
 either have access to all the API endpoints or none of them.
 In order for a user (intended at this point to be either a CTDS dev or bio)
 to interact with Mariner, that user will need to have Mariner admin privileges.
@@ -55,7 +55,7 @@ A Mariner admin can do the following:
   - fetch run logs and output via runID
   - cancel a run that's in-progress via runID
   - query run history (i.e., fetch a list of all your runIDs)
-  
+
 ## How to use Mariner
 
 ### A Full Example
@@ -70,27 +70,27 @@ hit all the Mariner API endpoints.
 ```
 echo Authorization: bearer $(curl -d '{"api_key": "<replaceme>", "key_id": "<replaceme>"}' -X POST -H "Content-Type: application/json" https://<replaceme>.planx-pla.net/user/credentials/api/access_token | jq .access_token | sed 's/"//g') > auth
 ```
-    
+
 3. POST the workflow request
 ```
 curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs
 ```
-    
+
 4. Check run status
 ```
 curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>/status
 ```
-    
+
 5. Fetch run logs (includes output json)
 ```
 curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>
 ```
-    
+
 6. Fetch your run history (list of runIDs)
 ```
 curl -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs
 ```
-    
+
 7. Cancel a run that's currently in-progress
 ```
 curl -d "@request_body.json" -X POST -H "$(cat auth)" https://<replaceme>.planx-pla.net/ga4gh/wes/v1/runs/<runID>/cancel
@@ -110,13 +110,13 @@ the process would go like this:
 
 1. Write your CWL workflow.
 
-2. Use the [Mariner wftool](https://github.com/uc-cdis/mariner/tree/master/wftool) 
+2. Use the [Mariner wftool](https://github.com/uc-cdis/mariner/tree/master/wftool)
 to serialize your CWL file(s) into a single JSON file.
 
 3. Create your inputs mapping file, which
 is a JSON file where the keys are CWL input parameters
 and the values are the corresponding input values
-for those parameters. Here is an example 
+for those parameters. Here is an example
 of an inputs mapping file with two inputs,
 both of which are files. One file is commons data
 and is specified by GUID with the prefix `COMMONS/`,
@@ -166,7 +166,7 @@ and another set of workflows for another,
 you could apply a studyID tag to each workflow run.
 
 The `manifest` field will (very) soon be removed from the workflow request body,
-since of course Mariner can generate the required manifest 
+since of course Mariner can generate the required manifest
 by parsing the inputs mapping file and collecting all the GUIDs it comes across.
 
 #### Learning Resources
@@ -180,7 +180,7 @@ in the context of each example.
 ### Browsing and Retrieving Output From A Workflow Run
 
 Mariner implicitly depends on the existence of something like a "user data client",
-which is a little API for users to browse/upload/download/delete files 
+which is a little API for users to browse/upload/download/delete files
 from their "user data space", which is persistent storage
 on the Gen3/commons side for data which belongs to a user
 and is not commons data.
@@ -210,4 +210,4 @@ you must use the [AWS S3 CLI](https://docs.aws.amazon.com/cli/latest/reference/s
 
 See [here](https://github.com/uc-cdis/mariner/tree/master/conformance).
 
-
+#extra session for testing
