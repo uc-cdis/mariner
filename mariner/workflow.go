@@ -351,8 +351,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 							engine.warnf("source returned null and no default provided for step input: %v", input.ID)
 						}
 					}
-					// fmt.Println("\tDependency task complete!")
-					// fmt.Println("\tSuccessfully collected output from dependency task.")
+
 					engine.infof("end step %v wait for dependency step %v to finish", curStepID, depStepID)
 				}
 			}
