@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gorilla/handlers"
@@ -146,6 +148,7 @@ func runServer() {
 	}
 	httpLogger.Println(fmt.Sprintf("mariner serving at %s", httpServer.Addr))
 	httpLogger.Fatal(httpServer.ListenAndServe())
+	logrus.Info("we're just testing in the server here")
 }
 
 func (server *Server) withS3FileManager(fm *S3FileManager) *Server {

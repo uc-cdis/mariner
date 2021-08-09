@@ -1,10 +1,13 @@
 package main
 
 import (
-	"log"
 	"os"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/uc-cdis/mariner/mariner"
+
+	_ "github.com/lib/pq"
 )
 
 /*
@@ -21,6 +24,7 @@ usage:
 */
 
 func main() {
+	log.Info("hello we're just testing here to see if this worked")
 	switch os.Args[1] {
 	case "listen":
 		mariner.RunServer() // should this function return an error?
