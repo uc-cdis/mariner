@@ -109,6 +109,10 @@ const (
 	pathToUserRunLogf = pathToUserRunsf + "%v/" + logFile // fill with runID
 )
 
+const (
+	PostgresDB = "postgres"
+)
+
 var (
 	trueVal                         = true
 	falseVal                        = false

@@ -23,8 +23,16 @@ usage:
  	 (runs workflow in /engine-workspace/workflowRuns/{runID}/request.json, which is s3://workflow-engine-garvin/userID/workflow-run-timestamp/request.json)
 */
 
+func testDB() {
+	var psqlDB mariner.PSQLDataBase
+	psqlDB.Initalize()
+	psqlDB.Connect()
+}
+
 func main() {
-	log.Info("hello we're just testing here to see if this worked")
+
+	testDB()
+
 	switch os.Args[1] {
 	case "listen":
 		mariner.RunServer() // should this function return an error?
