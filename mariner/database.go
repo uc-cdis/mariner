@@ -7,8 +7,10 @@ import (
 )
 
 type DBUserTable struct {
-	Name  string
-	Email string
+	ID        int
+	Name      string
+	Email     string
+	CreatedAt time.Time
 }
 
 type DBWorkflowTable struct {

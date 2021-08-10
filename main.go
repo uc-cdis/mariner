@@ -27,6 +27,9 @@ func testDB() {
 	var psqlDB mariner.PSQLDataBase
 	psqlDB.Initalize()
 	psqlDB.Connect()
+
+	//psqlDB.Get("usr", []string{"id,name,email,created_at"}, "")
+	psqlDB.Get("task", []string{"input"}, "")
 }
 
 func main() {

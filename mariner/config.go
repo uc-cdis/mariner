@@ -109,8 +109,12 @@ const (
 	pathToUserRunLogf = pathToUserRunsf + "%v/" + logFile // fill with runID
 )
 
+// constants for psql database
 const (
-	PostgresDB = "postgres"
+	PostgresDB    = "postgres"
+	usrTable      = "usr"
+	taskTable     = "task"
+	workflowTable = "workflow"
 )
 
 var (
