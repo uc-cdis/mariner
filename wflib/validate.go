@@ -125,7 +125,7 @@ func (v *Validator) Validate() bool {
 	if !g.empty() {
 		return false
 	}
-	// fmt.Println("validator says 'no grievances to report'")
+
 	return true
 }
 
