@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	log "github.com/sirupsen/logrus"
 )
 
 // this file contains some methods/functions for setting up and working with Tools (i.e., commandlinetools and expressiontools)
@@ -32,12 +34,14 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
 				switch {
 				case err != nil:
+					log.Errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
 					return tool.Task.errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
 				case resultFile != nil:
 					contents = resultFile
 				case resultText != "":
 					contents = resultText
 				default:
+					log.Errorf("entry returned empty value: %v", listing.Entry)
 					return tool.Task.errorf("entry returned empty value: %v", listing.Entry)
 				}
 
@@ -45,6 +49,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				// `entryName` is the name of the file to be created
 				entryName, _, err := tool.resolveExpressions(listing.EntryName)
 				if err != nil {
+					log.Errorf("failed to resolve expressions in entry name: %v; error: %v", listing.EntryName, err)
 					return tool.Task.errorf("failed to resolve expressions in entry name: %v; error: %v", listing.EntryName, err)
 				}
 
@@ -62,6 +67,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					// NOTE: the "designated output directory" is just the directory corresponding to the Tool
 					// not sure what the purpose/meaning/use of this feature is - pretty sure all i/o for Tools gets handled already
 					// presently not supporting this case - will implement this feature once I find an example to work with
+					log.Errorf("feature not supported: entry expression returned a file object")
 					tool.Task.errorf("feature not supported: entry expression returned a file object")
 				} else {
 
@@ -82,24 +88,30 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					case *File:
 						b, err = json.Marshal(contents)
 						if err != nil {
+							log.Errorf("error marshalling contents to file: %v", err)
 							return tool.Task.errorf("error marshalling contents to file: %v", err)
 						}
 					}
 
-					result, err := uploader.Upload(&s3manager.UploadInput{
+					workDirPath := engine.S3FileManager.s3Key(tool.WorkingDir, engine.UserID)
+					key = filepath.Join(workDirPath, key)
+
+					_, err := uploader.Upload(&s3manager.UploadInput{
 						Bucket: aws.String(engine.S3FileManager.S3BucketName),
 						Key:    aws.String(key),
 						Body:   bytes.NewReader(b),
 					})
+
 					if err != nil {
+						log.Errorf("upload to s3 failed: %v", err)
 						return fmt.Errorf("upload to s3 failed: %v", err)
 					}
-					fmt.Println("wrote initdir bytes to s3 object:", result.Location)
-					// log
+					log.Infof("init working directory request recieved")
+					engine.IsInitWorkDir = "true"
 				}
 			}
 		}
 	}
-	tool.Task.infof("end handle InitialWorkDirRequirement")
+	log.Infof("end handle InitialWorkDirRequirement")
 	return nil
 }
