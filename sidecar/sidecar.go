@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	log "github.com/sirupsen/logrus"
 )
 
 // TaskS3Input ..
@@ -27,34 +28,33 @@ func main() {
 	// 1. read in the target s3 paths
 	taskS3Input, err := fm.fetchTaskS3InputList()
 	if err != nil {
-		fmt.Println("readMarinerS3Paths failed:", err)
+		log.Errorf("readMarinerS3Paths failed:", err)
 	}
 
 	// 2. download those files to the shared volume
 	err = fm.downloadInputFiles(taskS3Input)
 	if err != nil {
-		fmt.Println("downloadFiles failed:", err)
+		log.Errorf("downloadFiles failed:", err)
 	}
 
 	// 3. signal main container to run
 	err = fm.signalTaskToRun()
 	if err != nil {
-		fmt.Println("signalTaskToRun failed:", err)
+		log.Errorf("signalTaskToRun failed:", err)
 	}
 
 	// 4. wait for main container to finish
 	err = fm.waitForTaskToFinish()
 	if err != nil {
-		fmt.Println("waitForTaskToFinish failed:", err)
+		log.Errorf("waitForTaskToFinish failed:", err)
 	}
 
 	// 5. upload output files to s3
 	err = fm.uploadOutputFiles()
 	if err != nil {
-		fmt.Println("uploadOutputFiles failed:", err)
+		log.Errorf("uploadOutputFiles failed:", err)
 	}
 
-	return
 }
 
 // 1. read this task's input file list from s3
@@ -107,18 +107,24 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		go func(path string) {
 			defer wg.Done()
 
+			if len(os.Getenv("IsInitWorkDir")) > 0 {
+				path = filepath.Join(fm.TaskWorkingDir, path)
+				log.Infof("we are writing to inital working directory at %s", path)
+			}
+
 			// create necessary dirs
 			if err = os.MkdirAll(filepath.Dir(path), os.ModeDir); err != nil {
-				fmt.Printf("failed to make dirs: %v\n", err)
+				log.Errorf("failed to make dirs: %v\n", err)
 			}
 
 			// create/open file for writing
 			f, err := os.Create(path)
+
 			if err != nil {
-				fmt.Println("failed to open file:", err)
+				log.Errorf("failed to open file:", err)
 			}
 
-			fmt.Println("trying to download obj with key:", fm.s3Key(path))
+			log.Infof("trying to download obj with key:", fm.s3Key(path))
 
 			// write s3 object content into file
 			n, err = downloader.Download(f, &s3.GetObjectInput{
@@ -126,15 +132,15 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
 			})
 			if err != nil {
-				fmt.Println("failed to download file:", path, err)
+				log.Errorf("failed to download file:", path, err)
 			}
 
 			// close file - very important
 			if err = f.Close(); err != nil {
-				fmt.Println("failed to close file:", err)
+				log.Errorf("failed to close file:", err)
 			}
 
-			fmt.Printf("file downloaded, %d bytes\n", n)
+			log.Infof("file downloaded, %d bytes\n", n)
 
 			// release this spot in the guard channel
 			// so the next goroutine can run
@@ -200,7 +206,7 @@ func (fm *S3FileManager) waitForTaskToFinish() error {
 			// 'done' file doesn't exist
 		default:
 			// unexpected error
-			fmt.Println("unexpected error checking for doneFlag:", err)
+			log.Errorf("unexpected error checking for doneFlag:", err)
 		}
 		time.Sleep(5 * time.Second)
 	}
@@ -228,7 +234,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 			defer wg.Done()
 			f, err := os.Open(path)
 			if err != nil {
-				fmt.Println("failed to open file:", path, err)
+				log.Errorf("failed to open file:", path, err)
 				return
 			}
 			result, err = uploader.Upload(&s3manager.UploadInput{
@@ -237,12 +243,12 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 				Body:   f,
 			})
 			if err != nil {
-				fmt.Println("failed to upload file:", path, err)
+				log.Errorf("failed to upload file:", path, err)
 				return
 			}
 			fmt.Println("file uploaded to location:", result.Location)
 			if err = f.Close(); err != nil {
-				fmt.Println("failed to close file:", err)
+				log.Errorf("failed to close file:", err)
 			}
 			<-guard
 		}(p)

@@ -20,6 +20,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 
+	logrus "github.com/sirupsen/logrus"
 	"github.com/uc-cdis/go-authutils/authutils"
 	wflib "github.com/uc-cdis/mariner/wflib"
 )
@@ -514,15 +515,16 @@ func (server *Server) authZ(r *http.Request) bool {
 
 // fetchRefreshToken is invoked from the server to check if a refresh token is expired and fetches a new one if it is.
 func (server *Server) fetchRefreshToken() bool {
+	logrus.Info("we got to refresh token")
 	wtsPath := "http://workspace-token-service/oauth2/"
 	connectedUrl := wtsPath + "connected"
 	res, err := http.Get(connectedUrl)
 	if err != nil {
-		fmt.Println("error checking if user is connected or has a valid token via wts")
+		logrus.Error("error checking if user is connected or has a valid token via wts")
 		return false
 	}
 	if res.StatusCode != 200 {
-		fmt.Println("refresh token expired or user not logged in, fetching new refresh token")
+		logrus.Info("refresh token expired or user not logged in, fetching new refresh token")
 		authUrl := wtsPath + "authorization_url?redirect=/"
 		res, err := http.Get(authUrl)
 		if err != nil {
