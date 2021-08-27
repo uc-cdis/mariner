@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	log "github.com/sirupsen/logrus"
 )
 
 // TaskS3Input ..
@@ -107,6 +108,8 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		go func(path string) {
 			defer wg.Done()
 
+			path = filepath.Join(fm.TaskWorkingDir, path)
+
 			// create necessary dirs
 			if err = os.MkdirAll(filepath.Dir(path), os.ModeDir); err != nil {
 				fmt.Printf("failed to make dirs: %v\n", err)
@@ -114,6 +117,8 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 
 			// create/open file for writing
 			f, err := os.Create(path)
+
+			log.Infof("this is the filepath we are downloading to from s3 %s", path)
 			if err != nil {
 				fmt.Println("failed to open file:", err)
 			}

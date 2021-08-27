@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	log "github.com/sirupsen/logrus"
 )
 
 // this file contains some methods/functions for setting up and working with Tools (i.e., commandlinetools and expressiontools)
@@ -30,6 +32,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 
 				// logic: exactly one of resultString or resultFile should be returned
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
+				log.Infof("Here is the result file that we should be resolving %s", resultText)
 				switch {
 				case err != nil:
 					return tool.Task.errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
@@ -75,6 +78,8 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					key := strings.TrimPrefix(engine.localPathToS3Key(entryName), "/")
 					tool.S3Input.Paths = append(tool.S3Input.Paths, entryName)
 
+					log.Infof("here are the s3 paths %s", tool.S3Input.Paths)
+
 					var b []byte
 					switch contents.(type) {
 					case string:
@@ -86,15 +91,22 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 						}
 					}
 
+					//key := filepath.Join(engine.S3FileManager.s3Key(tool.WorkingDir, engine.UserID), inputFileListName)
+					temp := engine.S3FileManager.s3Key(tool.WorkingDir, engine.UserID)
+					log.Infof("here might be the location we can write to %s", temp)
+					log.Infof("here is the current key %s", key)
+					key = filepath.Join(temp, key)
+
 					result, err := uploader.Upload(&s3manager.UploadInput{
 						Bucket: aws.String(engine.S3FileManager.S3BucketName),
 						Key:    aws.String(key),
 						Body:   bytes.NewReader(b),
 					})
+
 					if err != nil {
 						return fmt.Errorf("upload to s3 failed: %v", err)
 					}
-					fmt.Println("wrote initdir bytes to s3 object:", result.Location)
+					log.Infof("wrote initdir bytes to s3 object: %s", result.Location)
 					// log
 				}
 			}
