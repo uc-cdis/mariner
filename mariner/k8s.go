@@ -274,6 +274,10 @@ func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
 	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
 	env = []k8sv1.EnvVar{
 		{
+			Name:  "IsInitWorkDir",
+			Value: engine.IsInitWorkDir,
+		},
+		{
 			Name:      "AWSCREDS",
 			ValueFrom: envVarAWSUserCreds,
 		},
