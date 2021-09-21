@@ -114,6 +114,29 @@ func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
 // algorithm works in goplayground: https://play.golang.org/p/YOv-K-qdL18
 func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *File, err error) {
 	tool.Task.infof("begin resolve expression: %v", inText)
+    // This is a temporary hot-fix to allow for JS expression defined as ${}.
+    // This does nothing to assert that the full inText is only a single JS expression.
+    // The full fix requires a refactor of the logic currently provided in the per-rune parser.
+    // Kyle Hernandez
+    if inText[0] == '$' && inText[1] == '{' {
+        tool.Task.infof("Interpreting as single JS expression: %v", inText)
+        result, err := evalExpression(inText, tool.InputsVM)
+        if err != nil {
+            return "", nil, tool.Task.errorf("%v", err)
+        }
+
+        switch result.(type) {
+             case string:
+                 outText = result.(string)
+             case File:
+                 f := result.(File)
+                 return "", &f, nil
+         }
+
+	     tool.Task.infof("end resolve expression. resolved text: %v", outText)
+         return outText, nil, nil
+    }
+
 	r := bufio.NewReader(strings.NewReader(inText))
 	var c0, c1, c2 string
 	var done bool
