@@ -98,6 +98,17 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 	var n int64
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
+
+	userFiles := strings.Split(os.Getenv("UserFiles"), ",")
+	commonsUIDs := strings.Split(os.Getenv("CommonsUIDs"), ",")
+	fileMaps := make(map[string]bool)
+	for _, val := range userFiles {
+		fileMaps[val] = true
+	}
+	for _, val := range commonsUIDs {
+		fileMaps[val] = true
+	}
+
 	for _, p := range taskS3Input.Paths {
 		// blocks if guard channel is already full to capacity
 		// proceeds as soon as there is an open slot in the channel
@@ -106,8 +117,13 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
+			fileName := path
+			pathParsed := strings.Split(path, "/")
+			if strings.Contains(fileName, "/") {
+				fileName = pathParsed[len(pathParsed)-1]
+			}
 
-			if len(os.Getenv("IsInitWorkDir")) > 0 {
+			if len(os.Getenv("IsInitWorkDir")) > 0 && !fileMaps[fileName] {
 				path = filepath.Join(fm.TaskWorkingDir, path)
 				log.Infof("we are writing to inital working directory at %s", path)
 			}

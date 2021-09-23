@@ -63,6 +63,8 @@ type Tool struct {
 	ExpressionResult map[string]interface{}
 	Task             *Task
 	S3Input          *ToolS3Input
+	userFiles        []string
+	commonsUID       []string
 
 	// dev'ing
 	// need to load this with runtime context as per CWL spec
