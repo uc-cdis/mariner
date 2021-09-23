@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
+
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -107,7 +109,8 @@ func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
 
 // wrapper around processFile() - collects path of input file and all secondary files
 func (tool *Tool) processFile(f interface{}) (*File, error) {
-	obj, err := processFile(f)
+	obj, err := processFile(tool, f)
+	log.Infof("here are the commons uids %s", tool.commonsUID)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +130,7 @@ func (tool *Tool) processFile(f interface{}) (*File, error) {
 
 // called in transformInput() routine
 // handles path prefix issue
-func processFile(f interface{}) (*File, error) {
+func processFile(tool *Tool, f interface{}) (*File, error) {
 
 	// if it's already of type File or *File, it requires no processing
 	if obj, ok := f.(File); ok {
@@ -147,6 +150,9 @@ func processFile(f interface{}) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	splitPath := strings.Split(path, "/")
+	fileName := splitPath[len(splitPath)-1]
 
 	// handle the filepath prefix issue
 	//
@@ -173,6 +179,8 @@ func processFile(f interface{}) (*File, error) {
 		*/
 		GUID := strings.TrimPrefix(path, commonsPrefix)
 		path = strings.Join([]string{pathToCommonsData, GUID}, "")
+		tool.commonsUID = append(tool.commonsUID, fileName)
+		log.Infof("here is the uid path %s", path)
 	case strings.HasPrefix(path, userPrefix):
 		/*
 			~ Path representations/handling for user-data ~
@@ -188,6 +196,8 @@ func processFile(f interface{}) (*File, error) {
 		*/
 		trimmedPath := strings.TrimPrefix(path, userPrefix)
 		path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+
+		tool.userFiles = append(tool.userFiles, fileName)
 	case strings.HasPrefix(path, conformancePrefix):
 		trimmedPath := strings.TrimPrefix(path, conformancePrefix)
 		path = strings.Join([]string{"/", conformanceVolumeName, "/", trimmedPath}, "")
