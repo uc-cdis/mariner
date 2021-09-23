@@ -31,6 +31,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
 
 				// logic: exactly one of resultString or resultFile should be returned
+				if len(listing.Entry) == 0 {
+					continue
+				}
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
 				switch {
 				case err != nil:

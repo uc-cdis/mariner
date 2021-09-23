@@ -528,11 +528,11 @@ func (server *Server) fetchRefreshToken() bool {
 		authUrl := wtsPath + "authorization_url?redirect=/"
 		res, err := http.Get(authUrl)
 		if err != nil {
-			fmt.Println("error fetching refresh token from wts")
+			logrus.Info("error fetching refresh token from wts")
 			return false
 		}
 		if res.StatusCode == 400 {
-			fmt.Println("wts refresh token bad request, user error")
+			logrus.Info("wts refresh token bad request, user error")
 			return false
 		}
 		res.Body.Close()

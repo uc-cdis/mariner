@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -30,6 +32,8 @@ func main() {
 	if err != nil {
 		log.Errorf("readMarinerS3Paths failed:", err)
 	}
+
+	log.Infof("hello we got here ")
 
 	// 2. download those files to the shared volume
 	err = fm.downloadInputFiles(taskS3Input)
@@ -73,6 +77,8 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 		Bucket: aws.String(fm.S3BucketName),
 		Key:    aws.String(fm.InputFileListS3Key),
 	}
+
+	log.Infof("here are the input key we are trying to download from s3 %s", fm.InputFileListS3Key)
 	_, err := downloader.Download(buf, s3Obj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file, %v", err)
@@ -98,6 +104,19 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 	var n int64
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
+
+	userFiles := strings.Split(os.Getenv("UserFiles"), ",")
+	commonsUIDs := strings.Split(os.Getenv("CommonsUIDs"), ",")
+	fileMaps := make(map[string]bool)
+	for _, val := range userFiles {
+		fileMaps[val] = true
+	}
+	for _, val := range commonsUIDs {
+		fileMaps[val] = true
+	}
+
+	log.Infof("are we downloading any files here")
+
 	for _, p := range taskS3Input.Paths {
 		// blocks if guard channel is already full to capacity
 		// proceeds as soon as there is an open slot in the channel
@@ -106,8 +125,14 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
+			log.Infof("here is the file we are downloading %s", path)
+			fileName := path
+			pathParsed := strings.Split(path, "/")
+			if strings.Contains(fileName, "/") {
+				fileName = pathParsed[len(pathParsed)-1]
+			}
 
-			if len(os.Getenv("IsInitWorkDir")) > 0 {
+			if len(os.Getenv("IsInitWorkDir")) > 0 && !fileMaps[fileName] && !strings.Contains(path, "engine-workspace") {
 				path = filepath.Join(fm.TaskWorkingDir, path)
 				log.Infof("we are writing to inital working directory at %s", path)
 			}
@@ -237,6 +262,20 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 				log.Errorf("failed to open file:", path, err)
 				return
 			}
+
+			files, err := ioutil.ReadDir("/commons-data/")
+			if err != nil {
+				log.Infof("dang we could not read this repo")
+			} else {
+				log.Infof("okay we can actually read something from here")
+			}
+
+			for _, file := range files {
+				log.Infof("this is the filename %s", file.Name())
+				log.Infof("this is if the file is a dir %b", file.IsDir())
+			}
+
+			log.Infof("here are the file path we are uploading %s")
 			result, err = uploader.Upload(&s3manager.UploadInput{
 				Bucket: aws.String(fm.S3BucketName),
 				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
