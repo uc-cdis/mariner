@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
+	log "github.com/sirupsen/logrus"
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -71,7 +72,9 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 			}
 			// if outputEval, then the resulting value from the expression eval is assigned to the output parameter
 			// hence the function HandleCLTOutput() returns here
-			return nil
+			//return nil
+			log.Infof("here is the eval %s", output.Binding.Eval.Raw)
+			continue
 		}
 
 		// 4. SecondaryFiles - currently only supporting simplest case when handling expressions here

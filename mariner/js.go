@@ -54,6 +54,10 @@ func js(s string) (js string, fn bool, err error) {
 	fn = strings.HasPrefix(s, "${")
 	s = strings.TrimLeft(s, "$(\n")
 	s = strings.TrimRight(s, ")\n")
+	// hacky fix please forgive
+	if strings.Count(s, "(") != strings.Count(s, ")") {
+		s = s + ")"
+	}
 	return s, fn, nil
 }
 
@@ -86,7 +90,7 @@ func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 	} else {
 		output, err = vm.Run(js)
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate js expression: %v", err)
+			return nil, fmt.Errorf("failed to evaluate js expression: %v, here is the js expression %s", err, js)
 		}
 	}
 	result, _ = output.Export()
@@ -107,23 +111,25 @@ func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
 func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *File, err error) {
 	tool.Task.infof("begin resolve expression: %v", inText)
 	// TODO: assert that the full inText is only a single JS expression. and refactor logic in the per-rune parser.
-	if inText[0] == '$' && inText[1] == '{' {
-		tool.Task.infof("Interpreting as single JS expression: %v", inText)
-		result, err := evalExpression(inText, tool.InputsVM)
-		if err != nil {
-			return "", nil, tool.Task.errorf("%v", err)
-		}
+	if len(inText) > 1 {
+		if inText[0] == '$' && inText[1] == '{' {
+			tool.Task.infof("Interpreting as single JS expression: %v", inText)
+			result, err := evalExpression(inText, tool.InputsVM)
+			if err != nil {
+				return "", nil, tool.Task.errorf("%v", err)
+			}
 
-		switch result.(type) {
-		case string:
-			outText = result.(string)
-		case File:
-			f := result.(File)
-			return "", &f, nil
-		}
+			switch result.(type) {
+			case string:
+				outText = result.(string)
+			case File:
+				f := result.(File)
+				return "", &f, nil
+			}
 
-		tool.Task.infof("end resolve expression. resolved text: %v", outText)
-		return outText, nil, nil
+			tool.Task.infof("end resolve expression. resolved text: %v", outText)
+			return outText, nil, nil
+		}
 	}
 
 	r := bufio.NewReader(strings.NewReader(inText))

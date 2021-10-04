@@ -132,7 +132,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 				fileName = pathParsed[len(pathParsed)-1]
 			}
 
-			if len(os.Getenv("IsInitWorkDir")) > 0 && !fileMaps[fileName] {
+			if len(os.Getenv("IsInitWorkDir")) > 0 && !fileMaps[fileName] && !strings.Contains(path, "engine-workspace") {
 				path = filepath.Join(fm.TaskWorkingDir, path)
 				log.Infof("we are writing to inital working directory at %s", path)
 			}
