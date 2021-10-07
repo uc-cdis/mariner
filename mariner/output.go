@@ -70,10 +70,8 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 			if err = tool.outputEval(&output, results); err != nil {
 				return tool.Task.errorf("%v", err)
 			}
-			// if outputEval, then the resulting value from the expression eval is assigned to the output parameter
-			// hence the function HandleCLTOutput() returns here
-			//return nil
-			log.Infof("here is the eval %s", output.Binding.Eval.Raw)
+
+			log.Debugf("here is the eval %s", output.Binding.Eval.Raw)
 			continue
 		}
 

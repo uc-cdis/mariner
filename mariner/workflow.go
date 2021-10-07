@@ -360,6 +360,7 @@ func (engine *K8sEngine) runStep(curStepID string, parentTask *Task, task *Task)
 			// but is an input of the parent workflow
 			// assign input parameter of parent workflow to input parameter of this step
 			task.Parameters[taskInput] = parentTask.Parameters[source]
+			engine.infof("taskInput: %v; source: %v; parameters: %v", taskInput, source, parentTask.Parameters[source])
 
 			// used for logging to merge child inputs for a workflow
 			parentTask.Lock()

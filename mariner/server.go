@@ -515,7 +515,6 @@ func (server *Server) authZ(r *http.Request) bool {
 
 // fetchRefreshToken is invoked from the server to check if a refresh token is expired and fetches a new one if it is.
 func (server *Server) fetchRefreshToken() bool {
-	logrus.Info("we got to refresh token")
 	wtsPath := "http://workspace-token-service/oauth2/"
 	connectedUrl := wtsPath + "connected"
 	res, err := http.Get(connectedUrl)
@@ -524,15 +523,15 @@ func (server *Server) fetchRefreshToken() bool {
 		return false
 	}
 	if res.StatusCode != 200 {
-		logrus.Info("refresh token expired or user not logged in, fetching new refresh token")
+		logrus.Debug("refresh token expired or user not logged in, fetching new refresh token")
 		authUrl := wtsPath + "authorization_url?redirect=/"
 		res, err := http.Get(authUrl)
 		if err != nil {
-			logrus.Info("error fetching refresh token from wts")
+			logrus.Error("error fetching refresh token from wts")
 			return false
 		}
 		if res.StatusCode == 400 {
-			logrus.Info("wts refresh token bad request, user error")
+			logrus.Error("wts refresh token bad request, user error")
 			return false
 		}
 		res.Body.Close()

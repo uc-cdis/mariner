@@ -77,6 +77,7 @@ func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
 	required := true
 	if provided, err := engine.transformInput(tool, input); err == nil {
 		if provided == nil {
+			tool.Task.infof("found optional input: %v", input.ID)
 			// optional input with no value or default provided
 			// this is an unused input parameter
 			// and so does not show up on the command line
@@ -110,7 +111,6 @@ func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
 // wrapper around processFile() - collects path of input file and all secondary files
 func (tool *Tool) processFile(f interface{}) (*File, error) {
 	obj, err := processFile(tool, f)
-	log.Infof("here are the commons uids %s", tool.commonsUID)
 	if err != nil {
 		return nil, err
 	}
@@ -151,9 +151,6 @@ func processFile(tool *Tool, f interface{}) (*File, error) {
 		return nil, err
 	}
 
-	splitPath := strings.Split(path, "/")
-	fileName := splitPath[len(splitPath)-1]
-
 	// handle the filepath prefix issue
 	//
 	// Mapping:
@@ -179,8 +176,7 @@ func processFile(tool *Tool, f interface{}) (*File, error) {
 		*/
 		GUID := strings.TrimPrefix(path, commonsPrefix)
 		path = strings.Join([]string{pathToCommonsData, GUID}, "")
-		tool.commonsUID = append(tool.commonsUID, fileName)
-		log.Infof("here is the uid path %s", path)
+		log.Debugf("here is the uid path %s", path)
 	case strings.HasPrefix(path, userPrefix):
 		/*
 			~ Path representations/handling for user-data ~
@@ -197,7 +193,6 @@ func processFile(tool *Tool, f interface{}) (*File, error) {
 		trimmedPath := strings.TrimPrefix(path, userPrefix)
 		path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
 
-		tool.userFiles = append(tool.userFiles, fileName)
 	case strings.HasPrefix(path, conformancePrefix):
 		trimmedPath := strings.TrimPrefix(path, conformancePrefix)
 		path = strings.Join([]string{"/", conformanceVolumeName, "/", trimmedPath}, "")
@@ -234,25 +229,33 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	tool.Task.infof("begin transform input: %v", input.ID)
 	localID := lastInPath(input.ID)
 	if tool.StepInputMap[localID] != nil {
+		tool.Task.infof("found StepInputMap record for: %v", localID)
+		tool.Task.infof("ValueFrom record %v; for: %v", tool.StepInputMap[localID].ValueFrom, input.ID)
 		if tool.StepInputMap[localID].ValueFrom != "" {
 			valueFrom := tool.StepInputMap[localID].ValueFrom
 			if strings.HasPrefix(valueFrom, "$") {
+				tool.Task.infof("found JS ValueFrom for input: %v", input.ID)
 				vm := tool.JSVM.Copy()
 				self, err := tool.loadInputValue(input)
 				if err != nil {
 					return nil, tool.Task.errorf("failed to load value: %v", err)
 				}
+				tool.Task.infof("loaded input value: %v; from input: %v", self, input.ID)
 				self, err = preProcessContext(self)
 				if err != nil {
 					return nil, tool.Task.errorf("failed to preprocess context: %v", err)
 				}
+				tool.Task.infof("preprocess input value: %v; from input: %v", self, input.ID)
 				if err = vm.Set("self", self); err != nil {
 					return nil, tool.Task.errorf("failed to set 'self' value in js vm: %v", err)
 				}
+				tool.Task.infof("for input: %v; evaluating expression: %v", input.ID, valueFrom)
 				if out, err = evalExpression(valueFrom, vm); err != nil {
 					return nil, tool.Task.errorf("failed to eval js expression: %v; error: %v", valueFrom, err)
 				}
+				tool.Task.infof("for input: %v; expression returned: %v", input.ID, out)
 			} else {
+				tool.Task.infof("no JS in ValueFrom for input: %v; assigning: %v", input.ID, valueFrom)
 				out = valueFrom
 			}
 		}
@@ -263,6 +266,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		if err != nil {
 			return nil, tool.Task.errorf("failed to load input value: %v", err)
 		}
+		tool.Task.infof("for input: %v; out is nil, so loaded: %v", input.ID, out)
 		if out == nil {
 			tool.Task.infof("optional input with no value or default provided - skipping: %v", input.ID)
 			return nil, nil
@@ -440,6 +444,7 @@ func (tool *Tool) inputsToVM() (err error) {
 				}
 			} else {
 				// valueFrom specified in inputBinding - resulting value stored in input.Provided.Raw
+				tool.Task.infof("input: %v; input provided raw: %v", input.ID, input.Provided.Raw)
 				switch input.Provided.Raw.(type) {
 				case string:
 					f = fileObject(input.Provided.Raw.(string))

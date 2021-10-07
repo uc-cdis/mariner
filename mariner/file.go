@@ -175,7 +175,7 @@ func (engine *K8sEngine) loadContents(file *File) (err error) {
 	downloader := s3manager.NewDownloader(sess)
 	s3Key := engine.localPathToS3Key(file.Location)
 	buf := &aws.WriteAtBuffer{}
-	log.Infof("here is the s3 file that we are downloading %s", s3Key)
+	log.Debugf("here is the s3 file that we are downloading %s", s3Key)
 	s3Obj := &s3.GetObjectInput{
 		Bucket: aws.String(engine.S3FileManager.S3BucketName),
 		Key:    aws.String(s3Key),

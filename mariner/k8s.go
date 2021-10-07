@@ -271,17 +271,12 @@ func (tool *Tool) env() (env []k8sv1.EnvVar, err error) {
 
 // for marinerTask job
 func (engine *K8sEngine) s3SidecarEnv(tool *Tool) (env []k8sv1.EnvVar) {
-	userFiles := strings.Join(tool.userFiles, ",")
-	commonsUIDs := strings.Join(tool.commonsUID, ",")
+	initWorkDirFiles := strings.Join(tool.initWorkDirFiles, ",")
 	engine.infof("load s3 sidecar env for task: %v", tool.Task.Root.ID)
 	env = []k8sv1.EnvVar{
 		{
-			Name:  "UserFiles",
-			Value: userFiles,
-		},
-		{
-			Name:  "CommonsUIDs",
-			Value: commonsUIDs,
+			Name:  "InitWorkDirFiles",
+			Value: initWorkDirFiles,
 		},
 		{
 			Name:  "IsInitWorkDir",
