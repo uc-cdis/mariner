@@ -132,8 +132,8 @@ func runServer() {
 		jwkEndpointEnv,
 		"endpoint from which the application can fetch a JWKS",
 	)
-
-	dao := database.NewPSQLDao()
+	psqlDB := database.PostgresDB
+	dao := database.DaoFactory(psqlDB)
 	db := dao.DBConnection
 	logFlags := log.Ldate | log.Ltime
 	logger := log.New(os.Stdout, "", logFlags)
