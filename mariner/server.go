@@ -133,13 +133,7 @@ func runServer() {
 		"endpoint from which the application can fetch a JWKS",
 	)
 
-	dao := database.PSQLDao
-	if creds, err := database.mustGetCredentials(dao); err != nil {
-		logrus.Errorf("mariner server could not retrieve database credentials")
-	}
-	if dbConnection, err := database.connect(dao); err != nil {
-		logrus.Errorf("could not connect to database, check credentials")
-	}
+	dao := database.NewPSQLDao()
 	db := dao.DBConnection
 	logFlags := log.Ldate | log.Ltime
 	logger := log.New(os.Stdout, "", logFlags)
