@@ -134,7 +134,9 @@ func runServer() {
 	)
 	psqlDB := database.PostgresDB
 	dao := database.DaoFactory(psqlDB)
-	db := dao.GetDBConnection()
+	if db, err := dao.GetDBConnection(); err != nil {
+		logrus.Info("failed to retrieve db connection info")
+	}
 	logFlags := log.Ldate | log.Ltime
 	logger := log.New(os.Stdout, "", logFlags)
 	jwtApp := authutils.NewJWTApplication(*jwkEndpoint)
