@@ -57,25 +57,25 @@ func connect(psqlDao *PSQLDao) (string, error) {
 	return sucessString, nil
 }
 
-func mustGetCredentials(psqlDao *PSQLDao) {
+func mustGetCredentials(psqlDao *PSQLDao) (string, error) {
 	credFile, err := os.Open(dbcredentialpath)
 	if err != nil {
-		log.Fatal("Could not open database credential file ", err)
+		log.Fatal("Could not open database credential file", err)
+		return "", err
 	}
 	defer credFile.Close()
-
 	byteValue, _ := ioutil.ReadAll(credFile)
-
 	var credential DBCredentials
 	err = json.Unmarshal(byteValue, &credential)
 	if err != nil {
 		log.Fatal("Marshling credential file failed ", err)
 	}
-
 	psqlDao.Host = credential.Host
 	psqlDao.User = credential.User
 	psqlDao.Password = credential.Password //pragma: allowlist secret
 	psqlDao.DBName = credential.DatabaseName
+	success := fmt.Sprintf("retrieved db credentials successfully")
+	return success, nil
 }
 
 func NewPSQLDao() *PSQLDao {

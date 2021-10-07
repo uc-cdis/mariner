@@ -17,6 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
+	"github.com/uc-cdis/mariner/database"
 	batchv1 "k8s.io/api/batch/v1"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 
@@ -56,6 +58,7 @@ type Server struct {
 	jwtApp        JWTDecoder
 	logger        *LogHandler
 	S3FileManager *S3FileManager
+	db            *sqlx.DB
 }
 
 // see Arborist's logging.go
@@ -129,12 +132,25 @@ func runServer() {
 		jwkEndpointEnv,
 		"endpoint from which the application can fetch a JWKS",
 	)
+
+	dao := database.PSQLDao
+	if creds, err := database.mustGetCredentials(dao); err != nil {
+		logrus.Errorf("mariner server could not retrieve database credentials")
+	}
+	if dbConnection, err := database.connect(dao); err != nil {
+		logrus.Errorf("could not connect to database, check credentials")
+	}
+	db := dao.DBConnection
 	logFlags := log.Ldate | log.Ltime
 	logger := log.New(os.Stdout, "", logFlags)
 	jwtApp := authutils.NewJWTApplication(*jwkEndpoint)
 	fm := &S3FileManager{}
 	fm.setup()
-	server := server().withLogger(logger).withJWTApp(jwtApp).withS3FileManager(fm)
+	server := server().
+		withLogger(logger).
+		withJWTApp(jwtApp).
+		withDB(db).
+		withS3FileManager(fm)
 	router := server.makeRouter(os.Stdout)
 	addr := fmt.Sprintf(":%d", *port)
 	httpLogger := log.New(os.Stdout, "", log.LstdFlags)
@@ -162,6 +178,15 @@ func (server *Server) withJWTApp(jwtApp JWTDecoder) *Server {
 // TODO - see logging in mariner - implement server logging for mariner
 func (server *Server) withLogger(logger *log.Logger) *Server {
 	server.logger = &LogHandler{logger: logger}
+	return server
+}
+
+// withDB is invoked from the server to assign the workflow database.
+func (server *Server) withDB(db *sqlx.DB) *Server {
+	if db == nil {
+		logrus.Info("mariner server initialized without a workflow database")
+	}
+	server.db = db
 	return server
 }
 
