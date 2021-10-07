@@ -134,7 +134,8 @@ func runServer() {
 	)
 	psqlDB := database.PostgresDB
 	dao := database.DaoFactory(psqlDB)
-	if db, err := dao.GetDBConnection(); err != nil {
+	db, err := dao.GetDBConnection()
+	if err != nil {
 		logrus.Info("failed to retrieve db connection info")
 	}
 	logFlags := log.Ldate | log.Ltime
