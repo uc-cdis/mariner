@@ -19,5 +19,7 @@ type Dao interface {
 	DeleteTask(id int64) error
 	GetTaskById(id int64) (*Task, error)
 
+	GetDBConnection() (interface{}, error)
+
 	KillDao()
 }

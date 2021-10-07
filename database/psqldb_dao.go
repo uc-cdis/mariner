@@ -88,6 +88,14 @@ func NewPSQLDao() *PSQLDao {
 	return &newDao
 }
 
+// GetDBConnection is called by a psql instance and returns the db connection
+func (psqlDao *PSQLDao) GetDBConnection() (interface{}, error) {
+	if psqlDao == nil {
+		return psqlDao, fmt.Errorf("could not retrieve database information, no connection")
+	}
+	return psqlDao.DBConnection, nil
+}
+
 func (psqlDao *PSQLDao) GetUserById(id int64) (*User, error) {
 	user := User{}
 	query := fmt.Sprintf("SELECT * FROM usr WHERE id=%d", id)

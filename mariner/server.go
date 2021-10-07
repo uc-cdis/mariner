@@ -134,7 +134,7 @@ func runServer() {
 	)
 	psqlDB := database.PostgresDB
 	dao := database.DaoFactory(psqlDB)
-	db := dao.DBConnection
+	db := dao.GetDBConnection()
 	logFlags := log.Ldate | log.Ltime
 	logger := log.New(os.Stdout, "", logFlags)
 	jwtApp := authutils.NewJWTApplication(*jwkEndpoint)
