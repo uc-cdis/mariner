@@ -236,6 +236,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	localID := lastInPath(input.ID)
 	if tool.StepInputMap[localID] != nil {
         tool.Task.infof("found StepInputMap record for: %v", localID)
+        tool.Task.infof("ValueFrom record %v; for: %v", tool.StepInputMap[localID].ValueFrom, input.ID)
 		if tool.StepInputMap[localID].ValueFrom != "" {
 			valueFrom := tool.StepInputMap[localID].ValueFrom
 			if strings.HasPrefix(valueFrom, "$") {
