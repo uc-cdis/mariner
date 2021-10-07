@@ -450,6 +450,7 @@ func (tool *Tool) inputsToVM() (err error) {
 				}
 			} else {
 				// valueFrom specified in inputBinding - resulting value stored in input.Provided.Raw
+                tool.Task.infof("input: %v; input provided raw: %v", input.ID, input.Provided.Raw)
 				switch input.Provided.Raw.(type) {
 				case string:
 					f = fileObject(input.Provided.Raw.(string))
