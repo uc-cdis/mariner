@@ -183,7 +183,7 @@ func (server *Server) withDB(db interface{}) *Server {
 	switch db.(type) {
 	case *sqlx.DB:
 		logrus.Info("mariner server initialized with psql database")
-		server.db = db
+		server.db = db.(*sqlx.DB)
 	default:
 		logrus.Info("mariner server initialized without a workflow database")
 		server.db = nil
