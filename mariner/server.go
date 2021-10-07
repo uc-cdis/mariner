@@ -179,11 +179,15 @@ func (server *Server) withLogger(logger *log.Logger) *Server {
 }
 
 // withDB is invoked from the server to assign the workflow database.
-func (server *Server) withDB(db *sqlx.DB) *Server {
-	if db == nil {
+func (server *Server) withDB(db interface{}) *Server {
+	switch db.(type) {
+	case *sqlx.DB:
+		logrus.Info("mariner server initialized with psql database")
+		server.db = db
+	default:
 		logrus.Info("mariner server initialized without a workflow database")
+		server.db = nil
 	}
-	server.db = db
 	return server
 }
 
