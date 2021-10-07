@@ -63,7 +63,7 @@ type Tool struct {
 	ExpressionResult map[string]interface{}
 	Task             *Task
 	S3Input          *ToolS3Input
-	userFiles        []string
+	initWorkDirFiles []string
 	commonsUID       []string
 
 	// dev'ing

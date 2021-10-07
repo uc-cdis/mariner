@@ -29,11 +29,119 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				// `entry` is an expression which may return a string, File or `dirent`
 				// NOTE: presently NOT supporting the File or dirent case
 				// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
+				tool.Task.infof("listing: %+v", listing)
 
 				// logic: exactly one of resultString or resultFile should be returned
 				if len(listing.Entry) == 0 {
+					// Here we have the case for an expression/string and not a dirent
+					tool.Task.infof("listing entry len 0: %v", listing.Entry)
+					tool.Task.infof("listing Location: %v", listing.Location)
+					tool.Task.infof("listing Location type: %T", listing.Location)
+					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
+					if strings.HasPrefix(listing.Location, "$(") {
+						tool.Task.infof("listing Location has JS expression: %v", listing.Location)
+						output, err := tool.evalExpression(listing.Location)
+						if err != nil {
+							log.Errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
+							return tool.Task.errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
+						}
+						switch x := output.(type) {
+						case *File:
+							path := output.(*File).Path
+							tool.Task.infof("*File - Path: %v", path)
+						case []*File:
+							files := output.([]*File)
+							for _, f := range files {
+							    tool.Task.infof("[]*File - Path: %v", f.Path)
+							}
+						case []map[string]interface{}:
+							files := output.([]map[string]interface{})
+							for _, f := range files {
+								path, err := filePath(f)
+								if err != nil {
+									tool.Task.infof("failed to extract path from file: %v", f)
+									continue
+								}
+								switch {
+								case strings.HasPrefix(path, userPrefix):
+									trimmedPath := strings.TrimPrefix(path, userPrefix)
+									path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+									tool.Task.infof("adding initwkdir path: %v", path)
+									tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+									tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+								case strings.HasPrefix(path, "/" + engineWorkspaceVolumeName):
+									tool.Task.infof("adding initwkdir path: %v", path)
+									tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+									tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+									tool.Task.infof("*File - Path: %v", path)
+								default:
+									log.Errorf("unsupported initwkdir path: %v", path)
+									return tool.Task.errorf("unsupported initwkdir path: %v", path)
+								}
+								tool.Task.infof("[]map[string]interface{} - Path: %v", path)
+							}
+						case []interface{}:
+							// this is so gross, but forwhatever reason we have to deal with the empty interface array
+							// ultimately this probably needs to be a more recursive type processing for all the different possible types
+							tool.Task.infof("[]interface{} - HERE: %v", output)
+							for _, v := range x {
+								tool.Task.infof("item: %v; type: %T", v, v)
+								switch v.(type) {
+								case map[string]interface {}:
+									path, err := filePath(v)
+									if err != nil {
+										tool.Task.infof("failed to extract path from file: %v", v)
+										continue
+									}
+								        tool.Task.infof("map[string]interface{} - Path: %v", path)
+									switch {
+									case strings.HasPrefix(path, userPrefix):
+										trimmedPath := strings.TrimPrefix(path, userPrefix)
+										path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+										tool.Task.infof("adding initwkdir path: %v", path)
+										tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+										tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+									default:
+										log.Errorf("unsupported initwkdir path: %v", path)
+										return tool.Task.errorf("unsupported initwkdir path: %v", path)
+									}
+								case *File:
+									if p, ok := v.(*File); ok {
+										path := p.Path
+										switch {
+										case strings.HasPrefix(path, userPrefix):
+											trimmedPath := strings.TrimPrefix(path, userPrefix)
+											path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+											tool.Task.infof("adding initwkdir path: %v", path)
+											tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+											tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+											tool.Task.infof("*File - Path: %v", path)
+										case strings.HasPrefix(path, "/" + engineWorkspaceVolumeName):
+											tool.Task.infof("adding initwkdir path: %v", path)
+											tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+											tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+											tool.Task.infof("*File - Path: %v", path)
+										default:
+											log.Errorf("unsupported initwkdir path: %v", path)
+											return tool.Task.errorf("unsupported initwkdir path: %v", path)
+										}
+									} else {
+										tool.Task.infof("failed to extract path from file: %v", v)
+										return tool.Task.errorf("failed to extract path from file: %v", v)
+									}
+								default:
+									log.Errorf("unsupported initwkdir type: %T; value: %v", v, v)
+									return tool.Task.errorf("unsupported initwkdir type: %T; value: %v", v, v)
+								}
+							}
+						}
+					}
+					engine.IsInitWorkDir = "true"
+					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
+					tool.Task.infof("initWorkDirFiles: %v", tool.initWorkDirFiles)
 					continue
 				}
+
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
 				switch {
 				case err != nil:
@@ -64,6 +172,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				*/
 
 				// pretty sure this conditional is dated/unnecessary
+				tool.Task.infof("resFile: %v", resFile)
 				if resFile != nil {
 					// "If the value is an expression that evaluates to a File object,
 					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."

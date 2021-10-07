@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	pathLib "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -105,15 +106,15 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
 
-	userFiles := strings.Split(os.Getenv("UserFiles"), ",")
-	commonsUIDs := strings.Split(os.Getenv("CommonsUIDs"), ",")
+	initWorkDirFiles := strings.Split(os.Getenv("InitWorkDirFiles"), ",")
+	//commonsUIDs := strings.Split(os.Getenv("CommonsUIDs"), ",")
 	fileMaps := make(map[string]bool)
-	for _, val := range userFiles {
+	for _, val := range initWorkDirFiles {
 		fileMaps[val] = true
 	}
-	for _, val := range commonsUIDs {
-		fileMaps[val] = true
-	}
+	//for _, val := range commonsUIDs {
+	//	fileMaps[val] = true
+	//}
 
 	log.Infof("are we downloading any files here")
 
@@ -128,22 +129,27 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 			log.Infof("here is the file we are downloading %s", path)
 			fileName := path
 			pathParsed := strings.Split(path, "/")
+			localPath := path
+
 			if strings.Contains(fileName, "/") {
 				fileName = pathParsed[len(pathParsed)-1]
 			}
 
-			if len(os.Getenv("IsInitWorkDir")) > 0 && !fileMaps[fileName] && !strings.Contains(path, "engine-workspace") {
-				path = filepath.Join(fm.TaskWorkingDir, path)
-				log.Infof("we are writing to inital working directory at %s", path)
+			if len(os.Getenv("IsInitWorkDir")) > 0 && (fileMaps[path] || !strings.Contains(path, "/")) {
+				localPath = filepath.Join(fm.TaskWorkingDir, pathLib.Base(path))
+				if (!strings.Contains(path, "/")) {
+					path = localPath
+				}
+				log.Infof("we are writing to inital working directory at %s", localPath)
 			}
 
 			// create necessary dirs
-			if err = os.MkdirAll(filepath.Dir(path), os.ModeDir); err != nil {
+			if err = os.MkdirAll(filepath.Dir(localPath), os.ModeDir); err != nil {
 				log.Errorf("failed to make dirs: %v\n", err)
 			}
 
 			// create/open file for writing
-			f, err := os.Create(path)
+			f, err := os.Create(localPath)
 
 			if err != nil {
 				log.Errorf("failed to open file:", err)
