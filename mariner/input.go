@@ -235,6 +235,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 	tool.Task.infof("begin transform input: %v", input.ID)
 	localID := lastInPath(input.ID)
 	if tool.StepInputMap[localID] != nil {
+        tool.Task.infof("found StepInputMap record for: %v", localID)
 		if tool.StepInputMap[localID].ValueFrom != "" {
 			valueFrom := tool.StepInputMap[localID].ValueFrom
 			if strings.HasPrefix(valueFrom, "$") {
@@ -259,6 +260,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 				}
                 tool.Task.infof("for input: %v; expression returned: %v", input.ID, out)
 			} else {
+                tool.Task.infof("no JS in ValueFrom for input: %v; assigning: %v", input.ID, valueFrom)
 				out = valueFrom
 			}
 		}

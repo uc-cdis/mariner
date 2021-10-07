@@ -289,6 +289,9 @@ func (task *Task) fillNonScatteredParams(parentTask *Task) {
 		if _, ok := task.Parameters[param]; !ok {
 			task.infof("assigning val %v to non-scattered param %v", val, param)
 			task.Parameters[param] = val
+            if param == "#assoc_single_r.cwl/null_model_file" {
+                task.infof("first element: %v", val[0])
+            }
 		}
 	}
 	task.infof("end fill non-scattered params")
