@@ -29,7 +29,8 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				// `entry` is an expression which may return a string, File or `dirent`
 				// NOTE: presently NOT supporting the File or dirent case
 				// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
-                tool.Task.infof("listing: %v", listing)
+                tool.Task.infof("listing: %+v", listing)
+                tool.Task.infof("listing type: %T", listing)
 
 				// logic: exactly one of resultString or resultFile should be returned
 				if len(listing.Entry) == 0 {
