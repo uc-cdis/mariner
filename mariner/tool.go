@@ -29,9 +29,11 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				// `entry` is an expression which may return a string, File or `dirent`
 				// NOTE: presently NOT supporting the File or dirent case
 				// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
+                tool.Task.infof("listing: %v", listing)
 
 				// logic: exactly one of resultString or resultFile should be returned
 				if len(listing.Entry) == 0 {
+                    tool.Task.infof("listing entry len 0: %v", listing.Entry)
 					continue
 				}
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
@@ -64,6 +66,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				*/
 
 				// pretty sure this conditional is dated/unnecessary
+                tool.Task.infof("resFile: %v", resFile)
 				if resFile != nil {
 					// "If the value is an expression that evaluates to a File object,
 					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."
