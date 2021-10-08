@@ -65,6 +65,8 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 								tool.Task.infof("[]map[string]interface{} - Path: %v", path)
 							}
 						case []interface{}:
+							// this is so gross, but forwhatever reason we have to deal with the empty interface array
+							// ultimately this probably needs to be a more recursive type processing for all the different possible types
 							tool.Task.infof("[]interface{} - HERE: %v", output)
 							for _, v := range x {
 								tool.Task.infof("item: %v; type: %T", v, v)
@@ -76,12 +78,24 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 										continue
 									}
 								        tool.Task.infof("map[string]interface{} - Path: %v", path)
-									tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+									switch {
+									case strings.HasPrefix(path, userPrefix):
+										trimmedPath := strings.TrimPrefix(path, userPrefix)
+										path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+										tool.Task.infof("adding initwkdir path: %v", path)
+										tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+									default:
+										log.Errorf("unsupported initwkdir path: %v", path)
+										return tool.Task.errorf("unsupported initwkdir path: %v", path)
+									}
+								default:
+									log.Errorf("unsupported initwkdir type: %T; value: %v", v, v)
+									return tool.Task.errorf("unsupported initwkdir type: %T; value: %v", v, v)
 								}
 							}
 						}
 					}
-					engine.IsInitWorkDir = "true"
+					//engine.IsInitWorkDir = "true"
 					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
 					continue
 				}
