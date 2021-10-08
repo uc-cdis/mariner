@@ -48,7 +48,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 							tool.Task.infof("Is a file: %v", output)
 						case isArrayOfFile(output):
 							tool.Task.infof("Is an array of files: %v", output)
-							out, err := processFileList(output)
+							out, err := tool.processFileList(output)
 							if err != nil {
 								return tool.Task.errorf("Couldn't parse file list: %v", err)
 							}
