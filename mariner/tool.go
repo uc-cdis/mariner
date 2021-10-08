@@ -68,6 +68,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 							}
 						case []interface{}:
 							tool.Task.infof("[]interface{} - HERE: %v", output)
+							for _, param := range output {
+								tool.Task.infof("item: %v; type: %T", param, param)
+							}
 						}
 					}
 					continue
