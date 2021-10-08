@@ -47,7 +47,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 						}
 						tool.Task.infof("output: %v", output)
 						tool.Task.infof("output Type: %T", output)
-						switch output.(type) {
+						switch x := output.(type) {
 						case *File:
 							path := output.(*File).Path
 							tool.Task.infof("*File - Path: %v", path)
@@ -68,8 +68,8 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 							}
 						case []interface{}:
 							tool.Task.infof("[]interface{} - HERE: %v", output)
-							for _, param := range output {
-								tool.Task.infof("item: %v; type: %T", param, param)
+							for _, v := range x {
+								tool.Task.infof("item: %v; type: %T", v, v)
 							}
 						}
 					}
