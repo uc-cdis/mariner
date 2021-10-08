@@ -45,8 +45,6 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 							log.Errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
 							return tool.Task.errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
 						}
-						tool.Task.infof("output: %v", output)
-						tool.Task.infof("output Type: %T", output)
 						switch x := output.(type) {
 						case *File:
 							path := output.(*File).Path
@@ -70,9 +68,21 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 							tool.Task.infof("[]interface{} - HERE: %v", output)
 							for _, v := range x {
 								tool.Task.infof("item: %v; type: %T", v, v)
+								switch v.(type) {
+								case map[string]interface {}:
+									path, err := filePath(v)
+									if err != nil {
+										tool.Task.infof("failed to extract path from file: %v", v)
+										continue
+									}
+								        tool.Task.infof("map[string]interface{} - Path: %v", path)
+									tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+								}
 							}
 						}
 					}
+					engine.IsInitWorkDir = "true"
+					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
 					continue
 				}
 
