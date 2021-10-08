@@ -29,14 +29,33 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				// `entry` is an expression which may return a string, File or `dirent`
 				// NOTE: presently NOT supporting the File or dirent case
 				// what's a dirent? good question: https://www.commonwl.org/v1.0/CommandLineTool.html#Dirent
-                tool.Task.infof("listing: %+v", listing)
-                tool.Task.infof("listing type: %T", listing)
+				tool.Task.infof("listing: %+v", listing)
 
 				// logic: exactly one of resultString or resultFile should be returned
 				if len(listing.Entry) == 0 {
-                    tool.Task.infof("listing entry len 0: %v", listing.Entry)
+					// Here we have the case for an expression/string and not a dirent
+					tool.Task.infof("listing entry len 0: %v", listing.Entry)
+					if strings.HasPrefix(listing.Location, "$") {
+						resultText, resultFile, err := tool.resolveExpressions(listing.Location)
+						switch {
+						case err != nil:
+							log.Errorf("failed to resolve expressions in item: %v; error: %v", listing.Location, err)
+							return tool.Task.errorf("failed to resolve expressions in item: %v; error: %v", listing.Location, err)
+						case resultFile != nil:
+							contents = resultFile
+						case resultText != "":
+							contents = resultText
+						default:
+							log.Errorf("location returned empty value: %v", listing.Location)
+							return tool.Task.errorf("location returned empty value: %v", listing.Location)
+						}
+						tool.Task.infof("resultText: %v", resultText)
+						tool.Task.infof("resultFile: %v", resultFile)
+						tool.Task.infof("contents: %v", contents)
+					}
 					continue
 				}
+
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
 				switch {
 				case err != nil:
@@ -67,7 +86,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				*/
 
 				// pretty sure this conditional is dated/unnecessary
-                tool.Task.infof("resFile: %v", resFile)
+				tool.Task.infof("resFile: %v", resFile)
 				if resFile != nil {
 					// "If the value is an expression that evaluates to a File object,
 					// this indicates the referenced file should be added to the designated output directory prior to executing the tool."
