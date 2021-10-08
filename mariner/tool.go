@@ -40,9 +40,22 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					if strings.HasPrefix(listing.Location, "$(") {
 						tool.Task.infof("listing Location has JS expression: %v", listing.Location)
 						output, err := tool.evalExpression(listing.Location)
-						if err != nil {
+						switch {
+						case err != nil:
 							log.Errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
 							return tool.Task.errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
+						case isFile(output):
+							tool.Task.infof("Is a file: %v", output)
+						case isArrayOfFile(output):
+							tool.Task.infof("Is an array of files: %v", output)
+							out, err := processFileList(output)
+							if err != nil {
+								return tool.Task.errorf("Couldn't parse file list: %v", err)
+							}
+							tool.Task.infof("parsed file list: %v", out)
+						default:
+							log.Errorf("Not a filetype: %v", output)
+							return tool.Task.errorf("Not a filetype: %T; error: %v", output, err)
 						}
 						tool.Task.infof("output: %v", output)
 						tool.Task.infof("output Type: %T", output)
