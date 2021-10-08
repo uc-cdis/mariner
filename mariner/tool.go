@@ -37,28 +37,38 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					tool.Task.infof("listing entry len 0: %v", listing.Entry)
 					tool.Task.infof("listing Location: %v", listing.Location)
 					tool.Task.infof("listing Location type: %T", listing.Location)
+					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
 					if strings.HasPrefix(listing.Location, "$(") {
 						tool.Task.infof("listing Location has JS expression: %v", listing.Location)
 						output, err := tool.evalExpression(listing.Location)
-						switch {
-						case err != nil:
+						if err != nil {
 							log.Errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
 							return tool.Task.errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
-						case isFile(output):
-							tool.Task.infof("Is a file: %v", output)
-						case isArrayOfFile(output):
-							tool.Task.infof("Is an array of files: %v", output)
-							out, err := tool.processFileList(output)
-							if err != nil {
-								return tool.Task.errorf("Couldn't parse file list: %v", err)
-							}
-							tool.Task.infof("parsed file list: %v", out)
-						default:
-							log.Errorf("Not a filetype: %v", output)
-							return tool.Task.errorf("Not a filetype: %T; error: %v", output, err)
 						}
 						tool.Task.infof("output: %v", output)
 						tool.Task.infof("output Type: %T", output)
+						switch output.(type) {
+						case *File:
+							path := output.(*File).Path
+							tool.Task.infof("*File - Path: %v", path)
+						case []*File:
+							files := output.([]*File)
+							for _, f := range files {
+							    tool.Task.infof("[]*File - Path: %v", f.Path)
+							}
+						case []map[string]interface{}:
+							files := output.([]map[string]interface{})
+							for _, f := range files {
+								path, err := filePath(f)
+								if err != nil {
+									tool.Task.infof("failed to extract path from file: %v", f)
+									continue
+								}
+								tool.Task.infof("[]map[string]interface{} - Path: %v", path)
+							}
+						case []interface{}:
+							tool.Task.infof("[]interface{} - HERE: %v", output)
+						}
 					}
 					continue
 				}
