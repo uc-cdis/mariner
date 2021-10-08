@@ -35,23 +35,17 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				if len(listing.Entry) == 0 {
 					// Here we have the case for an expression/string and not a dirent
 					tool.Task.infof("listing entry len 0: %v", listing.Entry)
-					if strings.HasPrefix(listing.Location, "$") {
-						resultText, resultFile, err := tool.resolveExpressions(listing.Location)
-						switch {
-						case err != nil:
-							log.Errorf("failed to resolve expressions in item: %v; error: %v", listing.Location, err)
-							return tool.Task.errorf("failed to resolve expressions in item: %v; error: %v", listing.Location, err)
-						case resultFile != nil:
-							contents = resultFile
-						case resultText != "":
-							contents = resultText
-						default:
-							log.Errorf("location returned empty value: %v", listing.Location)
-							return tool.Task.errorf("location returned empty value: %v", listing.Location)
+					tool.Task.infof("listing Location: %v", listing.Location)
+					tool.Task.infof("listing Location type: %T", listing.Location)
+					if strings.HasPrefix(listing.Location, "$(") {
+						tool.Task.infof("listing Location has JS expression: %v", listing.Location)
+						output, err := tool.evalExpression(listing.Location)
+						if err != nil {
+							log.Errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
+							return tool.Task.errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
 						}
-						tool.Task.infof("resultText: %v", resultText)
-						tool.Task.infof("resultFile: %v", resultFile)
-						tool.Task.infof("contents: %v", contents)
+						tool.Task.infof("output: %v", output)
+						tool.Task.infof("output Type: %T", output)
 					}
 					continue
 				}
