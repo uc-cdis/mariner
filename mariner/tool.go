@@ -100,6 +100,11 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 											tool.S3Input.Paths = append(tool.S3Input.Paths, path)
 											tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 											tool.Task.infof("*File - Path: %v", path)
+										case strings.HasPrefix(path, "/" + engineWorkspaceVolumeName):
+											tool.Task.infof("adding initwkdir path: %v", path)
+											tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+											tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+											tool.Task.infof("*File - Path: %v", path)
 										default:
 											log.Errorf("unsupported initwkdir path: %v", path)
 											return tool.Task.errorf("unsupported initwkdir path: %v", path)
