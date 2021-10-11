@@ -84,6 +84,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 										path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
 										tool.Task.infof("adding initwkdir path: %v", path)
 										tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+										tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 									default:
 										log.Errorf("unsupported initwkdir path: %v", path)
 										return tool.Task.errorf("unsupported initwkdir path: %v", path)
@@ -95,8 +96,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 							}
 						}
 					}
-					//engine.IsInitWorkDir = "true"
+					engine.IsInitWorkDir = "true"
 					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
+					tool.Task.infof("initWorkDirFiles: %v", tool.initWorkDirFiles)
 					continue
 				}
 
