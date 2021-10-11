@@ -92,21 +92,21 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 								case *File:
 									if p, ok := v.(*File); ok {
 										path := p.Path
+										switch {
+										case strings.HasPrefix(path, userPrefix):
+											trimmedPath := strings.TrimPrefix(path, userPrefix)
+											path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+											tool.Task.infof("adding initwkdir path: %v", path)
+											tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+											tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+											tool.Task.infof("*File - Path: %v", path)
+										default:
+											log.Errorf("unsupported initwkdir path: %v", path)
+											return tool.Task.errorf("unsupported initwkdir path: %v", path)
+										}
 									} else {
 										tool.Task.infof("failed to extract path from file: %v", v)
-										continue
-									}
-								        tool.Task.infof("*File - Path: %v", path)
-									switch {
-									case strings.HasPrefix(path, userPrefix):
-										trimmedPath := strings.TrimPrefix(path, userPrefix)
-										path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
-										tool.Task.infof("adding initwkdir path: %v", path)
-										tool.S3Input.Paths = append(tool.S3Input.Paths, path)
-										tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
-									default:
-										log.Errorf("unsupported initwkdir path: %v", path)
-										return tool.Task.errorf("unsupported initwkdir path: %v", path)
+										return tool.Task.errorf("failed to extract path from file: %v", v)
 									}
 								default:
 									log.Errorf("unsupported initwkdir type: %T; value: %v", v, v)
