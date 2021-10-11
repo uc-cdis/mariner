@@ -90,8 +90,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 										return tool.Task.errorf("unsupported initwkdir path: %v", path)
 									}
 								case *File:
-									path, err := filePath(v)
-									if err != nil {
+									if p, ok := v.(*File); ok {
+										path := p.Path
+									} else {
 										tool.Task.infof("failed to extract path from file: %v", v)
 										continue
 									}
