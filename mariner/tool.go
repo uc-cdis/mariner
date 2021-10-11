@@ -62,6 +62,22 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 									tool.Task.infof("failed to extract path from file: %v", f)
 									continue
 								}
+								switch {
+								case strings.HasPrefix(path, userPrefix):
+									trimmedPath := strings.TrimPrefix(path, userPrefix)
+									path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
+									tool.Task.infof("adding initwkdir path: %v", path)
+									tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+									tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+								case strings.HasPrefix(path, "/" + engineWorkspaceVolumeName):
+									tool.Task.infof("adding initwkdir path: %v", path)
+									tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+									tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
+									tool.Task.infof("*File - Path: %v", path)
+								default:
+									log.Errorf("unsupported initwkdir path: %v", path)
+									return tool.Task.errorf("unsupported initwkdir path: %v", path)
+								}
 								tool.Task.infof("[]map[string]interface{} - Path: %v", path)
 							}
 						case []interface{}:
