@@ -180,7 +180,7 @@ func (server *Server) withLogger(logger *log.Logger) *Server {
 // withDB is invoked from the server to assign the workflow database.
 func (server *Server) withDB(db database.Dao) *Server {
 	switch db.(type) {
-	case database.PSQLDao:
+	case *database.PSQLDao:
 		logrus.Info("mariner server initialized with psql database")
 		server.db = db
 	default:
