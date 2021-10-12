@@ -58,7 +58,7 @@ type Server struct {
 	jwtApp        JWTDecoder
 	logger        *LogHandler
 	S3FileManager *S3FileManager
-	db            *sqlx.DB
+	db            database.Dao
 }
 
 // see Arborist's logging.go
@@ -134,9 +134,8 @@ func runServer() {
 	)
 	psqlDB := database.PostgresDB
 	dao := database.DaoFactory(psqlDB)
-	db, err := dao.GetDBConnection()
-	if err != nil {
-		logrus.Info("failed to retrieve db connection info")
+	if dao == nil {
+		logrus.Info("failed to create workflow database")
 	}
 	logFlags := log.Ldate | log.Ltime
 	logger := log.New(os.Stdout, "", logFlags)
@@ -146,7 +145,7 @@ func runServer() {
 	server := server().
 		withLogger(logger).
 		withJWTApp(jwtApp).
-		withDB(db).
+		withDB(dao).
 		withS3FileManager(fm)
 	router := server.makeRouter(os.Stdout)
 	addr := fmt.Sprintf(":%d", *port)
@@ -180,10 +179,10 @@ func (server *Server) withLogger(logger *log.Logger) *Server {
 
 // withDB is invoked from the server to assign the workflow database.
 func (server *Server) withDB(db interface{}) *Server {
-	switch db.(type) {
+	switch db.DBConnection.(type) {
 	case *sqlx.DB:
 		logrus.Info("mariner server initialized with psql database")
-		server.db = db.(*sqlx.DB)
+		server.db = db
 	default:
 		logrus.Info("mariner server initialized without a workflow database")
 		server.db = nil
