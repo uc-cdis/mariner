@@ -17,7 +17,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/sqlx"
 	"github.com/uc-cdis/mariner/database"
 	batchv1 "k8s.io/api/batch/v1"
 	batchtypev1 "k8s.io/client-go/kubernetes/typed/batch/v1"
