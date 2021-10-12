@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/robertkrimen/otto"
+	log "github.com/sirupsen/logrus"
 )
 
 // this file contains code for evaluating JS expressions encountered in the CWL
@@ -54,6 +55,11 @@ func js(s string) (js string, fn bool, err error) {
 	fn = strings.HasPrefix(s, "${")
 	s = strings.TrimLeft(s, "$(\n")
 	s = strings.TrimRight(s, ")\n")
+
+	if strings.Count(s, "(") != strings.Count(s, ")") {
+		log.Debugf("expression %s has an unequal amount of left and right parenthesis and will not be evaluated correctly", s)
+		s = s + ")"
+	}
 	return s, fn, nil
 }
 
@@ -86,7 +92,7 @@ func evalExpression(exp string, vm *otto.Otto) (result interface{}, err error) {
 	} else {
 		output, err = vm.Run(js)
 		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate js expression: %v", err)
+			return nil, fmt.Errorf("failed to evaluate js expression: %v, here is the js expression %s", err, js)
 		}
 	}
 	result, _ = output.Export()
@@ -103,17 +109,31 @@ func (tool *Tool) evalExpression(exp string) (result interface{}, err error) {
 	return val, nil
 }
 
-// resolveExpressions processes a text field which may or may not be
-// - one expression
-// - a string literal
-// - a string which contains one or more separate JS expressions, each wrapped like $(...)
-// presently writing simple case to return a string only for use in the argument valueFrom case
-// can easily extend in the future to be used for any field, to return any kind of value
-// NOTE: should work - needs to be tested more
-// NOTE: successful output is one of (text, nil, nil) or ("", *f, nil)
-// algorithm works in goplayground: https://play.golang.org/p/YOv-K-qdL18
+// resolveExpressions intakes a string which can be an expression, a string literal, or JS expression like $(...) or ${...} and resolves it. The resolved result is put into a file and the file pointer is returned
 func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *File, err error) {
 	tool.Task.infof("begin resolve expression: %v", inText)
+	// TODO: assert that the full inText is only a single JS expression. and refactor logic in the per-rune parser.
+	if len(inText) > 1 {
+		if inText[0] == '$' && inText[1] == '{' {
+			tool.Task.infof("Interpreting as single JS expression: %v", inText)
+			result, err := evalExpression(inText, tool.InputsVM)
+			if err != nil {
+				return "", nil, tool.Task.errorf("%v", err)
+			}
+
+			switch result.(type) {
+			case string:
+				outText = result.(string)
+			case File:
+				f := result.(File)
+				return "", &f, nil
+			}
+
+			tool.Task.infof("end resolve expression. resolved text: %v", outText)
+			return outText, nil, nil
+		}
+	}
+
 	r := bufio.NewReader(strings.NewReader(inText))
 	var c0, c1, c2 string
 	var done bool
@@ -127,34 +147,27 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 				return "", nil, tool.Task.errorf("%v", err)
 			}
 		}
+
 		c0, c1, c2 = c1, c2, string(nextRune)
 		if c1 == "$" && c2 == "(" && c0 != "\\" {
-			// indicates beginning of expression block
-
-			// read through to the end of this expression block
 			expression, err := r.ReadString(')')
 			if err != nil {
 				return "", nil, tool.Task.errorf("%v", err)
 			}
 
-			// get full $(...) expression
 			expression = c1 + c2 + expression
 
-			// eval that thing
 			result, err := evalExpression(expression, tool.InputsVM)
 			if err != nil {
 				return "", outFile, tool.Task.errorf("%v", err)
 			}
 
-			// result ought to be a string (edit: OR a file)
 			switch result.(type) {
 			case string:
 				val := result.(string)
 
-				// cut off trailing "$" that had already been collected
 				image = image[:len(image)-1]
 
-				// collect resulting string
 				image = append(image, val)
 			case File:
 				f := result.(File)
@@ -162,13 +175,11 @@ func (tool *Tool) resolveExpressions(inText string) (outText string, outFile *Fi
 			}
 		} else {
 			if !done {
-				// checking done so as to not collect null value
 				image = append(image, string(c2))
 			}
 		}
 	}
 
-	// get resolved string value
 	outText = strings.Join(image, "")
 	tool.Task.infof("end resolve expression. resolved text: %v", outText)
 	return outText, nil, nil

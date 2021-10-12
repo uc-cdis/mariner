@@ -314,6 +314,11 @@ func (engine *K8sEngine) infof(f string, v ...interface{}) {
 	engine.writeLogToS3()
 }
 
+func (engine *K8sEngine) debugf(f string, v ...interface{}) {
+	engine.Log.Main.Event.infof(f, v...)
+	engine.writeLogToS3()
+}
+
 func (task *Task) errorf(f string, v ...interface{}) error {
 	return task.Log.Event.errorf(f, v...)
 }

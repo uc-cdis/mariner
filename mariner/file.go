@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	log "github.com/sirupsen/logrus"
 )
 
 // this file contains code for handling/processing file objects
@@ -174,6 +175,7 @@ func (engine *K8sEngine) loadContents(file *File) (err error) {
 	downloader := s3manager.NewDownloader(sess)
 	s3Key := engine.localPathToS3Key(file.Location)
 	buf := &aws.WriteAtBuffer{}
+	log.Debugf("here is the s3 file that we are downloading %s", s3Key)
 	s3Obj := &s3.GetObjectInput{
 		Bucket: aws.String(engine.S3FileManager.S3BucketName),
 		Key:    aws.String(s3Key),

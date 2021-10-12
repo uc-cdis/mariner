@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	pathLib "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -73,6 +74,8 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 		Bucket: aws.String(fm.S3BucketName),
 		Key:    aws.String(fm.InputFileListS3Key),
 	}
+
+	log.Debugf("here are the input key we are trying to download from s3 %s", fm.InputFileListS3Key)
 	_, err := downloader.Download(buf, s3Obj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file, %v", err)
@@ -95,9 +98,15 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 	sess := fm.newS3Session()
 	downloader := s3manager.NewDownloader(sess)
 
-	var n int64
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
+
+	initWorkDirFiles := strings.Split(os.Getenv("InitWorkDirFiles"), ",")
+	fileMaps := make(map[string]bool)
+	for _, val := range initWorkDirFiles {
+		fileMaps[val] = true
+	}
+
 	for _, p := range taskS3Input.Paths {
 		// blocks if guard channel is already full to capacity
 		// proceeds as soon as there is an open slot in the channel
@@ -106,28 +115,33 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 		wg.Add(1)
 		go func(path string) {
 			defer wg.Done()
+			log.Debugf("here is the file we are downloading %s", path)
+			localPath := path
 
-			if len(os.Getenv("IsInitWorkDir")) > 0 {
-				path = filepath.Join(fm.TaskWorkingDir, path)
-				log.Infof("we are writing to inital working directory at %s", path)
+			if len(os.Getenv("IsInitWorkDir")) > 0 && (fileMaps[path] || !strings.Contains(path, "/")) {
+				localPath = filepath.Join(fm.TaskWorkingDir, pathLib.Base(path))
+				if !strings.Contains(path, "/") {
+					path = localPath
+				}
+				log.Debugf("we are writing to inital working directory at %s", localPath)
 			}
 
 			// create necessary dirs
-			if err = os.MkdirAll(filepath.Dir(path), os.ModeDir); err != nil {
+			if err = os.MkdirAll(filepath.Dir(localPath), os.ModeDir); err != nil {
 				log.Errorf("failed to make dirs: %v\n", err)
 			}
 
 			// create/open file for writing
-			f, err := os.Create(path)
+			f, err := os.Create(localPath)
 
 			if err != nil {
 				log.Errorf("failed to open file:", err)
 			}
 
-			log.Infof("trying to download obj with key:", fm.s3Key(path))
+			log.Debugf("trying to download obj with key:", fm.s3Key(path))
 
 			// write s3 object content into file
-			n, err = downloader.Download(f, &s3.GetObjectInput{
+			_, err = downloader.Download(f, &s3.GetObjectInput{
 				Bucket: aws.String(fm.S3BucketName),
 				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
 			})
@@ -139,8 +153,6 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 			if err = f.Close(); err != nil {
 				log.Errorf("failed to close file:", err)
 			}
-
-			log.Infof("file downloaded, %d bytes\n", n)
 
 			// release this spot in the guard channel
 			// so the next goroutine can run
@@ -237,6 +249,7 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 				log.Errorf("failed to open file:", path, err)
 				return
 			}
+
 			result, err = uploader.Upload(&s3manager.UploadInput{
 				Bucket: aws.String(fm.S3BucketName),
 				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
