@@ -97,7 +97,8 @@ const (
 	metricsSamplingPeriod = 30
 
 	// paths for engine
-	pathToCommonsData = "/commons-data/data/by-guid/"
+	//pathToCommonsData = "/commons-data/data/by-guid/"
+	pathToCommonsData = "/commons-data/"
 	pathToRunf        = "/engine-workspace/workflowRuns/%v/" // fill with runID
 	pathToLogf        = pathToRunf + logFile
 	pathToDonef       = pathToRunf + doneFlag
@@ -311,7 +312,8 @@ func sidecarVolumeMounts(component string) (v []k8sv1.VolumeMount) {
 	engineWorkspace := volumeMount(engineWorkspaceVolumeName, component)
 	conformanceMount := volumeMount(conformanceVolumeName, component)
 	v = []k8sv1.VolumeMount{*engineWorkspace, *conformanceMount}
-	if component == gen3fuse {
+	//if component == gen3fuse {
+	if component == s3sidecar {
 		commonsData := volumeMount(commonsDataVolumeName, component)
 		v = append(v, *commonsData)
 	}

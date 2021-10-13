@@ -2,6 +2,7 @@ package mariner
 
 import (
 	"fmt"
+	pathLib "path"
 	"reflect"
 	"sort"
 	"strings"
@@ -115,14 +116,48 @@ func (tool *Tool) processFile(f interface{}) (*File, error) {
 		return nil, err
 	}
 	if !strings.HasPrefix(obj.Path, pathToCommonsData) {
-		tool.S3Input.Paths = append(tool.S3Input.Paths, obj.Path)
+		tool.S3Input = append(tool.S3Input, &ToolS3Input{
+			Path: obj.Path,
+			InitWorkDir: false,
+		})
+	} else {
+		// commons file
+		guid := pathLib.Base(obj.Path)
+		indexFile, err := getIndexedFileInfo(guid)
+		if err != nil {
+			return nil, tool.Task.errorf("Unable to get indexed record: %v", err)
+		}
+		tool.Task.infof("Found indexed metadata: %v", indexFile)
+		// NOTE: we need a smarter way to know which url to get when there are multiple!
+		tool.S3Input = append(tool.S3Input, &ToolS3Input{
+			URL: indexFile.URLs[0],
+			Path: pathLib.Join(pathToCommonsData, indexFile.Filename),
+			InitWorkDir: false,
+		})
 	}
 
 	// note: I don't think any input to this process will have secondary files loaded
 	// into this field at this point in the process
 	for _, sf := range obj.SecondaryFiles {
 		if !strings.HasPrefix(sf.Path, pathToCommonsData) {
-			tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Path)
+			tool.S3Input = append(tool.S3Input, &ToolS3Input{
+				Path: sf.Path,
+				InitWorkDir: false,
+			})
+		} else {
+			// commons file
+			guid := pathLib.Base(sf.Path)
+			indexFile, err := getIndexedFileInfo(guid)
+			if err != nil {
+				return nil, tool.Task.errorf("Unable to get indexed record: %v", err)
+			}
+			tool.Task.infof("Found indexed metadata: %v", indexFile)
+			// NOTE: we need a smarter way to know which url to get when there are multiple!
+			tool.S3Input = append(tool.S3Input, &ToolS3Input{
+				URL: indexFile.URLs[0],
+				Path: pathLib.Join(pathToCommonsData, indexFile.Filename),
+				InitWorkDir: false,
+			})
 		}
 	}
 	return obj, nil
@@ -330,7 +365,24 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		for _, fileObj := range fileArray {
 			for _, sf := range fileObj.SecondaryFiles {
 				if !strings.HasPrefix(sf.Location, pathToCommonsData) {
-					tool.S3Input.Paths = append(tool.S3Input.Paths, sf.Location)
+					tool.S3Input = append(tool.S3Input, &ToolS3Input{
+						Path: sf.Location,
+						InitWorkDir: false,
+					})
+				} else {
+					// commons file
+					guid := pathLib.Base(sf.Path)
+					indexFile, err := getIndexedFileInfo(guid)
+					if err != nil {
+						return nil, tool.Task.errorf("Unable to get indexed record: %v", err)
+					}
+					tool.Task.infof("Found indexed metadata: %v", indexFile)
+					// NOTE: we need a smarter way to know which url to get when there are multiple!
+					tool.S3Input = append(tool.S3Input, &ToolS3Input{
+						URL: indexFile.URLs[0],
+						Path: pathLib.Join(pathToCommonsData, indexFile.Filename),
+						InitWorkDir: false,
+					})
 				}
 			}
 		}
