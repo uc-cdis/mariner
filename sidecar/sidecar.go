@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"net/url"
 	pathLib "path"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,9 @@ import (
 
 // TaskS3Input ..
 type TaskS3Input struct {
-	Paths []string `json:"paths"`
+        URL         string `json:"url"`            // S3 URL
+        Path        string `json:"path"`           // Local path for dl
+        InitWorkDir bool   `json:"init_work_dir"`  // is this an initwkdir requirement?
 }
 
 func main() {
@@ -59,7 +62,7 @@ func main() {
 }
 
 // 1. read this task's input file list from s3
-func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
+func (fm *S3FileManager) fetchTaskS3InputList() ([]*TaskS3Input, error) {
 	sess := fm.newS3Session()
 
 	// Create a downloader with the session and default options
@@ -82,8 +85,8 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 	}
 
 	b := buf.Bytes()
-	taskS3Input := &TaskS3Input{}
-	err = json.Unmarshal(b, taskS3Input)
+	var taskS3Input []*TaskS3Input
+	err = json.Unmarshal(b, &taskS3Input)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarhsalling TaskS3Input: %v", err)
 	}
@@ -92,7 +95,7 @@ func (fm *S3FileManager) fetchTaskS3InputList() (*TaskS3Input, error) {
 }
 
 // 2. download this task's input files from s3
-func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error) {
+func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err error) {
 
 	// note: downloader is safe for concurrent use
 	sess := fm.newS3Session()
@@ -101,57 +104,99 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input *TaskS3Input) (err error
 	var wg sync.WaitGroup
 	guard := make(chan struct{}, fm.MaxConcurrent)
 
-	initWorkDirFiles := strings.Split(os.Getenv("InitWorkDirFiles"), ",")
-	fileMaps := make(map[string]bool)
-	for _, val := range initWorkDirFiles {
-		fileMaps[val] = true
-	}
+	//initWorkDirFiles := strings.Split(os.Getenv("InitWorkDirFiles"), ",")
+	//fileMaps := make(map[string]bool)
+	//for _, val := range initWorkDirFiles {
+	//	fileMaps[val] = true
+	//}
 
-	for _, p := range taskS3Input.Paths {
+	for _, p := range taskS3Input {
 		// blocks if guard channel is already full to capacity
 		// proceeds as soon as there is an open slot in the channel
 		guard <- struct{}{}
 
 		wg.Add(1)
-		go func(path string) {
+		go func(taskInput *TaskS3Input) {
 			defer wg.Done()
-			log.Debugf("here is the file we are downloading %s", path)
-			localPath := path
+			log.Infof("here is the file we are downloading %+v", taskInput)
 
-			if len(os.Getenv("IsInitWorkDir")) > 0 && (fileMaps[path] || !strings.Contains(path, "/")) {
-				localPath = filepath.Join(fm.TaskWorkingDir, pathLib.Base(path))
-				if !strings.Contains(path, "/") {
-					path = localPath
+			var skipFile = false
+
+
+			if filepath.Dir(taskInput.Path) == "/commons-data" {
+				// test if it exists
+				log.Infof("commons file: %v", taskInput.Path)
+				_, err = os.Stat(taskInput.Path)
+				if os.IsNotExist(err) {
+					log.Errorf("Commons file %v does not exist; error - %v", taskInput.Path, err)
 				}
-				log.Debugf("we are writing to inital working directory at %s", localPath)
+				// create necessary dirs
+				if err = os.MkdirAll(fm.TaskWorkingDir, os.ModeDir); err != nil {
+					log.Errorf("failed to make dirs: %v\n", err)
+				}
+			} else {
+				var lpath string
+				if taskInput.URL == "" && filepath.Dir(taskInput.Path) == "/engine-workspace" {
+					skipFile = true
+					lpath = filepath.Join(fm.TaskWorkingDir, pathLib.Base(taskInput.Path))
+				} else {
+					lpath = taskInput.Path
+				}
+
+				// create necessary dirs
+				if err = os.MkdirAll(filepath.Dir(lpath), os.ModeDir); err != nil {
+					log.Errorf("failed to make dirs: %v\n", err)
+				}
+
+				// create/open file for writing
+				f, err := os.Create(lpath)
+				if err != nil {
+					log.Errorf("failed to open file:", err)
+				}
+				defer f.Close()
+
+				if taskInput.URL != "" {
+					parsed, err := url.Parse(taskInput.URL)
+					if err != nil {
+						log.Errorf("failed parsing URI: %v; error: %v\n", taskInput.URL, err)
+					}
+					key := strings.TrimPrefix(parsed.Path, "/")
+
+					log.Infof("trying to download obj with key: %v", key)
+
+					// write s3 object content into file
+					_, err = downloader.Download(f, &s3.GetObjectInput{
+						Bucket: aws.String(parsed.Host),
+						Key:    aws.String(key),
+					})
+					if err != nil {
+						log.Errorf("failed to download file:", taskInput.URL, err)
+					}
+				} else {
+					path := taskInput.Path
+					log.Infof("trying to download obj with key:", fm.s3Key(path))
+
+					// write s3 object content into file
+					_, err = downloader.Download(f, &s3.GetObjectInput{
+						Bucket: aws.String(fm.S3BucketName),
+						Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
+					})
+					if err != nil {
+						log.Errorf("failed to download file:", path, err)
+					}
+				}
 			}
 
-			// create necessary dirs
-			if err = os.MkdirAll(filepath.Dir(localPath), os.ModeDir); err != nil {
-				log.Errorf("failed to make dirs: %v\n", err)
-			}
-
-			// create/open file for writing
-			f, err := os.Create(localPath)
-
-			if err != nil {
-				log.Errorf("failed to open file:", err)
-			}
-
-			log.Debugf("trying to download obj with key:", fm.s3Key(path))
-
-			// write s3 object content into file
-			_, err = downloader.Download(f, &s3.GetObjectInput{
-				Bucket: aws.String(fm.S3BucketName),
-				Key:    aws.String(strings.TrimPrefix(fm.s3Key(path), "/")),
-			})
-			if err != nil {
-				log.Errorf("failed to download file:", path, err)
-			}
-
-			// close file - very important
-			if err = f.Close(); err != nil {
-				log.Errorf("failed to close file:", err)
+			// If initworkdir, we will symlink
+			if taskInput.InitWorkDir && !skipFile {
+				log.Infof("InitWorkDir file: %v\n", taskInput.Path)
+				newPath := filepath.Join(fm.TaskWorkingDir, pathLib.Base(taskInput.Path))
+				err = os.Symlink(taskInput.Path, newPath)
+				if err != nil {
+					log.Infof("skipping symlink: %v - %v; error: %v\n", taskInput.Path, newPath, err)
+				} else {
+					log.Infof("created symlink: %v - %v\n", taskInput.Path, newPath)
+				}
 			}
 
 			// release this spot in the guard channel
@@ -230,7 +275,9 @@ func (fm *S3FileManager) uploadOutputFiles() (err error) {
 	paths := []string{}
 	_ = filepath.Walk(fm.TaskWorkingDir, func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
-			paths = append(paths, path)
+			if info.Mode().IsRegular() {
+				paths = append(paths, path)
+			}
 		}
 		return nil
 	})
