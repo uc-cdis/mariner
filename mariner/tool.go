@@ -26,6 +26,12 @@ func pathHelper(path string, tool *Tool) (err error) {
 		tool.S3Input.Paths = append(tool.S3Input.Paths, path)
 		tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 		tool.Task.infof("*File - Path: %v", path)
+	} else if strings.HasPrefix(path, commonsPrefix) {
+		GUID := strings.TrimPrefix(path, commonsPrefix)
+		path = strings.Join([]string{pathToCommonsData, GUID}, "")
+		tool.Task.infof("adding initwkdir path: %v", path)
+		tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+		tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 	} else {
 		log.Errorf("unsupported initwkdir path: %v", path)
 		return tool.Task.errorf("unsupported initwkdir path: %v", path)
@@ -92,16 +98,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 										return tool.Task.errorf("failed to extract path from file: %v", v)
 									}
 									tool.Task.infof("map[string]interface{} - Path: %v", path)
-									switch {
-									case strings.HasPrefix(path, userPrefix):
-										trimmedPath := strings.TrimPrefix(path, userPrefix)
-										path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
-										tool.Task.infof("adding initwkdir path: %v", path)
-										tool.S3Input.Paths = append(tool.S3Input.Paths, path)
-										tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
-									default:
-										log.Errorf("unsupported initwkdir path: %v", path)
-										return tool.Task.errorf("unsupported initwkdir path: %v", path)
+									err = pathHelper(path, tool)
+									if err != nil {
+										return err
 									}
 								case *File:
 									if p, ok := v.(*File); ok {
@@ -119,6 +118,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 									return tool.Task.errorf("unsupported initwkdir type: %T; value: %v", v, v)
 								}
 							}
+						default:
+							log.Errorf("unsupported initwkdir type: %T; value: %v", output, output)
+							return tool.Task.errorf("unsupported initwkdir type: %T; value: %v", output, output)
 						}
 					}
 					engine.IsInitWorkDir = "true"
