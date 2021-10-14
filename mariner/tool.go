@@ -223,7 +223,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					log.Infof("init working directory request recieved")
 					tool.S3Input = append(tool.S3Input, &ToolS3Input{
 						URL: upl.Location,
-						Path: entryName,
+						Path: key,
 						InitWorkDir: true,
 					})
 					engine.IsInitWorkDir = "true"
