@@ -34,10 +34,10 @@ func pathHelper(path string, tool *Tool) (err error) {
 		tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 		tool.Task.infof("*File - Path: %v", path)
 	} else if strings.HasPrefix(path, commonsPrefix) {
-		guid := pathLib.Base(path, commonsPrefix)
+		guid := pathLib.Base(path)
 		indexFile, err := getIndexedFileInfo(guid)
 		if err != nil {
-			return tool.Task.errorf("Unable to get indexed record: %v", err)
+			return tool.Task.errorf("Unable to get indexed record: %v; error: %v", guid, err)
 		}
 		path = pathLib.Join(pathToCommonsData, indexFile.Filename)
 		tool.Task.infof("adding initwkdir path: %v", path)
