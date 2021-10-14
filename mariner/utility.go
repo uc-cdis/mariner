@@ -69,6 +69,7 @@ type IndexFileInfo struct {
 }
 
 // Gets basic indexd info
+// NOTE: We certainly need to add a check for the user ACL and access to this file!
 func getIndexedFileInfo(guid string) (finfo *IndexFileInfo, err error) {
 	 indexdPath := "http://indexd-service/"
          indexdUrl := indexdPath + guid
