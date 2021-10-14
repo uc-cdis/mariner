@@ -18,8 +18,17 @@ RUN go mod download
 
 COPY . .
 
-# RUN go build -o /mariner
-RUN go build -o bin/mariner
+# RUN GITCOMMIT=`git rev-parse HEAD` \
+#     GITVERSION=`git describe --always --tags` \
+#     && go build \
+#     -ldflags="-X 'github.com/uc-cdis/mariner/version.GitCommit=${GITCOMMIT}' -X 'github.com/uc-cdis/mariner/version.GitVersion=${GITVERSION}'" \
+#     -o /mariner
+
+RUN GITCOMMIT=`git rev-parse HEAD` \
+    GITVERSION=`git describe --always --tags` \
+    && go build \
+    -ldflags="-X 'github.com/uc-cdis/mariner/version.GitCommit=${GITCOMMIT}' -X 'github.com/uc-cdis/mariner/version.GitVersion=${GITVERSION}'" \
+    -o bin/mariner
 
 CMD ["bin/mariner", "listen"]
 
