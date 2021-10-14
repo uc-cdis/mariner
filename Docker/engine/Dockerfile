@@ -13,7 +13,11 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o /mariner
+RUN GITCOMMIT=`git rev-parse HEAD` \
+    GITVERSION=`git describe --always --tags` \
+    && go build \
+    -ldflags="-X 'github.com/uc-cdis/mariner/version.GitCommit=${GITCOMMIT}' -X 'github.com/uc-cdis/mariner/version.GitVersion=${GITVERSION}'" \
+    -o /mariner
 
 FROM scratch
 COPY --from=build-deps /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
