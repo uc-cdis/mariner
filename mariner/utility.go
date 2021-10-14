@@ -2,9 +2,11 @@ package mariner
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -56,4 +58,35 @@ func getRandString(n int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+// Indexd File struct
+type IndexFileInfo struct {
+	 Filename string   `json:"file_name"`
+         Filesize uint64   `json:"size"`
+         DID      string   `json"did"`
+         URLs     []string `json:"urls"`
+}
+
+// Gets basic indexd info
+func getIndexedFileInfo(guid string) (finfo *IndexFileInfo, err error) {
+	 indexdPath := "http://indexd-service/"
+         indexdUrl := indexdPath + guid
+	 res, err := http.Get(indexdUrl)
+         if err != nil {
+                 return nil, err
+         }
+
+         defer res.Body.Close()
+
+         if res.StatusCode != 200 {
+                 return nil, errors.New(fmt.Sprintf("Found status code %v for GUID %v", res.StatusCode, guid))
+         }
+
+         b, err := ioutil.ReadAll(res.Body)
+         err = json.Unmarshal(b, &finfo)
+         if err != nil {
+                 return nil, err
+         }
+         return finfo, err
 }
