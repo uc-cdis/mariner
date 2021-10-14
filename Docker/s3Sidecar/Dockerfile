@@ -1,14 +1,21 @@
-FROM quay.io/cdis/golang:1.15-buster as builder
+FROM quay.io/cdis/golang:1.17-bullseye as build-deps
 
-COPY . $GOPATH/src/github.com/uc-cdis/mariner/
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+
 WORKDIR $GOPATH/src/github.com/uc-cdis/mariner/
 
-RUN go get -d -v
-RUN go build -ldflags "-linkmode external -extldflags -static" -o /sidecar ./sidecar/
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download
+
+COPY . .
+
+RUN go build -o /sidecar ./sidecar/
 
 FROM scratch
-COPY --from=builder /sidecar /
-# Copy CA certificates to prevent x509: certificate signed by unknown authority errors
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
-
-ENTRYPOINT ["/sidecar"]
+COPY --from=build-deps /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build-deps /sidecar /sidecar
+CMD ["/sidecar"]
