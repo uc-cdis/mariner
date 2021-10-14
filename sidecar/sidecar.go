@@ -121,7 +121,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 			log.Debugf("here is the file we are downloading %+v", taskInput)
 
 			// create necessary dirs
-			if err = os.MkdirAll(filepath.Dir(taskInput.Path)), os.ModeDir); err != nil {
+			if err = os.MkdirAll(filepath.Dir(taskInput.Path), os.ModeDir); err != nil {
 				log.Errorf("failed to make dirs: %v\n", err)
 			}
 
