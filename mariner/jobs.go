@@ -130,7 +130,7 @@ func (engine *K8sEngine) collectResourceMetrics(tool *Tool) error {
 		tool.Task.Log.Event.warnf("%v", err)
 		return err
 	}
-	label := fmt.Sprintf("job-name=%v", tool.Task.Log.JobName)
+	label := fmt.Sprintf("job-name=%v,s3=yes,netnolimit=yes", tool.Task.Log.JobName)
 
 	engine.Lock()
 	tool.Task.Log.Stats.ResourceUsage.init() // #race #ok
@@ -301,7 +301,7 @@ func jobByID(jc batchtypev1.JobInterface, jobID string) (*batchv1.Job, error) {
 // trade engine jobName for engine jobID
 func engineJobID(jc batchtypev1.JobInterface, jobName string) string {
 	// FIXME: don't hardcode ListOptions here like this
-	engines, err := jc.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-engine"})
+	engines, err := jc.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-engine,netnolimit=yes,s3=yes"})
 	if err != nil {
 		// log
 		fmt.Println("error fetching engine job list: ", err)
@@ -402,11 +402,11 @@ func deleteJobs(jobs []batchv1.Job, condition string, jobsClient batchtypev1.Job
 
 func listMarinerJobs(jobsClient batchtypev1.JobInterface) ([]batchv1.Job, error) {
 	jobs := []batchv1.Job{}
-	tasks, err := jobsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-task"})
+	tasks, err := jobsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-task,netnolimit=yes,s3=yes"})
 	if err != nil {
 		return nil, err
 	}
-	engines, err := jobsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-engine"})
+	engines, err := jobsClient.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=mariner-engine,netnolimit=yes,s3=yes"})
 	if err != nil {
 		return nil, err
 	}
