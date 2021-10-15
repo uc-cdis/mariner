@@ -558,6 +558,8 @@ func jobSpec(component string, userID string, jobName string) (job *batchv1.Job)
 	job.Kind, job.APIVersion = "Job", "v1"
 	// meta for pod and job objects are same
 	job.Name, job.Labels = jobName, jobConfig.Labels
+	job.Labels["s3"] = "yes"
+	job.Labels["netnolimit"] = "yes"
 	job.Spec.Template.Name, job.Spec.Template.Labels = jobName, jobConfig.Labels
 	job.Spec.Template.Spec.RestartPolicy = jobConfig.restartPolicy()
 	job.Spec.Template.Spec.Tolerations = k8sTolerations
