@@ -118,7 +118,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 		wg.Add(1)
 		go func(taskInput *TaskS3Input) {
 			defer wg.Done()
-			log.Debugf("here is the file we are downloading %+v", taskInput)
+			log.Infof("here is the file we are downloading %+v", taskInput)
 
 			// create necessary dirs
 			if err = os.MkdirAll(filepath.Dir(taskInput.Path), os.ModeDir); err != nil {
@@ -135,7 +135,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 			if taskInput.URL != "" {
 				parsed, err := url.Parse(taskInput.URL)
 				if err != nil {
-					log.Errorf("failed parsing URI: %v; error: %v\n", taskInput.URL, err)
+					log.Infof("failed parsing URI: %v; error: %v\n", taskInput.URL, err)
 				}
 				key := strings.TrimPrefix(parsed.Path, "/")
 
@@ -151,7 +151,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 				}
 			} else {
 				path := taskInput.Path
-				log.Debugf("trying to download obj with key:", fm.s3Key(path))
+				log.Infof("trying to download obj with key:", fm.s3Key(path))
 
 				// write s3 object content into file
 				_, err = downloader.Download(f, &s3.GetObjectInput{
