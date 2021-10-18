@@ -121,7 +121,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 			log.Infof("here is the file we are downloading %+v", taskInput)
 
 			var skipFile = false
-			var lpath: string
+			var lpath string
 
 			// user file case
 			if taskInput.URL == "" && filepath.Dir(taskInput.Path) == "/engine-workspace" {
