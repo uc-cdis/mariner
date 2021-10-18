@@ -120,17 +120,36 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 			defer wg.Done()
 			log.Infof("here is the file we are downloading %+v", taskInput)
 
-			// create necessary dirs
-			if err = os.MkdirAll(filepath.Dir(taskInput.Path), os.ModeDir); err != nil {
-				log.Errorf("failed to make dirs: %v\n", err)
-			}
+			var skipFile = false
 
-			// create/open file for writing
-			f, err := os.Create(taskInput.Path)
-			if err != nil {
-				log.Errorf("failed to open file:", err)
+			// user file case
+			if taskInput.URL == "" && filepath.Dir(taskInput.Path) == "/engine-workspace" {
+				skipFile = true
+				lpath := filepath.Join(fm.TaskWorkingDir, pathLib.Base(taskInput.Path))
+				// create necessary dirs
+				if err = os.MkdirAll(filepath.Dir(lpath), os.ModeDir); err != nil {
+					log.Errorf("failed to make dirs: %v\n", err)
+				}
+
+				// create/open file for writing
+				f, err := os.Create(lpath)
+				if err != nil {
+					log.Errorf("failed to open file:", err)
+				}
+				defer f.Close()
+			} else {
+				// create necessary dirs
+				if err = os.MkdirAll(filepath.Dir(taskInput.Path), os.ModeDir); err != nil {
+					log.Errorf("failed to make dirs: %v\n", err)
+				}
+
+				// create/open file for writing
+				f, err := os.Create(taskInput.Path)
+				if err != nil {
+					log.Errorf("failed to open file:", err)
+				}
+				defer f.Close()
 			}
-			defer f.Close()
 
 			if taskInput.URL != "" {
 				parsed, err := url.Parse(taskInput.URL)
@@ -164,7 +183,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 			}
 
 			// If initworkdir, we will symlink
-			if taskInput.InitWorkDir {
+			if taskInput.InitWorkDir && !skipFile {
 				log.Infof("InitWorkDir file: %v\n", taskInput.Path)
 				newPath := filepath.Join(fm.TaskWorkingDir, pathLib.Base(taskInput.Path))
 				err = os.Symlink(taskInput.Path, newPath)
