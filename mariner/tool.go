@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // this file contains some methods/functions for setting up and working with Tools (i.e., commandlinetools and expressiontools)
@@ -27,7 +27,7 @@ func pathHelper(path string, tool *Tool) (err error) {
 		tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 		tool.Task.infof("*File - Path: %v", path)
 	} else {
-		log.Errorf("unsupported initwkdir path: %v", path)
+		logrus.Errorf("unsupported initwkdir path: %v", path)
 		return tool.Task.errorf("unsupported initwkdir path: %v", path)
 	}
 
@@ -62,7 +62,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 						tool.Task.infof("listing Location has JS expression: %v", listing.Location)
 						output, err := tool.evalExpression(listing.Location)
 						if err != nil {
-							log.Errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
+							logrus.Errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
 							return tool.Task.errorf("failed to evaluate expression: %v; error: %v", listing.Location, err)
 						}
 						switch x := output.(type) {
@@ -100,7 +100,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 										tool.S3Input.Paths = append(tool.S3Input.Paths, path)
 										tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 									default:
-										log.Errorf("unsupported initwkdir path: %v", path)
+										logrus.Errorf("unsupported initwkdir path: %v", path)
 										return tool.Task.errorf("unsupported initwkdir path: %v", path)
 									}
 								case *File:
@@ -115,7 +115,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 										return tool.Task.errorf("failed to extract path from file: %v", v)
 									}
 								default:
-									log.Errorf("unsupported initwkdir type: %T; value: %v", v, v)
+									logrus.Errorf("unsupported initwkdir type: %T; value: %v", v, v)
 									return tool.Task.errorf("unsupported initwkdir type: %T; value: %v", v, v)
 								}
 							}
@@ -130,14 +130,14 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				resultText, resultFile, err := tool.resolveExpressions(listing.Entry)
 				switch {
 				case err != nil:
-					log.Errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
+					logrus.Errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
 					return tool.Task.errorf("failed to resolve expressions in entry: %v; error: %v", listing.Entry, err)
 				case resultFile != nil:
 					contents = resultFile
 				case resultText != "":
 					contents = resultText
 				default:
-					log.Errorf("entry returned empty value: %v", listing.Entry)
+					logrus.Errorf("entry returned empty value: %v", listing.Entry)
 					return tool.Task.errorf("entry returned empty value: %v", listing.Entry)
 				}
 
@@ -145,7 +145,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 				// `entryName` is the name of the file to be created
 				entryName, _, err := tool.resolveExpressions(listing.EntryName)
 				if err != nil {
-					log.Errorf("failed to resolve expressions in entry name: %v; error: %v", listing.EntryName, err)
+					logrus.Errorf("failed to resolve expressions in entry name: %v; error: %v", listing.EntryName, err)
 					return tool.Task.errorf("failed to resolve expressions in entry name: %v; error: %v", listing.EntryName, err)
 				}
 
@@ -164,7 +164,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					// NOTE: the "designated output directory" is just the directory corresponding to the Tool
 					// not sure what the purpose/meaning/use of this feature is - pretty sure all i/o for Tools gets handled already
 					// presently not supporting this case - will implement this feature once I find an example to work with
-					log.Errorf("feature not supported: entry expression returned a file object")
+					logrus.Errorf("feature not supported: entry expression returned a file object")
 					tool.Task.errorf("feature not supported: entry expression returned a file object")
 				} else {
 
@@ -185,7 +185,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					case *File:
 						b, err = json.Marshal(contents)
 						if err != nil {
-							log.Errorf("error marshalling contents to file: %v", err)
+							logrus.Errorf("error marshalling contents to file: %v", err)
 							return tool.Task.errorf("error marshalling contents to file: %v", err)
 						}
 					}
@@ -200,15 +200,15 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					})
 
 					if err != nil {
-						log.Errorf("upload to s3 failed: %v", err)
+						logrus.Errorf("upload to s3 failed: %v", err)
 						return fmt.Errorf("upload to s3 failed: %v", err)
 					}
-					log.Infof("init working directory request recieved")
+					logrus.Infof("init working directory request recieved")
 					engine.IsInitWorkDir = "true"
 				}
 			}
 		}
 	}
-	log.Infof("end handle InitialWorkDirRequirement")
+	logrus.Infof("end handle InitialWorkDirRequirement")
 	return nil
 }

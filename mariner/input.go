@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -176,7 +176,7 @@ func processFile(tool *Tool, f interface{}) (*File, error) {
 		*/
 		GUID := strings.TrimPrefix(path, commonsPrefix)
 		path = strings.Join([]string{pathToCommonsData, GUID}, "")
-		log.Debugf("here is the uid path %s", path)
+		logrus.Debugf("here is the uid path %s", path)
 	case strings.HasPrefix(path, userPrefix):
 		/*
 			~ Path representations/handling for user-data ~

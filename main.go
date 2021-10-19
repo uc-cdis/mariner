@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 
 	"github.com/uc-cdis/mariner/mariner"
 )
@@ -28,7 +28,7 @@ func main() {
 	case "run":
 		runID := os.Args[2]
 		if err := mariner.Engine(runID); err != nil {
-			log.Printf("engine failed: %v", err)
+			logrus.Printf("engine failed: %v", err)
 		}
 	}
 }

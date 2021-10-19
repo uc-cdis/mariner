@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/robertkrimen/otto"
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 	cwl "github.com/uc-cdis/cwl.go"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -159,7 +159,7 @@ func engine(runID string) *K8sEngine {
 	fm := &S3FileManager{}
 
 	if err := fm.setup(); err != nil {
-		log.Error("FAILED TO SETUP S3FILEMANAGER")
+		logrus.Error("FAILED TO SETUP S3FILEMANAGER")
 	}
 	e.S3FileManager = fm
 	return e
@@ -359,7 +359,7 @@ func (engine *K8sEngine) writeFileInputListToS3(tool *Tool) error {
 	if err != nil {
 		return fmt.Errorf("failed to upload file list to s3")
 	}
-	log.Info("wrote input file list to s3 location:", result.Location)
+	logrus.Info("wrote input file list to s3 location:", result.Location)
 	tool.Task.infof("end write file input list to s3")
 	return nil
 }

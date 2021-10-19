@@ -10,7 +10,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 type DBCredentials struct {
@@ -36,7 +36,7 @@ func connect(psqlDao *PSQLDao) (string, error) {
 	dbConnection, err := sqlx.Open("postgres", psqlInfo)
 
 	if err != nil {
-		log.Errorf("connection to database %s failed", psqlDao.DBName)
+		logrus.Errorf("connection to database %s failed", psqlDao.DBName)
 		dbConnection.Close()
 		err := fmt.Errorf("connection to database %s failed", psqlDao.DBName)
 		return "", err
@@ -44,7 +44,7 @@ func connect(psqlDao *PSQLDao) (string, error) {
 
 	err = dbConnection.Ping()
 	if err != nil {
-		log.Errorf("could not ping database %s after connection", psqlDao.DBName)
+		logrus.Errorf("could not ping database %s after connection", psqlDao.DBName)
 		dbConnection.Close()
 		err := fmt.Errorf("could not ping database %s after connection", psqlDao.DBName)
 		return "", err
@@ -53,14 +53,14 @@ func connect(psqlDao *PSQLDao) (string, error) {
 	psqlDao.DBConnection = dbConnection
 
 	sucessString := fmt.Sprintf("connection to %s established", psqlDao.DBName)
-	log.Info(sucessString)
+	logrus.Info(sucessString)
 	return sucessString, nil
 }
 
 func mustGetCredentials(psqlDao *PSQLDao) {
 	credFile, err := os.Open(dbcredentialpath)
 	if err != nil {
-		log.Fatal("Could not open database credential file ", err)
+		logrus.Fatal("Could not open database credential file ", err)
 	}
 	defer credFile.Close()
 
@@ -69,7 +69,7 @@ func mustGetCredentials(psqlDao *PSQLDao) {
 	var credential DBCredentials
 	err = json.Unmarshal(byteValue, &credential)
 	if err != nil {
-		log.Fatal("Marshling credential file failed ", err)
+		logrus.Fatal("Marshling credential file failed ", err)
 	}
 
 	psqlDao.Host = credential.Host
@@ -94,7 +94,7 @@ func (psqlDao *PSQLDao) GetUserById(id int64) (*User, error) {
 	err := psqlDao.DBConnection.Get(&user, query)
 
 	if err != nil {
-		log.Errorf("Could not retrieve user with id %d, failed with error %s", id, err)
+		logrus.Errorf("Could not retrieve user with id %d, failed with error %s", id, err)
 		return nil, fmt.Errorf("could not retrieve user with id %d", id)
 	}
 
@@ -107,7 +107,7 @@ func (psqlDao *PSQLDao) GetAllUsers() ([]User, error) {
 	err := psqlDao.DBConnection.Select(&users, query)
 
 	if err != nil {
-		log.Errorf("Could not retrieve all user, failed with error %s", err)
+		logrus.Errorf("Could not retrieve all user, failed with error %s", err)
 		return nil, fmt.Errorf("could not retrieve all users")
 	}
 
@@ -121,18 +121,18 @@ func (psqlDao *PSQLDao) CreateUser(name string, email string) (int64, error) {
 	}
 	stmt, err := psqlDao.DBConnection.PrepareNamed(`INSERT into usr (name,email) VALUES (:name,:email) RETURNING id`)
 	if err != nil {
-		log.Errorf("Could not prepare insert statement for user creation, failed with error %s", err)
+		logrus.Errorf("Could not prepare insert statement for user creation, failed with error %s", err)
 		return 0, fmt.Errorf("could not prepare named statement for user creation")
 	}
 
 	var userId int64
 	err = stmt.Get(&userId, userMap)
 	if err != nil {
-		log.Errorf("Could not create user, failed with error %s", err)
+		logrus.Errorf("Could not create user, failed with error %s", err)
 		return 0, fmt.Errorf("could not create user")
 	}
 
-	log.Infof("Sucessfully created user with id %d", userId)
+	logrus.Infof("Sucessfully created user with id %d", userId)
 
 	return userId, nil
 }
@@ -145,11 +145,11 @@ func (psqlDao *PSQLDao) UpdateUser(user *User) error {
 	}
 	_, err := psqlDao.DBConnection.NamedExec(`UPDATE usr SET name=:name, email=:email WHERE id=:id`, userMap)
 	if err != nil {
-		log.Errorf("Update user with id %d failed with error %s", user.ID, err)
+		logrus.Errorf("Update user with id %d failed with error %s", user.ID, err)
 		return fmt.Errorf("update user failed")
 	}
 
-	log.Infof("User %d updated successfully", user.ID)
+	logrus.Infof("User %d updated successfully", user.ID)
 	return nil
 }
 
@@ -160,11 +160,11 @@ func deleteHelper(table string, id int64, psqlDao *PSQLDao, query string) error 
 
 	_, err := psqlDao.DBConnection.NamedExec(query, userMap)
 	if err != nil {
-		log.Errorf("Delete from table %s with id %d failed with error %s", table, id, err)
+		logrus.Errorf("Delete from table %s with id %d failed with error %s", table, id, err)
 		return fmt.Errorf("delete from table %s failed", table)
 	}
 
-	log.Infof("object with id %d from table %s deleted sucessfully", id, table)
+	logrus.Infof("object with id %d from table %s deleted sucessfully", id, table)
 	return nil
 }
 
@@ -180,7 +180,7 @@ func (psqlDao *PSQLDao) GetWorkflowById(id int64) (*Workflow, error) {
 	err := psqlDao.DBConnection.Get(&workflow, query)
 
 	if err != nil {
-		log.Errorf("Could not retrieve workflow with id %d, failed with error %s", id, err)
+		logrus.Errorf("Could not retrieve workflow with id %d, failed with error %s", id, err)
 		return nil, fmt.Errorf("could not get workflow")
 	}
 
@@ -193,7 +193,7 @@ func (psqlDao *PSQLDao) GetAllWorkflows() ([]Workflow, error) {
 	err := psqlDao.DBConnection.Select(&workflows, query)
 
 	if err != nil {
-		log.Errorf("Could not retrieve all user, failed with error %s", err)
+		logrus.Errorf("Could not retrieve all user, failed with error %s", err)
 		return nil, fmt.Errorf("could not retrieve all user")
 	}
 
@@ -223,14 +223,14 @@ func (psqlDao *PSQLDao) CreateWorkflow(userId int64, lastTaskCompleted int64, de
 	query := fmt.Sprintf(`INSERT into workflow (%s) VALUES (%s) RETURNING wf_id`, strings.Join(columns, ","), strings.Join(columnValues, ","))
 	stmt, err := psqlDao.DBConnection.PrepareNamed(query)
 	if err != nil {
-		log.Errorf("Could not prepare insert statement for workflow creation, failed with error %s", err)
+		logrus.Errorf("Could not prepare insert statement for workflow creation, failed with error %s", err)
 		return 0, fmt.Errorf("")
 	}
 
 	var workflowId int64
 	err = stmt.Get(&workflowId, workflowMap)
 	if err != nil {
-		log.Errorf("Could not create workflow, failed with error %s", err)
+		logrus.Errorf("Could not create workflow, failed with error %s", err)
 		return 0, fmt.Errorf("could not create workflow")
 	}
 
@@ -262,11 +262,11 @@ func (psqlDao *PSQLDao) UpdateWorkflow(workflow *Workflow) error {
 	query := fmt.Sprintf(`UPDATE workflow SET %s WHERE wf_id=:wf_id`, strings.Join(keyMapPairs, ","))
 	_, err := psqlDao.DBConnection.NamedExec(query, workflowMap)
 	if err != nil {
-		log.Errorf("Update workflow with id %d failed with error %s", workflow.WorkFlowID, err)
+		logrus.Errorf("Update workflow with id %d failed with error %s", workflow.WorkFlowID, err)
 		return fmt.Errorf("update workflow failed")
 	}
 
-	log.Infof("Workflow with id %d updated successfully", workflow.WorkFlowID)
+	logrus.Infof("Workflow with id %d updated successfully", workflow.WorkFlowID)
 	return nil
 }
 
@@ -282,7 +282,7 @@ func (psqlDao *PSQLDao) GetTaskById(id int64) (*Task, error) {
 	err := psqlDao.DBConnection.Get(&task, query)
 
 	if err != nil {
-		log.Errorf("Could not retrieve task with id %d, failed with error %s", id, err)
+		logrus.Errorf("Could not retrieve task with id %d, failed with error %s", id, err)
 		return nil, fmt.Errorf("could not retrieve task")
 	}
 
@@ -295,7 +295,7 @@ func (psqlDao *PSQLDao) GetAllTasks() ([]Task, error) {
 	err := psqlDao.DBConnection.Select(&tasks, query)
 
 	if err != nil {
-		log.Errorf("Could not retrieve all tasks, failed with error %s", err)
+		logrus.Errorf("Could not retrieve all tasks, failed with error %s", err)
 		return nil, fmt.Errorf("retireve all tasks failed")
 	}
 
@@ -325,14 +325,14 @@ func (psqlDao *PSQLDao) CreateTask(wf_id int64, name string, hash string, stats 
 	query := fmt.Sprintf(`INSERT into task (%s) VALUES (%s) RETURNING task_id`, strings.Join(columns, ","), strings.Join(columnValues, ","))
 	stmt, err := psqlDao.DBConnection.PrepareNamed(query)
 	if err != nil {
-		log.Errorf("Could not prepare insert statement for task creation, failed with error %s", err)
+		logrus.Errorf("Could not prepare insert statement for task creation, failed with error %s", err)
 		return 0, fmt.Errorf("could not prepare named statement for task insert")
 	}
 
 	var taskId int64
 	err = stmt.Get(&taskId, taskMap)
 	if err != nil {
-		log.Errorf("Could not create task with error %s", err)
+		logrus.Errorf("Could not create task with error %s", err)
 		return 0, fmt.Errorf("could not create task")
 	}
 
@@ -363,11 +363,11 @@ func (psqlDao *PSQLDao) UpdateTask(task *Task) error {
 	query := fmt.Sprintf(`UPDATE task SET %s WHERE task_id=:wf_id`, strings.Join(keyMapPairs, ","))
 	_, err := psqlDao.DBConnection.NamedExec(query, taskMap)
 	if err != nil {
-		log.Errorf("Update task with id %d failed with error %s", task.TaskId, err)
+		logrus.Errorf("Update task with id %d failed with error %s", task.TaskId, err)
 		return fmt.Errorf("update task failed")
 	}
 
-	log.Infof("task with id %d updated successfully", task.TaskId)
+	logrus.Infof("task with id %d updated successfully", task.TaskId)
 	return nil
 }
 

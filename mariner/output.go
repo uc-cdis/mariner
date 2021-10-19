@@ -7,7 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 	cwl "github.com/uc-cdis/cwl.go"
 )
 
@@ -71,7 +71,7 @@ func (engine *K8sEngine) handleCLTOutput(tool *Tool) (err error) {
 				return tool.Task.errorf("%v", err)
 			}
 
-			log.Debugf("here is the eval %s", output.Binding.Eval.Raw)
+			logrus.Debugf("here is the eval %s", output.Binding.Eval.Raw)
 			continue
 		}
 

@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/robertkrimen/otto"
-	log "github.com/sirupsen/logrus"
+	logrus "github.com/sirupsen/logrus"
 )
 
 // this file contains code for evaluating JS expressions encountered in the CWL
@@ -57,7 +57,7 @@ func js(s string) (js string, fn bool, err error) {
 	s = strings.TrimRight(s, ")\n")
 
 	if strings.Count(s, "(") != strings.Count(s, ")") {
-		log.Debugf("expression %s has an unequal amount of left and right parenthesis and will not be evaluated correctly", s)
+		logrus.Debugf("expression %s has an unequal amount of left and right parenthesis and will not be evaluated correctly", s)
 		s = s + ")"
 	}
 	return s, fn, nil
