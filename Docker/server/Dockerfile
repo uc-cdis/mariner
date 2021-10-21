@@ -24,6 +24,8 @@ COPY . .
 #     -ldflags="-X 'github.com/uc-cdis/mariner/version.GitCommit=${GITCOMMIT}' -X 'github.com/uc-cdis/mariner/version.GitVersion=${GITVERSION}'" \
 #     -o /mariner
 
+RUN apt-get update && apt-get install --no-install-recommends -y jq bash
+
 RUN GITCOMMIT=`git rev-parse HEAD` \
     GITVERSION=`git describe --always --tags` \
     && go build \

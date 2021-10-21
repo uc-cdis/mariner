@@ -508,6 +508,10 @@ func (engine *K8sEngine) taskVolumes(tool *Tool) []k8sv1.Volume {
 			v.PersistentVolumeClaim = &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
 			}
+		} else if volName == commonsDataVolumeName {
+			v.PersistentVolumeClaim = &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: commonsDataPersistentVolumeClaimName,
+			}
 		} else {
 			v.EmptyDir = &k8sv1.EmptyDirVolumeSource{}
 		}
