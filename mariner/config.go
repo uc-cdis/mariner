@@ -109,7 +109,7 @@ const (
 	pathToUserRunsf   = "%v/workflowRuns/"                // fill with userID
 	pathToUserRunLogf = pathToUserRunsf + "%v/" + logFile // fill with runID
 
-	commonsDataPersistentVolumeClaimName = "nfs-commons-data-test-pvc"
+	commonsDataPersistentVolumeClaimName = "mariner-nfs-pvc"
 )
 
 var (

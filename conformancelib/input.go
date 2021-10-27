@@ -98,7 +98,7 @@ func (c *InputsCollector) inspectInputs(inputs map[string]interface{}) error {
 
 // determines whether a map i represents a CWL file object
 // lifted from the mariner package
-// NOTE: need to make changes in mariner code
+// TODO: need to make changes in mariner code
 func isClass(i interface{}, class string) (f bool) {
 	if i == nil {
 		return false

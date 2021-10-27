@@ -2,7 +2,6 @@ package mariner
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -62,32 +61,31 @@ func getRandString(n int) string {
 
 // Indexd File struct
 type IndexFileInfo struct {
-	 Filename string   `json:"file_name"`
-         Filesize uint64   `json:"size"`
-         DID      string   `json"did"`
-         URLs     []string `json:"urls"`
+	Filename string   `json:"file_name"`
+	Filesize uint64   `json:"size"`
+	URLs     []string `json:"urls"`
 }
 
 // Gets basic indexd info
-// NOTE: We certainly need to add a check for the user ACL and access to this file!
+// TODO: add a check for the user ACL and access to this file!
 func getIndexedFileInfo(guid string) (finfo *IndexFileInfo, err error) {
-	 indexdPath := "http://indexd-service/index/"
-         indexdUrl := indexdPath + guid
-	 res, err := http.Get(indexdUrl)
-         if err != nil {
-                 return nil, err
-         }
+	indexdPath := "http://indexd-service/index/"
+	indexdUrl := indexdPath + guid
+	res, err := http.Get(indexdUrl)
+	if err != nil {
+		return nil, err
+	}
 
-         defer res.Body.Close()
+	defer res.Body.Close()
 
-         if res.StatusCode != 200 {
-                 return nil, errors.New(fmt.Sprintf("Found status code %v for GUID %v", res.StatusCode, guid))
-         }
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("Found status code %v for GUID %v", res.StatusCode, guid)
+	}
 
-         b, err := ioutil.ReadAll(res.Body)
-         err = json.Unmarshal(b, &finfo)
-         if err != nil {
-                 return nil, err
-         }
-         return finfo, err
+	b, err := ioutil.ReadAll(res.Body)
+	err = json.Unmarshal(b, &finfo)
+	if err != nil {
+		return nil, err
+	}
+	return finfo, err
 }
