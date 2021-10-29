@@ -43,6 +43,8 @@ const (
 	commonsPrefix     = "COMMONS/"
 	userPrefix        = "USER/"
 	conformancePrefix = "CONFORMANCE/"
+	workspacePrefix   = "/" + engineWorkspaceVolumeName
+	gatewayPrefix     = "/" + commonsDataVolumeName
 
 	notStarted = "not-started" // 3
 	running    = "running"     // 2
@@ -109,7 +111,7 @@ const (
 	pathToUserRunsf   = "%v/workflowRuns/"                // fill with userID
 	pathToUserRunLogf = pathToUserRunsf + "%v/" + logFile // fill with runID
 
-	commonsDataPersistentVolumeClaimName = "mariner-nfs-pvc"
+	commonsDataPersistentVolumeClaimName = "nfs-commons-data-test-pvc"
 )
 
 var (

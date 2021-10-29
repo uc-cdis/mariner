@@ -42,7 +42,6 @@ type K8sEngine struct {
 	Manifest        *Manifest           // to pass the manifest to the gen3fuse container of each task pod
 	Log             *MainLog            //
 	KeepFiles       map[string]bool     // all the paths to not delete during basic file cleanup
-	IsInitWorkDir   string
 }
 
 // Tool represents a leaf in the graph of a workflow
@@ -63,7 +62,6 @@ type Tool struct {
 	ExpressionResult map[string]interface{}
 	Task             *Task
 	S3Input          []*ToolS3Input
-	initWorkDirFiles []string
 
 	// dev'ing
 	// need to load this with runtime context as per CWL spec
@@ -84,9 +82,9 @@ type TaskRuntimeJSContext struct {
 
 // ToolS3Input ..
 type ToolS3Input struct {
-	URL         string `json:"url"`            // S3 URL
-	Path        string `json:"path"`           // Local path for dl
-	InitWorkDir bool   `json:"init_work_dir"`  // is this an initwkdir requirement?
+	URL         string `json:"url"`           // S3 URL
+	Path        string `json:"path"`          // Local path for dl
+	InitWorkDir bool   `json:"init_work_dir"` // is this an initwkdir requirement?
 }
 
 // Engine runs an instance of the mariner engine job
@@ -283,7 +281,7 @@ func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
-		S3Input: []*ToolS3Input{},
+		S3Input:    []*ToolS3Input{},
 	}
 	tool.JSVM = tool.newJSVM()
 	task.infof("end make tool object")
