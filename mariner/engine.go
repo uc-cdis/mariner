@@ -62,7 +62,7 @@ type Tool struct {
 	StepInputMap     map[string]*cwl.StepInput
 	ExpressionResult map[string]interface{}
 	Task             *Task
-	S3Input          *ToolS3Input
+	S3Input          []*ToolS3Input
 	initWorkDirFiles []string
 
 	// dev'ing
@@ -84,7 +84,9 @@ type TaskRuntimeJSContext struct {
 
 // ToolS3Input ..
 type ToolS3Input struct {
-	Paths []string `json:"paths"`
+	URL         string `json:"url"`            // S3 URL
+	Path        string `json:"path"`           // Local path for dl
+	InitWorkDir bool   `json:"init_work_dir"`  // is this an initwkdir requirement?
 }
 
 // Engine runs an instance of the mariner engine job
@@ -281,9 +283,7 @@ func (task *Task) tool(runID string) *Tool {
 	tool := &Tool{
 		Task:       task,
 		WorkingDir: task.workingDir(runID),
-		S3Input: &ToolS3Input{
-			Paths: []string{},
-		},
+		S3Input: []*ToolS3Input{},
 	}
 	tool.JSVM = tool.newJSVM()
 	task.infof("end make tool object")

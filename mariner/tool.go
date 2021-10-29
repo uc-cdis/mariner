@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	pathLib "path"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -19,13 +20,33 @@ func pathHelper(path string, tool *Tool) (err error) {
 		trimmedPath := strings.TrimPrefix(path, userPrefix)
 		path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
 		tool.Task.infof("adding initwkdir path: %v", path)
-		tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+		tool.S3Input = append(tool.S3Input, &ToolS3Input{
+			Path: path,
+			InitWorkDir: true,
+		})
 		tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 	} else if strings.HasPrefix(path, "/"+engineWorkspaceVolumeName) {
 		tool.Task.infof("adding initwkdir path: %v", path)
-		tool.S3Input.Paths = append(tool.S3Input.Paths, path)
+		tool.S3Input = append(tool.S3Input, &ToolS3Input{
+			Path: path,
+			InitWorkDir: true,
+		})
 		tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 		tool.Task.infof("*File - Path: %v", path)
+	} else if strings.HasPrefix(path, commonsPrefix) {
+		guid := pathLib.Base(path)
+		indexFile, err := getIndexedFileInfo(guid)
+		if err != nil {
+			return tool.Task.errorf("Unable to get indexed record: %v; error: %v", guid, err)
+		}
+		path = pathLib.Join(pathToCommonsData, indexFile.Filename)
+		tool.Task.infof("adding initwkdir path: %v", path)
+		tool.S3Input = append(tool.S3Input, &ToolS3Input{
+			URL: indexFile.URLs[0],
+			Path: path,
+			InitWorkDir: true,
+		})
+		tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
 	} else {
 		log.Errorf("unsupported initwkdir path: %v", path)
 		return tool.Task.errorf("unsupported initwkdir path: %v", path)
@@ -57,7 +78,7 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					tool.Task.infof("listing entry len 0: %v", listing.Entry)
 					tool.Task.infof("listing Location: %v", listing.Location)
 					tool.Task.infof("listing Location type: %T", listing.Location)
-					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
+					tool.Task.infof("s3input paths: %v", tool.S3Input)
 					if strings.HasPrefix(listing.Location, "$(") {
 						tool.Task.infof("listing Location has JS expression: %v", listing.Location)
 						output, err := tool.evalExpression(listing.Location)
@@ -92,16 +113,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 										return tool.Task.errorf("failed to extract path from file: %v", v)
 									}
 									tool.Task.infof("map[string]interface{} - Path: %v", path)
-									switch {
-									case strings.HasPrefix(path, userPrefix):
-										trimmedPath := strings.TrimPrefix(path, userPrefix)
-										path = strings.Join([]string{"/", engineWorkspaceVolumeName, "/", trimmedPath}, "")
-										tool.Task.infof("adding initwkdir path: %v", path)
-										tool.S3Input.Paths = append(tool.S3Input.Paths, path)
-										tool.initWorkDirFiles = append(tool.initWorkDirFiles, path)
-									default:
-										log.Errorf("unsupported initwkdir path: %v", path)
-										return tool.Task.errorf("unsupported initwkdir path: %v", path)
+									err = pathHelper(path, tool)
+									if err != nil {
+										return err
 									}
 								case *File:
 									if p, ok := v.(*File); ok {
@@ -119,10 +133,13 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 									return tool.Task.errorf("unsupported initwkdir type: %T; value: %v", v, v)
 								}
 							}
+						default:
+							log.Errorf("unsupported initwkdir type: %T; value: %v", output, output)
+							return tool.Task.errorf("unsupported initwkdir type: %T; value: %v", output, output)
 						}
 					}
 					engine.IsInitWorkDir = "true"
-					tool.Task.infof("s3input paths: %v", tool.S3Input.Paths)
+					tool.Task.infof("s3input paths: %v", tool.S3Input)
 					tool.Task.infof("initWorkDirFiles: %v", tool.initWorkDirFiles)
 					continue
 				}
@@ -176,7 +193,9 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 					// Q: what about the case of creating directories?
 					// guess: this is probably not currently supported
 					key := strings.TrimPrefix(engine.localPathToS3Key(entryName), "/")
-					tool.S3Input.Paths = append(tool.S3Input.Paths, entryName)
+					tool.Task.infof("raw key: %v", key)
+					tool.Task.infof("tool workdir: %v", tool.WorkingDir)
+
 
 					var b []byte
 					switch contents.(type) {
@@ -204,6 +223,11 @@ func (engine *K8sEngine) initWorkDirReq(tool *Tool) (err error) {
 						return fmt.Errorf("upload to s3 failed: %v", err)
 					}
 					log.Infof("init working directory request recieved")
+					tool.S3Input = append(tool.S3Input, &ToolS3Input{
+						URL: "s3://" + filepath.Join(engine.S3FileManager.S3BucketName, key),
+						Path: filepath.Join(tool.WorkingDir, entryName),
+						InitWorkDir: true,
+					})
 					engine.IsInitWorkDir = "true"
 				}
 			}

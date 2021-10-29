@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -56,4 +57,35 @@ func getRandString(n int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+// Indexd File struct
+type IndexFileInfo struct {
+	Filename string   `json:"file_name"`
+	Filesize uint64   `json:"size"`
+	URLs     []string `json:"urls"`
+}
+
+// Gets basic indexd info
+// TODO: add a check for the user ACL and access to this file!
+func getIndexedFileInfo(guid string) (finfo *IndexFileInfo, err error) {
+	indexdPath := "http://indexd-service/index/"
+	indexdUrl := indexdPath + guid
+	res, err := http.Get(indexdUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("Found status code %v for GUID %v", res.StatusCode, guid)
+	}
+
+	b, err := ioutil.ReadAll(res.Body)
+	err = json.Unmarshal(b, &finfo)
+	if err != nil {
+		return nil, err
+	}
+	return finfo, err
 }
