@@ -95,7 +95,7 @@ func (fm *S3FileManager) fetchTaskS3InputList() ([]*TaskS3Input, error) {
 }
 
 func isLocalPath(path string, url string) bool {
-	return url == "" && strings.Contains(filepath.Dir(path), localDataPath)
+	return url == "" && filepath.Dir(path) == localDataPath
 }
 
 func getS3KeyAndBucket(fileUrl string, path string, fm *S3FileManager) (key string, bucket string, err error) {
@@ -112,7 +112,7 @@ func getS3KeyAndBucket(fileUrl string, path string, fm *S3FileManager) (key stri
 		return key, parsed.Host, nil
 
 	} else {
-		log.Infof("trying to download obj with key: %s", fm.s3Key(path))
+		log.Infof("trying to download obj with key: %v", fm.s3Key(path))
 
 		return strings.TrimPrefix(fm.s3Key(path), "/"), fm.S3BucketName, nil
 	}
@@ -164,6 +164,7 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 				}
 
 				// create/open file for writing
+				log.Infof("local path: %v", localPath)
 				f, err := os.Create(localPath)
 				if err != nil {
 					log.Errorf("failed to open file: %s", err)
@@ -173,13 +174,16 @@ func (fm *S3FileManager) downloadInputFiles(taskS3Input []*TaskS3Input) (err err
 				s3Key, s3Bucket, err := getS3KeyAndBucket(taskInput.URL, taskInput.Path, fm)
 
 				if err != nil {
-					_, err = downloader.Download(f, &s3.GetObjectInput{
-						Bucket: aws.String(s3Bucket),
-						Key:    aws.String(s3Key),
-					})
-					if err != nil {
-						log.Errorf("failed to download file with url %s and path %s with error %s: ", taskInput.URL, taskInput.Path, err)
-					}
+					log.Errorf("failed to get s3 key and bucket from %v; error - %v", taskInput.URL, err)
+				}
+
+				log.Infof("downloading; bucket - %v; key - %v", s3Bucket, s3Key)
+				_, err = downloader.Download(f, &s3.GetObjectInput{
+					Bucket: aws.String(s3Bucket),
+					Key:    aws.String(s3Key),
+				})
+				if err != nil {
+					log.Errorf("failed to download file with url %s and path %s with error %s: ", taskInput.URL, taskInput.Path, err)
 				}
 			}
 

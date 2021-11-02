@@ -132,14 +132,14 @@ func (tool *Tool) processFile(f interface{}) (file *File, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if strings.HasPrefix(obj.Path, pathToCommonsData) {
+	if strings.HasPrefix(obj.Path, commonsPrefix) {
 
 		err = appendCommonsFileInfo(obj.Path, tool)
 		if err != nil {
 			return nil, err
 		}
+	} else if !strings.HasPrefix(obj.Path, pathToCommonsData) {
 
-	} else {
 		// user files
 		tool.S3Input = append(tool.S3Input, &ToolS3Input{
 			Path:        obj.Path,
@@ -151,17 +151,17 @@ func (tool *Tool) processFile(f interface{}) (file *File, err error) {
 	// note: I don't think any input to this process will have secondary files loaded
 	// into this field at this point in the process
 	for _, sf := range obj.SecondaryFiles {
-		if !strings.HasPrefix(sf.Path, pathToCommonsData) {
+		if strings.HasPrefix(sf.Path, commonsPrefix) {
+			err = appendCommonsFileInfo(obj.Path, tool)
+			if err != nil {
+				return nil, err
+			}
+
+		} else if !strings.HasPrefix(sf.Path, pathToCommonsData) {
 			tool.S3Input = append(tool.S3Input, &ToolS3Input{
 				Path:        sf.Path,
 				InitWorkDir: false,
 			})
-		} else {
-			// commons file
-			err = appendCommonsFileInfo(sf.Path, tool)
-			if err != nil {
-				return nil, err
-			}
 		}
 	}
 	return obj, nil
@@ -368,17 +368,17 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		}
 		for _, fileObj := range fileArray {
 			for _, sf := range fileObj.SecondaryFiles {
-				if !strings.HasPrefix(sf.Location, pathToCommonsData) {
+				if strings.HasPrefix(sf.Location, commonsPrefix) {
+					// commons file
+					err = appendCommonsFileInfo(sf.Location, tool)
+					if err != nil {
+						return nil, err
+					}
+				} else if !strings.HasPrefix(sf.Location, pathToCommonsData) {
 					tool.S3Input = append(tool.S3Input, &ToolS3Input{
 						Path:        sf.Location,
 						InitWorkDir: false,
 					})
-				} else {
-					// commons file
-					err = appendCommonsFileInfo(sf.Path, tool)
-					if err != nil {
-						return nil, err
-					}
 				}
 			}
 		}
