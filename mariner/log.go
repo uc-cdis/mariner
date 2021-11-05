@@ -124,11 +124,11 @@ func (engine *K8sEngine) writeLogToS3() error {
 	sess := engine.S3FileManager.newS3Session()
 	uploader := s3manager.NewUploader(sess)
 
-	//ByProcess: engine.Log.ByProcess,
 	mainLogJSON := MainLogJSON{
 		Path:      engine.Log.Path,
 		Request:   engine.Log.Request,
 		Main:      engine.Log.Main,
+		ByProcess: engine.Log.ByProcess,
 	}
 	j, err := json.Marshal(mainLogJSON)
 	if err != nil {
