@@ -3,6 +3,7 @@ FROM quay.io/cdis/golang:1.17-bullseye as build-deps
 ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV GOARCH=amd64
+ENV GORACE="history_size=7"
 
 WORKDIR $GOPATH/src/github.com/uc-cdis/mariner/
 
