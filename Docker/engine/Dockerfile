@@ -1,8 +1,9 @@
 FROM quay.io/cdis/golang:1.17-bullseye as build-deps
 
-ENV CGO_ENABLED=0
+#ENV CGO_ENABLED=0
 ENV GOOS=linux
 ENV GOARCH=amd64
+ENV CGO_ENABLED=1
 
 WORKDIR $GOPATH/src/github.com/uc-cdis/mariner/
 
@@ -15,7 +16,7 @@ COPY . .
 
 RUN GITCOMMIT=`git rev-parse HEAD` \
     GITVERSION=`git describe --always --tags` \
-    && go build \
+    && go build -race \
     -ldflags="-X 'github.com/uc-cdis/mariner/version.GitCommit=${GITCOMMIT}' -X 'github.com/uc-cdis/mariner/version.GitVersion=${GITVERSION}'" \
     -o /mariner
 
