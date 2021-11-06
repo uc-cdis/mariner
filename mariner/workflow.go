@@ -239,7 +239,7 @@ concurrency notes:
 // workflows are processed into a collection of Tools via Task.RunSteps()
 // Tools get dispatched to be executed via Task.Engine.DispatchTask()
 func (engine *K8sEngine) run(task *Task) (err error) {
-	engine.infof("begin run task: %v", task.Root.ID)
+	//engine.infof("begin run task: %v", task.Root.ID) // causes race when scattered
 	engine.startTask(task)
 	switch {
 	case task.Scatter != nil:
