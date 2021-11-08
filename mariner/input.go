@@ -478,6 +478,9 @@ func (tool *Tool) inputsToVM() (err error) {
 	tool.InputsVM = tool.JSVM.Copy()
 	context := make(map[string]interface{})
 	var f interface{}
+	// try to handle race here
+	tool.Task.RLock()
+	defer tool.Task.RUnlock()
 	for _, input := range tool.Task.Root.Inputs {
 		inputID := strings.TrimPrefix(input.ID, prefix)
 
