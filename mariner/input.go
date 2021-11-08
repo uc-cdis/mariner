@@ -87,7 +87,10 @@ func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
 			required = false
 			input.Binding = nil
 		}
+		// Handle race
+		tool.task.Lock()
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
+		tool.task.Unlock()
 	} else {
 		return tool.Task.errorf("failed to transform input: %v; error: %v", input.ID, err)
 	}
