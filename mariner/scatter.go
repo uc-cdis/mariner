@@ -141,10 +141,10 @@ func (engine *K8sEngine) runScatterTasks(task *Task) (err error) {
 	var wg sync.WaitGroup
 	for _, scattertask := range task.ScatterTasks {
 		wg.Add(1)
-		go func(eng *K8sEngine, sTask *Task) {
+		go func(sTask *Task) {
 			defer wg.Done()
-			eng.run(sTask)
-		}(engine, scattertask)
+			engine.run(sTask)
+		}(scattertask)
 	}
 	wg.Wait()
 	engine.infof("end run subtasks for scatter task: %v", task.Root.ID)
