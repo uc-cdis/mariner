@@ -217,13 +217,13 @@ func (s *ResourceUsageSeries) append(p ResourceUsageSamplePoint) {
 // called when a task is run
 func (engine *K8sEngine) startTaskLog(task *Task) {
 	task.Log.start()
-	engine.writeLogToS3()
+	//engine.writeLogToS3()
 }
 
 // called when a task finishes running
 func (engine *K8sEngine) finishTaskLog(task *Task) {
 	task.Log.finish()
-	engine.writeLogToS3()
+	//engine.writeLogToS3()
 }
 
 // called when a task finishes running
@@ -300,23 +300,23 @@ type EventLog struct {
 // update log (i.e., write to log file) each time there's an error, to capture point of failure
 func (engine *K8sEngine) errorf(f string, v ...interface{}) error {
 	err := engine.Log.Main.Event.errorf(f, v...)
-	engine.writeLogToS3()
+	//engine.writeLogToS3()
 	return err
 }
 
 func (engine *K8sEngine) warnf(f string, v ...interface{}) {
 	engine.Log.Main.Event.warnf(f, v...)
-	engine.writeLogToS3()
+	//engine.writeLogToS3()
 }
 
 func (engine *K8sEngine) infof(f string, v ...interface{}) {
 	engine.Log.Main.Event.infof(f, v...)
-	engine.writeLogToS3()
+	//engine.writeLogToS3()
 }
 
 func (engine *K8sEngine) debugf(f string, v ...interface{}) {
 	engine.Log.Main.Event.infof(f, v...)
-	engine.writeLogToS3()
+	//engine.writeLogToS3()
 }
 
 func (task *Task) errorf(f string, v ...interface{}) error {
