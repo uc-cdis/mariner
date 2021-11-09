@@ -60,6 +60,7 @@ func (tool *Tool) buildStepInputMap() {
 		of the value. This copy gets reused throughout the range clause [...]"
 	*/
 	for j := range tool.Task.OriginalStep.In {
+	        tool.Task.infof("address tool.Task.OriginalStep.In[j] - %p", tool.Task.OriginalStep.In[j])
 		localID := lastInPath(tool.Task.OriginalStep.In[j].ID)
 		tool.StepInputMap[localID] = &tool.Task.OriginalStep.In[j]
 	}
@@ -68,7 +69,7 @@ func (tool *Tool) buildStepInputMap() {
 
 // loadInput passes input parameter value to input.Provided
 func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
-	tool.Task.infof("begin load input: %v - %p", input.ID, input.ID)
+	tool.Task.infof("begin load input: %v - %p", input.ID, input)
 
 	// transformInput() handles any valueFrom statements at the workflowStepInput level and the tool input level
 	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
