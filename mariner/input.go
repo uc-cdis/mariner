@@ -68,7 +68,7 @@ func (tool *Tool) buildStepInputMap() {
 
 // loadInput passes input parameter value to input.Provided
 func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
-	tool.Task.infof("begin load input: %v", input.ID)
+	tool.Task.infof("begin load input: %v - %p", input.ID, input.ID)
 
 	// transformInput() handles any valueFrom statements at the workflowStepInput level and the tool input level
 	// to be clear: "workflowStepInput level" refers to this tool and its inputs as they appear as a step in a workflow
@@ -87,10 +87,9 @@ func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
 			required = false
 			input.Binding = nil
 		}
-		// Handle race
-		tool.Task.Lock()
+		tool.Task.infof("address: %p", provided)
+		tool.Task.infof("address input.Provided: %p", input.Provided)
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
-		tool.Task.Unlock()
 	} else {
 		return tool.Task.errorf("failed to transform input: %v; error: %v", input.ID, err)
 	}
@@ -308,7 +307,7 @@ func (engine *K8sEngine) transformInput(tool *Tool, input *cwl.Input) (out inter
 		if err != nil {
 			return nil, tool.Task.errorf("failed to load input value: %v", err)
 		}
-		tool.Task.infof("for input: %v; out is nil, so loaded: %v", input.ID, out)
+		tool.Task.infof("for input: %v; out is nil, so loaded: %v - %p", input.ID, out, out)
 		if out == nil {
 			tool.Task.infof("optional input with no value or default provided - skipping: %v", input.ID)
 			return nil, nil
