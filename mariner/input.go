@@ -88,9 +88,9 @@ func (engine *K8sEngine) loadInput(tool *Tool, input *cwl.Input) (err error) {
 			input.Binding = nil
 		}
 		// Handle race
-		tool.Task.Lock()
+		// tool.Task.Lock()
 		input.Provided = cwl.Provided{}.New(input.ID, provided)
-		tool.Task.Unlock()
+		// tool.Task.Unlock()
 	} else {
 		return tool.Task.errorf("failed to transform input: %v; error: %v", input.ID, err)
 	}
@@ -479,8 +479,8 @@ func (tool *Tool) inputsToVM() (err error) {
 	context := make(map[string]interface{})
 	var f interface{}
 	// try to handle race here
-	tool.Task.RLock()
-	defer tool.Task.RUnlock()
+	// tool.Task.RLock()
+	// defer tool.Task.RUnlock()
 	for _, input := range tool.Task.Root.Inputs {
 		inputID := strings.TrimPrefix(input.ID, prefix)
 
