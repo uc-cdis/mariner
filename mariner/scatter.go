@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	cwl "github.com/uc-cdis/cwl.go"
+	"github.com/jinzhu/copier"
 )
 
 // this file contains code for processing scattered workflow steps
@@ -140,16 +141,18 @@ func (engine *K8sEngine) runScatterTasks(task *Task) (err error) {
 	engine.infof("begin run subtasks for scatter task: %v", task.Root.ID)
 	var wg sync.WaitGroup
 	for _, scattertask := range task.ScatterTasks {
-		scattertaskCopy := scattertask
-		scattertaskCopy.Input = make(map[string]interface{})
-		for key, value := range scattertask.Input {
-			scattertaskCopy.Input[key] = value
-		}
+		// scattertaskCopy := *scattertask
+		// scattertaskCopy.Input = make(map[string]interface{})
+		// for key, value := range (*scattertask).Input {
+		// 	scattertaskCopy.Input[key] = value
+		// }
+		scattertaskCopy := Task{}
+		copier.Copy(&scattertaskCopy, scattertask)
 		wg.Add(1)
 		go func(sTask *Task) {
 			defer wg.Done()
 			engine.run(sTask)
-		}(scattertaskCopy)
+		}(&scattertaskCopy)
 	}
 	wg.Wait()
 	engine.infof("end run subtasks for scatter task: %v", task.Root.ID)

@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.41.2
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
+	github.com/jinzhu/copier v0.3.2
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/lib/pq v1.10.3
 	github.com/robertkrimen/otto v0.0.0-20211008084715-4eacda02dd21
@@ -38,6 +39,7 @@ require (
 	github.com/otiai10/mint v1.3.2 // indirect
 	github.com/otiai10/yaml2json v0.0.0-20170911100845-ddc967a37458 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/dl v0.0.0-20211104154756-faba44267af3 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/net v0.0.0-20211013171255-e13a2654a71e // indirect
 	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1 // indirect
