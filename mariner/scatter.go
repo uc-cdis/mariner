@@ -200,6 +200,8 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	for i := 0; i < inputLength; i++ {
 		task.infof("begin build subtask %v", i)
 		task.infof("original step address %p", &task.OriginalStep)
+		task.infof("root address %p", &task.Root)
+		task.infof("root inputs address %p", &task.Root.Inputs)
 		subtask := &Task{
 			Root:         task.Root,
 			Parameters:   make(cwl.Parameters),
