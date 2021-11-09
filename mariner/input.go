@@ -60,7 +60,7 @@ func (tool *Tool) buildStepInputMap() {
 		of the value. This copy gets reused throughout the range clause [...]"
 	*/
 	for j := range tool.Task.OriginalStep.In {
-	        tool.Task.infof("address tool.Task.OriginalStep.In[j] - %p", tool.Task.OriginalStep.In[j])
+	        tool.Task.infof("address tool.Task.OriginalStep.In[j] - %p", &tool.Task.OriginalStep.In[j])
 		localID := lastInPath(tool.Task.OriginalStep.In[j].ID)
 		tool.StepInputMap[localID] = &tool.Task.OriginalStep.In[j]
 	}
