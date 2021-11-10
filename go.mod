@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.41.2
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
+	github.com/jinzhu/copier v0.3.2
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/lib/pq v1.10.3
 	github.com/robertkrimen/otto v0.0.0-20211008084715-4eacda02dd21

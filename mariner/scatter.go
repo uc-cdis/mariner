@@ -3,6 +3,7 @@ package mariner
 import (
 	"reflect"
 	"sync"
+	"github.com/jinzhu/copier"
 
 	cwl "github.com/uc-cdis/cwl.go"
 )
@@ -199,11 +200,10 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	_, inputLength := uniformLength(scatterParams)
 	for i := 0; i < inputLength; i++ {
 		task.infof("begin build subtask %v", i)
-		task.infof("original step address %p", &task.OriginalStep)
-		task.infof("root address %p", &task.Root)
-		task.infof("root inputs address %p", &task.Root.Inputs)
+		rootCopy := cwl.Root{}
+		copier.Copy(&rootCopy, task.Root)
 		subtask := &Task{
-			Root:         task.Root,
+			Root:         &rootCopy,
 			Parameters:   make(cwl.Parameters),
 			OriginalStep: task.OriginalStep,
 			Done:         &falseVal,
