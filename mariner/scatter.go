@@ -202,17 +202,19 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 		task.infof("begin build subtask %v", i)
 		rootCopy := cwl.Root{}
 		copier.Copy(&rootCopy, task.Root)
+		originalStepCopy := cwl.Step{}
+		copier.Copy(&originalStepCopy, task.OriginalStep)
 		subtask := &Task{
 			Root:         &rootCopy,
 			Parameters:   make(cwl.Parameters),
-			OriginalStep: task.OriginalStep,
+			OriginalStep: &originalStepCopy,
 			Done:         &falseVal,
 			Log:          logger(),
 			ScatterIndex: i + 1, // count starts from 1, not 0, so that we can check if the ScatterIndex is nil (0 if nil)
 		}
 		// assign the i'th element of each input array as input to this scatter subtask
 		for param, inputArray := range scatterParams {
-			task.infof("assigning val %v to param %v", inputArray[i], param)
+			task.infof("assigning val %v to param %v, %T", inputArray[i], param, inputArray[i])
 			subtask.Parameters[param] = inputArray[i]
 		}
 		// assign values to all non-scattered parameters
