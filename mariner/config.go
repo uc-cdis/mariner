@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"github.com/jinzhu/copier"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8sResource "k8s.io/apimachinery/pkg/api/resource"
@@ -251,7 +252,8 @@ func (config *MarinerConfig) jobConfig(component string) (jobConfig JobConfig) {
 	case marinerEngine:
 		jobConfig = config.Jobs.Engine
 	case marinerTask:
-		jobConfig = config.Jobs.Task
+		//jobConfig = config.Jobs.Task
+		copier.CopyWithOption(&jobConfig, config.Jobs.Task, copier.Option{DeepCopy: true})
 	}
 	return jobConfig
 }
