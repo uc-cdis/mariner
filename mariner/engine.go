@@ -280,7 +280,7 @@ func (task *Task) tool(runID string) *Tool {
 	task.Outputs = make(map[string]interface{}) // #race #ok
 	task.Log.Output = task.Outputs              // #race #ok
 	taskCopy := Task{}
-	copier.Copy(&taskCopy, task)
+	copier.CopyWithOption(&taskCopy, task, copier.Option{DeepCopy: true})
 	tool := &Tool{
 		Task:       &taskCopy,
 		WorkingDir: task.workingDir(runID),

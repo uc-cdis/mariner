@@ -201,9 +201,9 @@ func (task *Task) dotproduct(scatterParams map[string][]interface{}) (err error)
 	for i := 0; i < inputLength; i++ {
 		task.infof("begin build subtask %v", i)
 		rootCopy := cwl.Root{}
-		copier.Copy(&rootCopy, task.Root)
+		copier.CopyWithOption(&rootCopy, task.Root, copier.Option{DeepCopy: true})
 		originalStepCopy := cwl.Step{}
-		copier.Copy(&originalStepCopy, task.OriginalStep)
+		copier.CopyWithOption(&originalStepCopy, task.OriginalStep, copier.Option{DeepCopy: true})
 		subtask := &Task{
 			Root:         &rootCopy,
 			Parameters:   make(cwl.Parameters),
