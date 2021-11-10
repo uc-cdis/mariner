@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/jinzhu/copier"
 	"github.com/robertkrimen/otto"
 	log "github.com/sirupsen/logrus"
 	cwl "github.com/uc-cdis/cwl.go"
@@ -278,8 +279,10 @@ func (task *Task) tool(runID string) *Tool {
 	task.infof("begin make tool object")
 	task.Outputs = make(map[string]interface{}) // #race #ok
 	task.Log.Output = task.Outputs              // #race #ok
+	taskCopy := Task{}
+	copier.Copy(&taskCopy, task)
 	tool := &Tool{
-		Task:       task,
+		Task:       &taskCopy,
 		WorkingDir: task.workingDir(runID),
 		S3Input:    []*ToolS3Input{},
 	}
