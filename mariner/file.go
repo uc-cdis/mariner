@@ -232,18 +232,6 @@ func isArrayOfFile(i interface{}) (f bool) {
 	return f
 }
 
-// returns whether the given file or directory exists
-func exists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
-}
-
 // get path from a file object which is not of type File
 // NOTE: maybe shouldn't be an error if no path but the contents field is populated
 // fixme - see conformancelib

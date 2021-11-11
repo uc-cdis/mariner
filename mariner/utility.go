@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"os"
 	"strings"
 )
 
@@ -29,19 +28,6 @@ func printJSON(i interface{}) {
 func lastInPath(s string) (localID string) {
 	tmp := strings.Split(s, "/")
 	return tmp[len(tmp)-1]
-}
-
-func readDir(pwd, dir string) {
-	os.Chdir(pwd)
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		fmt.Printf("error reading dir: %v", err)
-	}
-	fmt.Println("reading ", dir, " from dir ", pwd)
-	fmt.Println("found these files:")
-	for _, f := range files {
-		fmt.Println(f.Name())
-	}
 }
 
 func struct2String(i interface{}) (s string) {

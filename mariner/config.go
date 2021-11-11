@@ -86,9 +86,6 @@ const (
 	// log file name
 	logFile = "marinerLog.json"
 
-	// done flag - used by engine
-	doneFlag = "done"
-
 	// workflow request file name
 	requestFile = "request.json"
 
@@ -103,8 +100,6 @@ const (
 	pathToCommonsData = "/commons-data/"
 	pathToRunf        = "/engine-workspace/workflowRuns/%v/" // fill with runID
 	pathToLogf        = pathToRunf + logFile
-	pathToDonef       = pathToRunf + doneFlag
-	pathToRequestf    = pathToRunf + requestFile
 	pathToWorkingDirf = pathToRunf + "%v" // fill with runID
 
 	// paths for server

@@ -27,7 +27,10 @@ type TaskS3Input struct {
 func main() {
 
 	fm := &S3FileManager{}
-	fm.setup()
+	err := fm.setup()
+	if err != nil {
+		log.Errorf("file manager setup failed with error %s", err)
+	}
 
 	// 1. read in the target s3 paths
 	taskS3Input, err := fm.fetchTaskS3InputList()

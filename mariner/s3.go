@@ -13,9 +13,8 @@ import (
 
 const (
 	// environment variables
-	awsCredsEnvVar         = "AWSCREDS"
-	userIDEnvVar           = "USER_ID"
-	sharedVolumeNameEnvVar = "ENGINE_WORKSPACE"
+	awsCredsEnvVar = "AWSCREDS"
+	userIDEnvVar   = "USER_ID"
 
 	// setting a max so as to prevent the error of having too many files being open at once
 	// need to investigate how high we can set this bound without running into problems

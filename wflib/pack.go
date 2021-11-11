@@ -153,7 +153,10 @@ func resolveID(i interface{}, defaultID string) (string, error) {
 // PackCWL serializes a single cwl obj (e.g., a commandlinetool) to json
 func (p *Packer) PackCWL(cwl []byte, defaultID string, path string) (map[string]interface{}, string, error) {
 	cwlObj := new(interface{})
-	yaml.Unmarshal(cwl, cwlObj)
+	err := yaml.Unmarshal(cwl, cwlObj)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to unmarshall cwl")
+	}
 	id, err := resolveID(*cwlObj, defaultID)
 	if err != nil {
 		return nil, "", err
